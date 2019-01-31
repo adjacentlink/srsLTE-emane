@@ -1,0 +1,342 @@
+diff --git b/CMakeLists.txt a/CMakeLists.txt
+index ede8d10a..c5124004 100644
+--- b/CMakeLists.txt
++++ a/CMakeLists.txt
+@@ -396,6 +396,16 @@ else(ENABLE_PHY_ADAPTER)
+   message(STATUS "DISABLE PHY_ADAPTER")
+ endif(ENABLE_PHY_ADAPTER)
+ 
++if(TIMESCALE)
++  message(STATUS "TIMESCALE SET to ${TIMESCALE}")
++  set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DSRSLTE_TIME_SCALE=${TIMESCALE}")
++  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSRSLTE_TIME_SCALE=${TIMESCALE}")
++else(TIMESCALE)
++  message(STATUS "TIMESCALE SET to default 1")
++  set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DSRSLTE_TIME_SCALE=1")
++  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSRSLTE_TIME_SCALE=1")
++endif(TIMESCALE)
++
+ message(STATUS "CMAKE_C_FLAGS is ${CMAKE_C_FLAGS}")
+ message(STATUS "CMAKE_CXX_FLAGS is ${CMAKE_CXX_FLAGS}")
+ 
+diff --git b/lib/include/srslte/common/threads.h a/lib/include/srslte/common/threads.h
+index c6791ae7..d27cffee 100644
+--- b/lib/include/srslte/common/threads.h
++++ a/lib/include/srslte/common/threads.h
+@@ -31,6 +31,8 @@
+ #include <unistd.h>
+ #include <stdio.h>
+ 
++#include "srslte/config.h"
++
+ // Default priority for all threads below UHD threads
+ #define DEFAULT_PRIORITY 60
+ 
+@@ -86,7 +88,7 @@ class periodic_thread : public thread
+ public:
+   void start_periodic(int period_us_, int priority = -1) {
+     run_enable = true;
+-    period_us = period_us_; 
++    period_us = get_time_scaled(period_us_); 
+     start(priority);
+   }
+   void stop_thread() {
+diff --git b/lib/include/srslte/common/timeout.h a/lib/include/srslte/common/timeout.h
+index bca09da3..9f97b903 100644
+--- b/lib/include/srslte/common/timeout.h
++++ a/lib/include/srslte/common/timeout.h
+@@ -63,7 +63,7 @@ public:
+       return;
+     reset();
+     gettimeofday(&start_time[1], NULL);
+-    duration_msec = duration_msec_;
++    duration_msec = get_time_scaled(duration_msec_);
+     running       = true;
+     timeout_id    = timeout_id_;
+     callback      = callback_;
+diff --git b/lib/include/srslte/config.h a/lib/include/srslte/config.h
+index 8ba918d2..11cdbcd3 100644
+--- b/lib/include/srslte/config.h
++++ a/lib/include/srslte/config.h
+@@ -72,4 +72,9 @@ typedef _Complex float cf_t;
+ typedef _Complex short int c16_t;
+ #endif /* ENABLE_C16 */
+ 
++// adjust system timing by this factor
++// set via cmake -DTIMESCALE=value at build time
++#define get_time_scaled(x) ((x) * SRSLTE_TIME_SCALE)
++#define usleep_scaled(x)   usleep(get_time_scaled((x)))
++
+ #endif // SRSLTE_CONFIG_H
+diff --git b/lib/src/phy/common/timestamp.c a/lib/src/phy/common/timestamp.c
+index ea8b6113..4ae67cc0 100644
+--- b/lib/src/phy/common/timestamp.c
++++ a/lib/src/phy/common/timestamp.c
+@@ -30,8 +30,8 @@
+ int srslte_timestamp_init(srslte_timestamp_t *t, time_t full_secs, double frac_secs){
+   int ret = SRSLTE_ERROR;
+   if(t != NULL && frac_secs >= 0.0){
+-    t->full_secs = full_secs;
+-    t->frac_secs = frac_secs;
++    t->full_secs = get_time_scaled(full_secs);
++    t->frac_secs = get_time_scaled(frac_secs);
+     ret = SRSLTE_SUCCESS;
+   }
+   return ret;
+@@ -50,8 +50,8 @@ int srslte_timestamp_copy(srslte_timestamp_t *dest, srslte_timestamp_t *src){
+ int srslte_timestamp_add(srslte_timestamp_t *t, time_t full_secs, double frac_secs){
+   int ret = SRSLTE_ERROR;
+   if(t != NULL && frac_secs >= 0.0){
+-    t->frac_secs += frac_secs;
+-    t->full_secs += full_secs;
++    t->frac_secs += get_time_scaled(frac_secs);
++    t->full_secs += get_time_scaled(full_secs);
+     double r = floor(t->frac_secs);
+     t->full_secs += r;
+     t->frac_secs -= r;
+@@ -63,8 +63,8 @@ int srslte_timestamp_add(srslte_timestamp_t *t, time_t full_secs, double frac_se
+ int srslte_timestamp_sub(srslte_timestamp_t *t, time_t full_secs, double frac_secs){
+   int ret = SRSLTE_ERROR;
+   if(t != NULL && frac_secs >= 0.0){
+-    t->frac_secs -= frac_secs;
+-    t->full_secs -= full_secs;
++    t->frac_secs -= get_time_scaled(frac_secs);
++    t->full_secs -= get_time_scaled(full_secs);
+     if(t->frac_secs < 0){
+       t->frac_secs = t->frac_secs + 1;
+       t->full_secs--;
+diff --git b/lib/src/phy/rf/rf_dummy_imp.c a/lib/src/phy/rf/rf_dummy_imp.c
+index 9c47a596..ab26c31a 100644
+--- b/lib/src/phy/rf/rf_dummy_imp.c
++++ a/lib/src/phy/rf/rf_dummy_imp.c
+@@ -369,7 +369,7 @@ int rf_dummy_recv_with_time(void *h, void *data, uint32_t nsamples,
+ int rf_dummy_recv_with_time_multi(void *h, void **data, uint32_t nsamples, 
+                                   bool blocking, time_t *full_secs, double *frac_secs)
+ {
+-   usleep(1000);
++   usleep_scaled(1000);
+ 
+    rf_dummy_get_time(h, full_secs, frac_secs);
+ 
+diff --git b/lib/src/phy/rf/rf_shmem_imp.c a/lib/src/phy/rf/rf_shmem_imp.c
+index f8e360da..9d2e08d4 100644
+--- b/lib/src/phy/rf/rf_shmem_imp.c
++++ a/lib/src/phy/rf/rf_shmem_imp.c
+@@ -170,8 +170,8 @@ static char rf_shmem_node_type = ' ';
+ #define RF_SHMEM_NUM_SF_X_FRAME 10
+ 
+ static const struct timeval tv_zero  = {0,0};
+-static const struct timeval tv_step  = {0, 1000}; // 1 sf
+-static const struct timeval tv_4step = {0, 4000}; // 4 sf
++static const struct timeval tv_step  = {0, get_time_scaled(1000)}; // 1 sf
++static const struct timeval tv_4step = {0, get_time_scaled(4000)}; // 4 sf
+ 
+ 
+ // msg element meta data
+diff --git b/srsenb/src/enb.cc a/srsenb/src/enb.cc
+index 7ddacf09..5bfc8ce4 100644
+--- b/srsenb/src/enb.cc
++++ a/srsenb/src/enb.cc
+@@ -249,8 +249,8 @@ bool enb::init(all_args_t *args_)
+   memcpy(&phy_cfg.cell, &cell_cfg, sizeof(srslte_cell_t));
+ 
+ #ifdef PHY_ADAPTER_ENABLE
+-  ENBSTATS::initialize(args->expert.metrics_period_secs);
+-  phy_adapter::enb_initialize(phy_log[0], 1, phy_cfg.cell.cp, args->rf.ul_freq, args->rf.dl_freq, cell_cfg.nof_prb, args->mhal, &rrc_cfg);
++  ENBSTATS::initialize(get_time_scaled(args->expert.metrics_period_secs));
++  phy_adapter::enb_initialize(phy_log[0], SRSLTE_TIME_SCALE, phy_cfg.cell.cp, args->rf.ul_freq, args->rf.dl_freq, cell_cfg.nof_prb, args->mhal, &rrc_cfg);
+ #endif
+ 
+   // Init all layers   
+diff --git b/srsenb/src/main.cc a/srsenb/src/main.cc
+index a00434dc..4496e0e9 100644
+--- b/srsenb/src/main.cc
++++ a/srsenb/src/main.cc
+@@ -456,7 +456,7 @@ int main(int argc, char *argv[])
+         enb->print_pool();
+       }
+     }
+-    usleep(10000);
++    usleep_scaled(10000);
+   }
+   if(input)
+     pthread_cancel(input);
+diff --git b/srsenb/src/metrics_stdout.cc a/srsenb/src/metrics_stdout.cc
+index 826a03c9..4a25b141 100644
+--- b/srsenb/src/metrics_stdout.cc
++++ a/srsenb/src/metrics_stdout.cc
+@@ -25,6 +25,7 @@
+  */
+ 
+ #include "srsenb/hdr/metrics_stdout.h"
++#include "srslte/config.h"
+ 
+ #include <unistd.h>
+ #include <sstream>
+@@ -59,7 +60,7 @@ metrics_stdout::metrics_stdout() : started(false) ,do_print(false), metrics_repo
+ bool metrics_stdout::init(enb_metrics_interface *u, float report_period_secs)
+ {
+   enb_ = u;
+-  metrics_report_period = report_period_secs;
++  metrics_report_period = get_time_scaled(report_period_secs);
+ 
+   started = true;
+   pthread_create(&metrics_thread, NULL, &metrics_thread_start, this);
+diff --git b/srsenb/src/upper/rrc.cc a/srsenb/src/upper/rrc.cc
+index d3540471..613087af 100644
+--- b/srsenb/src/upper/rrc.cc
++++ a/srsenb/src/upper/rrc.cc
+@@ -588,7 +588,7 @@ void rrc::process_release_complete(uint16_t rnti)
+       rlc->clear_buffer(rnti);
+       users[rnti].send_connection_release();
+       // There is no RRCReleaseComplete message from UE thus wait ~50 subframes for tx
+-      usleep(50000);
++      usleep_scaled(50000);
+     }
+     rem_user_thread(rnti);
+   } else {
+@@ -842,7 +842,7 @@ void rrc::activity_monitor::run_thread()
+ {
+   while(running)
+   {
+-    usleep(10000);
++    usleep_scaled(10000);
+     pthread_mutex_lock(&parent->user_mutex);
+     uint16_t rem_rnti = 0;
+     for(std::map<uint16_t, ue>::iterator iter=parent->users.begin(); rem_rnti == 0 && iter!=parent->users.end(); ++iter) {
+@@ -951,18 +951,18 @@ bool rrc::ue::is_timeout()
+ 
+   switch(state) {
+     case RRC_STATE_IDLE:  
+-      deadline_s   = 0;
+-      deadline_us  = (parent->sib2.rr_config_common_sib.rach_cnfg.max_harq_msg3_tx + 1)* 8 * 1000;
++      deadline_s   = get_time_scaled(0);
++      deadline_us  = get_time_scaled((parent->sib2.rr_config_common_sib.rach_cnfg.max_harq_msg3_tx + 1)* 8 * 1000);
+       deadline_str = "RRCConnectionSetup";
+       break;
+     case RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE:
+-      deadline_s   = 1;
+-      deadline_us  = 0;
++      deadline_s   = get_time_scaled(1);
++      deadline_us  = get_time_scaled(0);
+       deadline_str = "RRCConnectionSetupComplete";
+       break;
+     case RRC_STATE_RELEASE_REQUEST:
+-      deadline_s   = 4;
+-      deadline_us  = 0;
++      deadline_s   = get_time_scaled(4);
++      deadline_us  = get_time_scaled(0);
+       deadline_str = "RRCReleaseRequest";
+       break;
+     default:
+diff --git b/srsue/src/mac/mac.cc a/srsue/src/mac/mac.cc
+index 2140d14c..d0baaddd 100644
+--- b/srsue/src/mac/mac.cc
++++ a/srsue/src/mac/mac.cc
+@@ -108,7 +108,7 @@ void mac::wait_uplink() {
+   int cnt=0;
+   Info("Waiting to uplink...\n");
+   while(mux_unit.is_pending_any_sdu() && cnt<20) {
+-    usleep(1000);
++    usleep_scaled(1000);
+     cnt++;
+   }
+ }
+diff --git b/srsue/src/metrics_csv.cc a/srsue/src/metrics_csv.cc
+index fa8760f3..87544127 100644
+--- b/srsue/src/metrics_csv.cc
++++ a/srsue/src/metrics_csv.cc
+@@ -43,7 +43,7 @@ namespace srsue{
+ 
+ metrics_csv::metrics_csv(std::string filename)
+   :n_reports(0)
+-  ,metrics_report_period(1.0)
++  ,metrics_report_period(get_time_scaled(1.0))
+   ,ue(NULL)
+ {
+   file.open(filename.c_str(), std::ios_base::out);
+diff --git b/srsue/src/phy/phch_recv.cc a/srsue/src/phy/phch_recv.cc
+index afd4a089..1e023af3 100644
+--- b/srsue/src/phy/phch_recv.cc
++++ a/srsue/src/phy/phch_recv.cc
+@@ -276,7 +276,7 @@ bool phch_recv::cell_select(phy_interface_rrc::phy_cell_t *new_cell) {
+ 
+   // Wait for any pending PHICH
+   while(worker_com->is_any_pending_ack() && cnt < 10) {
+-    usleep(1000);
++    usleep_scaled(1000);
+     cnt++;
+     Info("Cell Select: waiting pending PHICH (cnt=%d)\n", cnt);
+   }
+@@ -526,7 +526,7 @@ void phch_recv::run_thread()
+             is_end_of_burst = true;
+           }
+         } else {
+-          usleep(1000);
++          usleep_scaled(1000);
+         }
+         break;
+     }
+diff --git b/srsue/src/ue.cc a/srsue/src/ue.cc
+index 5b3cf49f..397f2043 100644
+--- b/srsue/src/ue.cc
++++ a/srsue/src/ue.cc
+@@ -267,8 +267,8 @@ bool ue::init(all_args_t *args_) {
+   }
+ 
+ #ifdef PHY_ADAPTER_ENABLE
+-  UESTATS::initialize(args->expert.metrics_period_secs);
+-  phy_adapter::ue_initialize(phy_log[0], 1, args->mhal);
++  UESTATS::initialize(get_time_scaled(args->expert.metrics_period_secs));
++  phy_adapter::ue_initialize(phy_log[0], SRSLTE_TIME_SCALE, args->mhal);
+   phy_adapter::ue_start();
+ #endif
+ 
+diff --git b/srsue/src/upper/gw.cc a/srsue/src/upper/gw.cc
+index 2413cdfb..2a5609ee 100644
+--- b/srsue/src/upper/gw.cc
++++ a/srsue/src/upper/gw.cc
+@@ -361,7 +361,7 @@ void gw::run_thread()
+                 gw_log->warning("Could not re-establish the connection\n");
+               }
+             }
+-            usleep(100000);
++            usleep_scaled(100000);
+             attach_wait++;
+           }
+ 
+diff --git b/srsue/src/upper/nas.cc a/srsue/src/upper/nas.cc
+index 741392ef..5ccc3d70 100644
+--- b/srsue/src/upper/nas.cc
++++ a/srsue/src/upper/nas.cc
+@@ -269,7 +269,7 @@ bool nas::rrc_connect() {
+     // Wait until attachment. If doing a service request is already attached
+     uint32_t tout = 0;
+     while (tout < 5000 && state != EMM_STATE_REGISTERED && running && rrc->is_connected()) {
+-      usleep(1000);
++      usleep_scaled(1000);
+       tout++;
+     }
+     if (state == EMM_STATE_REGISTERED) {
+diff --git b/srsue/src/upper/rrc.cc a/srsue/src/upper/rrc.cc
+index d5eac619..a0d703db 100644
+--- b/srsue/src/upper/rrc.cc
++++ a/srsue/src/upper/rrc.cc
+@@ -490,7 +490,7 @@ bool rrc::connection_request(LIBLTE_RRC_CON_REQ_EST_CAUSE_ENUM cause,
+ 
+       // Wait until t300 stops due to RRCConnectionSetup/Reject or expiry
+       while (mac_timers->timer_get(t300)->is_running()) {
+-        usleep(1000);
++        usleep_scaled(1000);
+       }
+ 
+       if (state == RRC_STATE_CONNECTED) {
+@@ -809,7 +809,7 @@ bool rrc::si_acquire(uint32_t sib_index)
+       rrc_log->info("Instructed MAC to search for SIB%d, win_start=%d, win_len=%d, period=%d, sched_index=%d\n",
+                     sib_index+1, si_win_start, si_win_len, period, sched_index);
+     }
+-    usleep(1000);
++    usleep_scaled(1000);
+     timeout++;
+   }
+   return serving_cell->has_sib(sib_index);

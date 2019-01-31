@@ -1,0 +1,19 @@
+diff --git a/srsenb/hdr/phy/phy.h b/srsenb/hdr/phy/phy.h
+index c1221b2a..fab8feef 100644
+--- a/srsenb/hdr/phy/phy.h
++++ b/srsenb/hdr/phy/phy.h
+@@ -82,10 +82,11 @@ private:
+   
+   const static int MAX_WORKERS         = 4;
+   const static int DEFAULT_WORKERS     = 2;
+-  
+-  const static int PRACH_WORKER_THREAD_PRIO = 3;
++
++  // Change thread priorities all to 1 to avoid deadlock when srsenb container is mapped to a single CPU
++  const static int PRACH_WORKER_THREAD_PRIO = 1;
+   const static int SF_RECV_THREAD_PRIO = 1;
+-  const static int WORKERS_THREAD_PRIO = 2;
++  const static int WORKERS_THREAD_PRIO = 1;
+   
+   srslte::radio         *radio_handler;
+   srslte::log              *log_h;
