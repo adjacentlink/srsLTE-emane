@@ -1,0 +1,50 @@
+diff --git a/lib/src/upper/pdcp_entity.cc b/lib/src/upper/pdcp_entity.cc
+index c26c6b9f..bd8124bb 100644
+--- a/lib/src/upper/pdcp_entity.cc
++++ b/lib/src/upper/pdcp_entity.cc
+@@ -28,6 +28,10 @@
+ #include "srslte/upper/pdcp_entity.h"
+ #include "srslte/common/security.h"
+ 
++namespace {
++  pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
++}
++
+ namespace srslte {
+ 
+ pdcp_entity::pdcp_entity()
+@@ -237,7 +241,7 @@ void pdcp_entity::integrity_generate( uint8_t  *msg,
+                                       uint32_t  msg_len,
+                                       uint8_t  *mac)
+ {
+-  uint8_t bearer;
++  pthread_mutex_lock(&mutex_);
+ 
+   switch(integ_algo)
+   {
+@@ -264,6 +268,7 @@ void pdcp_entity::integrity_generate( uint8_t  *msg,
+   default:
+     break;
+   }
++  pthread_mutex_unlock(&mutex_);
+ }
+ 
+ bool pdcp_entity::integrity_verify(uint8_t  *msg,
+@@ -275,6 +280,8 @@ bool pdcp_entity::integrity_verify(uint8_t  *msg,
+   uint8_t i = 0;
+   bool isValid = true;
+ 
++  pthread_mutex_lock(&mutex_);
++
+   switch(integ_algo)
+   {
+   case INTEGRITY_ALGORITHM_ID_EIA0:
+@@ -324,6 +331,8 @@ bool pdcp_entity::integrity_verify(uint8_t  *msg,
+     break;
+   }
+ 
++  pthread_mutex_unlock(&mutex_);
++
+   return isValid;
+ }
+ 

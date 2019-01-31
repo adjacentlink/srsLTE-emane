@@ -1,0 +1,137 @@
+diff --git a/lib/include/srslte/interfaces/enb_interfaces.h b/lib/include/srslte/interfaces/enb_interfaces.h
+index 643336b..b55fc96 100644
+--- a/lib/include/srslte/interfaces/enb_interfaces.h
++++ b/lib/include/srslte/interfaces/enb_interfaces.h
+@@ -57,7 +57,8 @@ public:
+     srslte_enb_ul_pusch_t sched_grants[MAX_GRANTS];
+     srslte_enb_dl_phich_t phich[MAX_GRANTS];
+     uint32_t nof_grants; 
+-    uint32_t nof_phich; 
++    uint32_t nof_phich;
++    uint32_t cfi;
+   } ul_sched_t; 
+ 
+   
+diff --git a/lib/include/srslte/interfaces/sched_interface.h b/lib/include/srslte/interfaces/sched_interface.h
+index 5cd8f5f..89a2442 100644
+--- a/lib/include/srslte/interfaces/sched_interface.h
++++ b/lib/include/srslte/interfaces/sched_interface.h
+@@ -215,6 +215,7 @@ public:
+   } ul_sched_phich_t;
+ 
+   typedef struct {
++    uint32_t cfi;
+     uint32_t nof_dci_elems; 
+     uint32_t nof_phich_elems; 
+     ul_sched_data_t  pusch[MAX_DATA_LIST];
+@@ -261,7 +262,7 @@ public:
+   
+   /* Run Scheduler for this tti */
+   virtual int dl_sched(uint32_t tti, dl_sched_res_t *sched_result) = 0; 
+-  virtual int ul_sched(uint32_t tti, ul_sched_res_t *sched_result) = 0; 
++  virtual int ul_sched(uint32_t tti, uint32_t sf_cfi, ul_sched_res_t *sched_result) = 0;
+     
+ };
+ 
+diff --git a/srsenb/hdr/mac/scheduler.h b/srsenb/hdr/mac/scheduler.h
+index f4889c5..fed563b 100644
+--- a/srsenb/hdr/mac/scheduler.h
++++ b/srsenb/hdr/mac/scheduler.h
+@@ -126,7 +126,7 @@ public:
+   int ul_cqi_info(uint32_t tti, uint16_t rnti, uint32_t cqi, uint32_t ul_ch_code); 
+     
+   int dl_sched(uint32_t tti, dl_sched_res_t *sched_result);  
+-  int ul_sched(uint32_t tti, ul_sched_res_t *sched_result); 
++  int ul_sched(uint32_t tti, uint32_t sf_cfi, ul_sched_res_t *sched_result);
+ 
+   /* Custom TPC functions 
+    */
+diff --git a/srsenb/src/mac/mac.cc b/srsenb/src/mac/mac.cc
+index 2d6e178..e296b26 100644
+--- a/srsenb/src/mac/mac.cc
++++ b/srsenb/src/mac/mac.cc
+@@ -818,7 +818,7 @@ int mac::get_ul_sched(uint32_t tti, ul_sched_t *ul_sched_res)
+   // Run scheduler with current info
+   sched_interface::ul_sched_res_t sched_result;
+   bzero(&sched_result, sizeof(sched_interface::ul_sched_res_t));
+-  if (scheduler.ul_sched(tti, &sched_result)<0) {
++  if (scheduler.ul_sched(tti, ul_sched_res->cfi, &sched_result)<0) {
+     Error("Running scheduler\n");
+     return SRSLTE_ERROR;
+   }
+diff --git a/srsenb/src/mac/scheduler.cc b/srsenb/src/mac/scheduler.cc
+index cac75af..d830f41 100644
+--- a/srsenb/src/mac/scheduler.cc
++++ b/srsenb/src/mac/scheduler.cc
+@@ -797,7 +797,7 @@ int sched::dl_sched(uint32_t tti, sched_interface::dl_sched_res_t* sched_result)
+ }
+ 
+ // Uplink sched 
+-int sched::ul_sched(uint32_t tti, srsenb::sched_interface::ul_sched_res_t* sched_result)
++int sched::ul_sched(uint32_t tti, uint32_t sf_cfi, srsenb::sched_interface::ul_sched_res_t* sched_result)
+ {
+   typedef std::map<uint16_t, sched_ue>::iterator it_t;
+ 
+@@ -829,8 +829,8 @@ int sched::ul_sched(uint32_t tti, srsenb::sched_interface::ul_sched_res_t* sched
+   pthread_mutex_lock(&sched_mutex);
+   pthread_rwlock_rdlock(&rwlock);
+ 
+-  // current_cfi is set in dl_sched()
+   bzero(sched_result, sizeof(sched_interface::ul_sched_res_t));
++  sched_result->cfi = sf_cfi;
+   ul_metric->reset_allocation(cfg.cell.nof_prb);
+ 
+   // Get HARQ process for this TTI 
+@@ -946,7 +946,7 @@ int sched::ul_sched(uint32_t tti, srsenb::sched_interface::ul_sched_res_t* sched
+       if (needs_pdcch) {
+         uint32_t aggr_level = user->get_aggr_level(srslte_dci_format_sizeof(SRSLTE_DCI_FORMAT0, cfg.cell.nof_prb, cfg.cell.nof_ports));
+         if (!generate_dci(&sched_result->pusch[nof_dci_elems].dci_location, 
+-            user->get_locations(current_cfi, sf_idx),
++            user->get_locations(sf_cfi, sf_idx),
+             aggr_level)) 
+         {
+           h->reset(0);
+@@ -1050,7 +1050,7 @@ void sched::generate_cce_location(srslte_regs_t *regs_, sched_ue::sched_dci_cce_
+ bool sched::generate_dci(srslte_dci_location_t *sched_location, sched_ue::sched_dci_cce_t *locations, uint32_t aggr_level, sched_ue *user) 
+ {
+   if (!locations->nof_loc[aggr_level]) {
+-    Error("In generate_dci(): No locations for aggr_level=%d\n", aggr_level);
++    Warning("In generate_dci(): No locations for aggr_level=%d\n", aggr_level);
+     return false;
+   }
+   uint32_t nof_cand  = 0;
+diff --git a/srsenb/src/phy/phch_worker.cc b/srsenb/src/phy/phch_worker.cc
+index 60b533d..a7ba476 100644
+--- a/srsenb/src/phy/phch_worker.cc
++++ b/srsenb/src/phy/phch_worker.cc
+@@ -431,6 +431,7 @@ void phch_worker::work_imp()
+   }
+ 
+   // Get UL scheduling for the TX TTI from MAC
++  ul_grants[t_tx_ul].cfi = dl_grants[t_tx_dl].cfi;
+   if (mac->get_ul_sched(tti_tx_ul, &ul_grants[t_tx_ul]) < 0) {
+     Error("Getting UL scheduling from MAC\n");
+     goto unlock;
+diff --git a/srsenb/test/mac/scheduler_test.cc b/srsenb/test/mac/scheduler_test.cc
+index 50d4cb4..1ffece0 100644
+--- a/srsenb/test/mac/scheduler_test.cc
++++ b/srsenb/test/mac/scheduler_test.cc
+@@ -129,7 +129,8 @@ int main(int argc, char *argv[])
+   srsenb::sched_interface::ue_cfg_t ue_cfg;
+   bzero(&ue_cfg, sizeof(srsenb::sched_interface::ue_cfg_t));
+   uint16_t rnti = 30; 
+-  
++  uint32_t sf_cfi = 3;
++
+   ue_cfg.aperiodic_cqi_period = 40; 
+   ue_cfg.maxharq_tx = 5; 
+   
+@@ -150,7 +151,7 @@ int main(int argc, char *argv[])
+       running = false; 
+     }
+     my_sched.dl_sched(tti, &sched_result_dl);
+-    my_sched.ul_sched(tti, &sched_result_ul);
++    my_sched.ul_sched(tti, sf_cfi, &sched_result_ul);
+     tti = (tti+1)%10240;
+     if (tti >= 4) {
+       my_sched.ul_crc_info(tti, rnti,  tti%2);
