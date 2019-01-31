@@ -1,0 +1,35 @@
+--- a/lib/include/srslte/phy/utils/vector.h
++++ b/lib/include/srslte/phy/utils/vector.h
+@@ -53,6 +53,7 @@ extern "C" {
+ // Exponential moving average
+ #define SRSLTE_VEC_EMA(data, average, alpha) ((alpha)*(data)+(1-alpha)*(average))
+ 
++#define srslte_vec_malloc(s)  srslte_vec_malloc_(s, __FILE__, __func__, __LINE__)
+ 
+ /*logical operations */
+ SRSLTE_API void srslte_vec_xor_bbb(int8_t *x,int8_t *y,int8_t *z, const uint32_t len);
+@@ -61,7 +62,7 @@ SRSLTE_API void srslte_vec_xor_bbb(int8_t *x,int8_t *y,int8_t *z, const uint32_t
+ SRSLTE_API float srslte_vec_acc_ff(const float *x, const uint32_t len);
+ SRSLTE_API cf_t srslte_vec_acc_cc(const cf_t *x, const uint32_t len);
+ 
+-SRSLTE_API void *srslte_vec_malloc(uint32_t size);
++SRSLTE_API void *srslte_vec_malloc_(uint32_t size, const char * file, const char * func, int line);
+ 
+ SRSLTE_API void *srslte_vec_realloc(void *ptr, uint32_t old_size, uint32_t new_size);
+--- a/lib/src/phy/utils/vector.c
++++ b/lib/src/phy/utils/vector.c
+@@ -110,8 +110,12 @@ void srslte_vec_lut_sis(const short *x, const unsigned int *lut, short *y, const
+   }
+ }
+ 
+-void *srslte_vec_malloc(uint32_t size) {
+-  void *ptr;
++void *srslte_vec_malloc_(uint32_t size, const char * file, const char * func, int line) {
++  void *ptr = NULL;
++
++  if(size > 1e6)
++    fprintf(stderr, "vec_malloc file %s, func %s, line %d, %u bytes\n", file, func, line, size);
++
+   if (posix_memalign(&ptr, SRSLTE_SIMD_BIT_ALIGN, size)) {
+     return NULL;
+   } else {

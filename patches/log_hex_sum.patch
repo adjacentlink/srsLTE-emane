@@ -1,0 +1,29 @@
+diff --git a/lib/src/common/log_filter.cc b/lib/src/common/log_filter.cc
+index f496c189..4a2d5101 100644
+--- a/lib/src/common/log_filter.cc
++++ b/lib/src/common/log_filter.cc
+@@ -32,6 +32,16 @@
+ #include <sys/time.h>
+ 
+ #include "srslte/common/log_filter.h"
++namespace {
++  inline uint32_t b_sum(const uint8_t * b, int nb)
++    {
++       uint32_t sum = 0;
++       for(int i = 0; i < nb; ++i) {
++           sum += b[i];
++       }
++       return sum;
++    }
++}
+ 
+ namespace srslte{
+ 
+@@ -132,6 +142,7 @@ void log_filter::all_log(srslte::LOG_LEVEL_ENUM level,
+     }
+     
+     if (hex_limit > 0 && hex && size > 0) {
++      ss << "             " << size << " of " << std::min(size, hex_limit) << " bsum=" << b_sum(hex, size) << "\n";
+       ss << hex_string(hex, size);
+     } 
+     str_ptr s_ptr(new std::string(ss.str()));

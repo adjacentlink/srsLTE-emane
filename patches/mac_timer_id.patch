@@ -1,0 +1,198 @@
+diff --git a/lib/include/srslte/common/timers.h b/lib/include/srslte/common/timers.h
+index f787c587..101967ef 100644
+--- a/lib/include/srslte/common/timers.h
++++ b/lib/include/srslte/common/timers.h
+@@ -56,11 +56,13 @@ public:
+   class timer
+   {
+   public:
+-    timer(uint32_t id_=0) {id = id_; counter = 0; timeout = 0; running = false; callback = NULL; }
+-    void set(timer_callback *callback_, uint32_t timeout_) {
++    timer(uint32_t id_=0) {id = id_; counter = 0; timeout = 0; running = false; callback = NULL; name = NULL;}
++    void set(timer_callback *callback_, uint32_t timeout_, const char * name_) {
+       callback = callback_; 
+-      timeout = get_time_scaled(timeout_); 
++      timeout = timeout_; 
++      name = name_;
+       reset();
++      fprintf(stderr, "%s: name %s, timer id %d, counter %u, timeout %u, running %d\n", __func__, name, id, counter, timeout, running);
+     }
+     bool is_running() {
+       return (counter < timeout) && running; 
+@@ -69,7 +71,7 @@ public:
+       return (timeout > 0) && (counter >= timeout);
+     }
+     uint32_t get_timeout() {
+-      return timeout / get_time_scaled(1);
++      return timeout ;
+     }
+     void reset() {
+       counter = 0; 
+@@ -79,6 +81,7 @@ public:
+     }
+     void step() {
+       if (running) {
++        fprintf(stderr, "%s: name %s, timer id %d, counter %u, timeout %u, running %d\n", __func__, name, id, counter, timeout, running);
+         counter++;
+         if (is_expired()) {
+           running = false; 
+@@ -100,6 +103,7 @@ public:
+     uint32_t timeout; 
+     uint32_t counter; 
+     bool running; 
++    const char * name;
+   };
+   
+   timers(uint32_t nof_timers_) : timer_list(nof_timers_),used_timers(nof_timers_) {
+diff --git a/lib/src/upper/rlc_um.cc b/lib/src/upper/rlc_um.cc
+index 77c40aa3..9c9ac5cf 100644
+--- a/lib/src/upper/rlc_um.cc
++++ b/lib/src/upper/rlc_um.cc
+@@ -296,7 +296,7 @@ void rlc_um::timer_expired(uint32_t timeout_id)
+     reordering_timer->stop();
+     if(RX_MOD_BASE(vr_uh) > RX_MOD_BASE(vr_ur))
+     {
+-      reordering_timer->set(this, cfg.t_reordering);
++      reordering_timer->set(this, cfg.t_reordering, "reordering timer");
+       reordering_timer->run();
+       vr_ux = vr_uh;
+     }
+@@ -487,7 +487,7 @@ void rlc_um::handle_data_pdu(uint8_t *payload, uint32_t nof_bytes)
+   {
+     if(RX_MOD_BASE(vr_uh) > RX_MOD_BASE(vr_ur))
+     {
+-      reordering_timer->set(this, cfg.t_reordering);
++      reordering_timer->set(this, cfg.t_reordering, "reordering timer");
+       reordering_timer->run();
+       vr_ux = vr_uh;
+     }
+diff --git a/srsue/src/mac/mac.cc b/srsue/src/mac/mac.cc
+index 687c5c6b..9084a603 100644
+--- a/srsue/src/mac/mac.cc
++++ b/srsue/src/mac/mac.cc
+@@ -373,7 +373,7 @@ void mac::setup_timers()
+ 
+   int value = liblte_rrc_time_alignment_timer_num[config.main.time_alignment_timer];
+   if (value > 0) {
+-    timers.get(timer_alignment)->set(this, value);
++    timers.get(timer_alignment)->set(this, value, "mac-alignment");
+   }
+ }
+ 
+diff --git a/srsue/src/mac/proc_bsr.cc b/srsue/src/mac/proc_bsr.cc
+index bd49671d..6fb20ca7 100644
+--- a/srsue/src/mac/proc_bsr.cc
++++ b/srsue/src/mac/proc_bsr.cc
+@@ -229,14 +229,14 @@ void bsr_proc::step(uint32_t tti)
+   int periodic = liblte_rrc_periodic_bsr_timer_num[mac_cfg->main.ulsch_cnfg.periodic_bsr_timer];
+   if (periodic > 0 && (uint32_t)periodic != timers_db->get(timer_periodic_id)->get_timeout())
+   {
+-    timers_db->get(timer_periodic_id)->set(this, periodic);
++    timers_db->get(timer_periodic_id)->set(this, periodic, "bsr-periodic");
+     timers_db->get(timer_periodic_id)->run();
+     Info("BSR:   Configured timer periodic %d ms\n", periodic);    
+   }      
+   int retx = liblte_rrc_retransmission_bsr_timer_num[mac_cfg->main.ulsch_cnfg.retx_bsr_timer];
+   if (retx > 0 && (uint32_t)retx != timers_db->get(timer_retx_id)->get_timeout())
+   {
+-    timers_db->get(timer_retx_id)->set(this, retx);
++    timers_db->get(timer_retx_id)->set(this, retx, "bsr-retex");
+     timers_db->get(timer_retx_id)->run();
+     Info("BSR:   Configured timer reTX %d ms\n", retx);
+   }
+diff --git a/srsue/src/mac/proc_phr.cc b/srsue/src/mac/proc_phr.cc
+index 69a5c0de..020205ff 100644
+--- a/srsue/src/mac/proc_phr.cc
++++ b/srsue/src/mac/proc_phr.cc
+@@ -112,7 +112,7 @@ void phr_proc::step(uint32_t tti)
+     if (timer_periodic_value != cfg_timer_periodic && cfg_timer_periodic > 0)
+     {
+       timer_periodic_value = cfg_timer_periodic;
+-      timers_db->get(timer_periodic_id)->set(this, timer_periodic_value);
++      timers_db->get(timer_periodic_id)->set(this, timer_periodic_value, "phr-periodic");
+       timers_db->get(timer_periodic_id)->run();
+       phr_is_triggered = true; 
+       Info("PHR:   Configured timer periodic %d ms\n", timer_periodic_value);
+@@ -125,7 +125,7 @@ void phr_proc::step(uint32_t tti)
+   if (timer_prohibit_value != cfg_timer_prohibit && cfg_timer_prohibit > 0)
+   {
+     timer_prohibit_value = cfg_timer_prohibit;
+-    timers_db->get(timer_prohibit_id)->set(this, timer_prohibit_value);
++    timers_db->get(timer_prohibit_id)->set(this, timer_prohibit_value, "phr-prohibit");
+     timers_db->get(timer_prohibit_id)->run();
+     Info("PHR:   Configured timer prohibit %d ms\n", timer_prohibit_value);
+     phr_is_triggered = true; 
+diff --git a/srsue/src/mac/proc_ra.cc b/srsue/src/mac/proc_ra.cc
+index 558f9ca6..058a4091 100644
+--- a/srsue/src/mac/proc_ra.cc
++++ b/srsue/src/mac/proc_ra.cc
+@@ -129,7 +129,7 @@ void ra_proc::read_params() {
+   delta_preamble_db         = delta_preamble_db_table[configIndex%5]; 
+   
+   if (contentionResolutionTimer > 0) {
+-    contention_resolution_timer->set(this, contentionResolutionTimer);
++    contention_resolution_timer->set(this, contentionResolutionTimer, "ra_proc->conres");
+   }
+ 
+ }
+diff --git a/srsue/src/upper/rrc.cc b/srsue/src/upper/rrc.cc
+index 3929d196..3c6e79cf 100644
+--- a/srsue/src/upper/rrc.cc
++++ b/srsue/src/upper/rrc.cc
+@@ -1447,7 +1447,7 @@ bool rrc::ho_prepare() {
+ 
+     // Section 5.3.5.4
+     mac_timers->timer_get(t310)->stop();
+-    mac_timers->timer_get(t304)->set(this, liblte_rrc_t304_num[mob_reconf.mob_ctrl_info.t304]);
++    mac_timers->timer_get(t304)->set(this, liblte_rrc_t304_num[mob_reconf.mob_ctrl_info.t304], "rrc-t304");
+     if (mob_reconf.mob_ctrl_info.carrier_freq_eutra_present &&
+         mob_reconf.mob_ctrl_info.carrier_freq_eutra.dl_carrier_freq != serving_cell->get_earfcn()) {
+       rrc_log->error("Received mobilityControlInfo for inter-frequency handover\n");
+@@ -1979,7 +1979,7 @@ void rrc::parse_dl_ccch(byte_buffer_t *pdu) {
+ 
+       if (dl_ccch_msg.msg.rrc_con_rej.wait_time) {
+         nas->set_barring(nas_interface_rrc::BARRING_ALL);
+-        mac_timers->timer_get(t302)->set(this, dl_ccch_msg.msg.rrc_con_rej.wait_time*1000);
++        mac_timers->timer_get(t302)->set(this, dl_ccch_msg.msg.rrc_con_rej.wait_time*1000, "rrc-t302");
+         mac_timers->timer_get(t302)->run();
+       } else {
+         // Perform the actions upon expiry of T302 if wait time is zero
+@@ -2288,10 +2288,10 @@ void rrc::apply_sib2_configs(LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2_STRUCT *sib2) {
+                 liblte_rrc_srs_subfr_config_num[sib2->rr_config_common_sib.srs_ul_cnfg.subfr_cnfg],
+                 sib2->rr_config_common_sib.srs_ul_cnfg.ack_nack_simul_tx ? "yes" : "no");
+ 
+-  mac_timers->timer_get(t300)->set(this, liblte_rrc_t300_num[sib2->ue_timers_and_constants.t300]);
+-  mac_timers->timer_get(t301)->set(this, liblte_rrc_t301_num[sib2->ue_timers_and_constants.t301]);
+-  mac_timers->timer_get(t310)->set(this, liblte_rrc_t310_num[sib2->ue_timers_and_constants.t310]);
+-  mac_timers->timer_get(t311)->set(this, liblte_rrc_t311_num[sib2->ue_timers_and_constants.t311]);
++  mac_timers->timer_get(t300)->set(this, liblte_rrc_t300_num[sib2->ue_timers_and_constants.t300], "rrc-300");
++  mac_timers->timer_get(t301)->set(this, liblte_rrc_t301_num[sib2->ue_timers_and_constants.t301], "rrc-301");
++  mac_timers->timer_get(t310)->set(this, liblte_rrc_t310_num[sib2->ue_timers_and_constants.t310], "rrc-310");
++  mac_timers->timer_get(t311)->set(this, liblte_rrc_t311_num[sib2->ue_timers_and_constants.t311], "rrc-311");
+   N310 = liblte_rrc_n310_num[sib2->ue_timers_and_constants.n310];
+   N311 = liblte_rrc_n311_num[sib2->ue_timers_and_constants.n311];
+ 
+@@ -2523,9 +2523,9 @@ bool rrc::apply_rr_config_dedicated(LIBLTE_RRC_RR_CONFIG_DEDICATED_STRUCT *cnfg)
+     //TODO
+   }
+   if (cnfg->rlf_timers_and_constants_present) {
+-    mac_timers->timer_get(t301)->set(this, liblte_rrc_t301_num[cnfg->rlf_timers_and_constants.t301]);
+-    mac_timers->timer_get(t310)->set(this, liblte_rrc_t310_num[cnfg->rlf_timers_and_constants.t310]);
+-    mac_timers->timer_get(t311)->set(this, liblte_rrc_t311_num[cnfg->rlf_timers_and_constants.t311]);
++    mac_timers->timer_get(t301)->set(this, liblte_rrc_t301_num[cnfg->rlf_timers_and_constants.t301], "rrc-t301");
++    mac_timers->timer_get(t310)->set(this, liblte_rrc_t310_num[cnfg->rlf_timers_and_constants.t310], "rrc-t310");
++    mac_timers->timer_get(t311)->set(this, liblte_rrc_t311_num[cnfg->rlf_timers_and_constants.t311], "rrc-t311");
+     N310 = liblte_rrc_n310_num[cnfg->rlf_timers_and_constants.n310];
+     N311 = liblte_rrc_n311_num[cnfg->rlf_timers_and_constants.n311];
+ 
+@@ -2738,8 +2738,8 @@ void rrc::set_mac_default() {
+ void rrc::set_rrc_default() {
+   N310 = 1;
+   N311 = 1;
+-  mac_timers->timer_get(t310)->set(this, 1000);
+-  mac_timers->timer_get(t311)->set(this, 1000);
++  mac_timers->timer_get(t310)->set(this, 1000, "rrc-t310");
++  mac_timers->timer_get(t311)->set(this, 1000, "rrc-t311");
+ }
+ 
+ 

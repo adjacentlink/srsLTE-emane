@@ -1,0 +1,28 @@
+diff --git a/srsenb/src/phy/phy_adapter.cc b/srsenb/src/phy/phy_adapter.cc
+index 489366c9..9cd08177 100644
+--- a/srsenb/src/phy/phy_adapter.cc
++++ b/srsenb/src/phy/phy_adapter.cc
+@@ -256,6 +256,9 @@ void enb_initialize(srslte::log * log_h, uint32_t sf_interval_msec, float ul_fre
+ {
+   log_h_ = log_h;
+ 
++  dl_freq = 1e9;
++  ul_freq = 2e9;
++
+   Info("PHY_ADPT:enb_initialize sf_interval %u msec, ul_freq %6.4f MHz, fl_freq %6.4f MHz, n_prb %d\n", 
+        sf_interval_msec,
+        ul_freq/1e6,
+diff --git a/srsue/src/phy/phy_adapter.cc b/srsue/src/phy/phy_adapter.cc
+index c980ce6a..6b63ed3c 100644
+--- a/srsue/src/phy/phy_adapter.cc
++++ b/srsue/src/phy/phy_adapter.cc
+@@ -329,6 +329,9 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
+ 
+ void ue_set_frequencies(float ul_freq, float dl_freq, int n_prb)
+ {
++  dl_freq = 1e9;
++  ul_freq = 2e9;
++
+   Info("PHY_ADPT:ue_set_frequencies ul_freq %6.4f MHz, fl_freq %6.4f MHz, n_prb %d\n", 
+        ul_freq/1e6,
+        dl_freq/1e6,
