@@ -144,7 +144,7 @@ public:
     return result;
   }
 
-  queue_metrics_t get_qmetrics(bool bReset) {
+  queue_metrics_t get_qmetrics(bool bReset = false) {
     pthread_mutex_lock(&mutex);
     const queue_metrics_t result = qmetrics;
     if(bReset) {

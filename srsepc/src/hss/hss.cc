@@ -154,8 +154,9 @@ hss::read_db_file(std::string db_filename)
     if(line[0] != '#')
     {
       uint column_size = 8;
+      uint column_size_2 = 9;  // optional static ip_addr
       std::vector<std::string> split = split_string(line,',');
-      if(split.size() != column_size)
+      if(split.size() != column_size && split.size() != column_size_2)
       {
         m_hss_log->error("Error parsing UE database. Wrong number of columns in .csv\n");
         m_hss_log->error("Columns: %zd, Expected %d.\n", split.size(), column_size);

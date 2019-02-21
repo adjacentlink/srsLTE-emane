@@ -112,8 +112,9 @@ public:
 
   bool is_empty() {
     return queue.empty();
+  }
 
-  queue_metrics_t get_qmetrics(bool bReset) {
+  queue_metrics_t get_qmetrics(bool bReset = false) {
     return queue.get_qmetrics(bReset);
   }
 

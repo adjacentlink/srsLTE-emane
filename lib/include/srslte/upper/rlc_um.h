@@ -78,7 +78,7 @@ public:
   uint32_t get_num_rx_bytes();
   void reset_metrics();
 
-  queue_metrics_t get_qmetrics(bool bReset);
+  queue_metrics_t get_qmetrics(bool bReset = false);
 private:
 
   // Transmitter sub-class
@@ -100,7 +100,7 @@ private:
     bool has_data();
     uint32_t get_buffer_state();
 
-    queue_metrics_t get_qmetrics(bool bReset);
+    queue_metrics_t get_qmetrics(bool bReset = false);
 
   private:
     byte_buffer_pool        *pool;

@@ -191,7 +191,7 @@ cf_t *prach::generate(float cfo, uint32_t *nof_sf, float *target_power) {
     // pad guard symbols with zeros
     uint32_t nsf = (len-1)/SRSLTE_SF_LEN_PRB(cell.nof_prb)+1;
 #ifdef PHY_ADAPTER_ENABLE
-    phy_adapter::ue_ul_put_prach(preamble_idx, config->prach_cnfg_info.prach_freq_offset);
+    phy_adapter::ue_ul_put_prach(preamble_idx, config->prach_cfg_info.prach_freq_offset);
 #else
     bzero(&signal_buffer[len], (nsf*SRSLTE_SF_LEN_PRB(cell.nof_prb)-len)*sizeof(cf_t));
 #endif

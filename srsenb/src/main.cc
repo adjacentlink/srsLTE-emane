@@ -357,7 +357,8 @@ int main(int argc, char *argv[])
   signal(SIGINT, sig_int_handler);
   signal(SIGTERM, sig_int_handler);
   all_args_t        args;
-  metrics_stdout    metrics;
+  srslte::metrics_hub<enb_metrics_t> metricshub;
+  metrics_stdout    metrics_screen;
 
   srslte_debug_handle_crash(argc, argv);
 
@@ -384,11 +385,10 @@ int main(int argc, char *argv[])
     metricshub.add_listener(&metrics_file);
     metrics_file.set_handle(enb);
   }
-  metrics.init(enb, args.expert.metrics_period_secs);
 
   pthread_t input = {0};
   if(! args.runtime.daemonize) {
-    pthread_create(&input, NULL, &input_loop, &metrics);
+    pthread_create(&input, NULL, &input_loop, &metricshub);
   }
 
   bool plot_started         = false; 
@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
   }
   if(input)
     pthread_cancel(input);
-  metrics.stop();
+  metricshub.stop();
   enb->stop();
   enb->cleanup();
   cout << "---  exiting  ---" << endl;

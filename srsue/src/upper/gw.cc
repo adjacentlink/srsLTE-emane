@@ -215,9 +215,6 @@ srslte::error_t gw::setup_if_addr(uint8_t pdn_type, uint32_t ip_addr, uint8_t *i
     if(err!= srslte::ERROR_NONE){
       return err;
     }
-#ifdef PHY_ADAPTER_ENABLE
-    UESTATS::setIpAddress(htonl(ip_addr), inet_addr(mask));
-#endif
   }
   
   // Setup a thread to receive packets from the TUN device
@@ -429,6 +426,9 @@ srslte::error_t gw::setup_if_addr4(uint32_t ip_addr, char *err_str)
       return (srslte::ERROR_CANT_START);
     }
     current_ip_addr = ip_addr;
+#ifdef PHY_ADAPTER_ENABLE
+    UESTATS::setIpAddress(htonl(ip_addr), inet_addr(mask));
+#endif
   }
   return(srslte::ERROR_NONE);
 }
