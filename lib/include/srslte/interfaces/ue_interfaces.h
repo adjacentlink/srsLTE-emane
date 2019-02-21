@@ -99,8 +99,6 @@ public:
                                    uint8_t *k_up_int,
                                    srslte::CIPHERING_ALGORITHM_ID_ENUM cipher_algo,
                                    srslte::INTEGRITY_ALGORITHM_ID_ENUM integ_algo) = 0;
-
-  virtual bool get_imsi_vec(uint8_t* imsi_, uint32_t n) = 0;
 };
 
 // GW interface for NAS
