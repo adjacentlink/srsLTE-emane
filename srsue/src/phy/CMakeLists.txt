@@ -18,8 +18,6 @@
 # and at http://www.gnu.org/licenses/.
 #
 
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/srsue/cmake/modules")
-
 file(GLOB SOURCES "*.cc")
 add_library(srsue_phy STATIC ${SOURCES})
 
