@@ -110,8 +110,8 @@ public:
 
   int dl_rlc_buffer_state(uint16_t rnti, uint32_t lc_id, uint32_t tx_queue, uint32_t retx_queue);
   int dl_mac_buffer_state(uint16_t rnti, uint32_t ce_code);
-    
-  int dl_ant_info(uint16_t rnti, LIBLTE_RRC_ANTENNA_INFO_DEDICATED_STRUCT *dedicated);
+
+  int dl_ant_info(uint16_t rnti, asn1::rrc::phys_cfg_ded_s::ant_info_c_* dedicated);
   int dl_ack_info(uint32_t tti, uint16_t rnti, uint32_t tb_idx, bool ack);
   int dl_rach_info(uint32_t tti, uint32_t ra_id, uint16_t rnti, uint32_t estimated_size); 
   int dl_ri_info(uint32_t tti, uint16_t rnti, uint32_t ri_value);
@@ -126,7 +126,7 @@ public:
   int ul_cqi_info(uint32_t tti, uint16_t rnti, uint32_t cqi, uint32_t ul_ch_code); 
     
   int dl_sched(uint32_t tti, dl_sched_res_t *sched_result);  
-  int ul_sched(uint32_t tti, uint32_t sf_cfi, ul_sched_res_t *sched_result);
+  int ul_sched(uint32_t tti, ul_sched_res_t *sched_result); 
 
   /* Custom TPC functions 
    */

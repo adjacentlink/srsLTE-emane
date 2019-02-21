@@ -89,8 +89,8 @@ public:
   void write_sdu(byte_buffer_t *sdu, bool blocking = true);
 
   // MAC interface
+  bool     has_data();
   uint32_t get_buffer_state();
-  uint32_t get_total_buffer_state(); 
   int      read_pdu(uint8_t *payload, uint32_t nof_bytes);
   void     write_pdu(uint8_t *payload, uint32_t nof_bytes);
 
@@ -98,7 +98,6 @@ public:
   uint32_t get_num_rx_bytes();
   void reset_metrics();
 
-  queue_metrics_t get_qmetrics(bool bReset);
 private:
 
   // Transmitter sub-class
@@ -118,8 +117,8 @@ private:
     void write_sdu(byte_buffer_t *sdu, bool blocking);
     int read_pdu(uint8_t *payload, uint32_t nof_bytes);
 
+    bool     has_data();
     uint32_t get_buffer_state();
-    uint32_t get_total_buffer_state();
     uint32_t get_num_tx_bytes();
     void reset_metrics();
 

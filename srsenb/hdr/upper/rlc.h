@@ -71,7 +71,7 @@ public:
   void write_pdu(uint16_t rnti, uint32_t lcid, uint8_t *payload, uint32_t nof_bytes);
   void read_pdu_pcch(uint8_t *payload, uint32_t buffer_size); 
   
-  void get_metrics(srslte::rlc_metrics_t * mlist);
+  void get_metrics(srslte::rlc_metrics_t * mlist); // ALINK
 
 private: 
   
