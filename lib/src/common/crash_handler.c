@@ -82,8 +82,7 @@ void srslte_debug_handle_crash(int argc, char **argv) {
   bt_argc = argc;
   bt_argv = argv;
 
-// allow to produce core file 
-//signal(SIGSEGV, crash_handler);
+//signal(SIGSEGV, crash_handler); ALINK allow a core file for deeper examination
   signal(SIGABRT, crash_handler);
   signal(SIGILL, crash_handler);
   signal(SIGFPE, crash_handler);
