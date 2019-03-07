@@ -155,6 +155,19 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
     ("expert.print_buffer_state", bpo::value<bool>(&args->expert.print_buffer_state)->default_value(false), "Prints on the console the buffer state every 10 seconds")
     ("expert.m1u_multiaddr", bpo::value<string>(&args->expert.m1u_multiaddr)->default_value("239.255.0.1"), "M1-U Multicast address the eNB joins.")
     ("expert.m1u_if_addr", bpo::value<string>(&args->expert.m1u_if_addr)->default_value("127.0.1.201"), "IP address of the interface the eNB will listen for M1-U traffic.")
+
+    ("runtime.daemonize", bpo::value<bool>(&args->runtime.daemonize)->default_value(false), "Run this process as a daemon")
+
+#ifdef PHY_ADAPTER_ENABLE
+    /* EMANE MHAL section */
+    ("mhal.emane_configfile",
+      bpo::value<string>(&args->mhal.emane_configfile)->default_value("emanelte.xml"),
+       "Embedded EMANE emulator configuration file")
+
+    ("mhal.statistic_service_endpoint",
+      bpo::value<string>(&args->mhal.statistic_service_endpoint)->default_value("0.0.0.0:47100"),
+       "Statistic service endpoint")
+#endif
   ;
 
   // Positional options - config file location
