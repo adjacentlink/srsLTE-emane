@@ -157,7 +157,7 @@ index caddb38..976b888 100644
 --- a/lib/src/asn1/CMakeLists.txt
 +++ b/lib/src/asn1/CMakeLists.txt
 @@ -26,4 +26,4 @@ add_library(srslte_asn1 STATIC
-   liblte_s1ap.cc
+   liblte_m2ap.cc   
    gtpc.cc
  )
 -install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR})
@@ -209,7 +209,7 @@ index 365eef8..ccb7f47 100644
    # Include common RF files
    set(SOURCES_RF "")
 @@ -44,24 +44,25 @@ if(RF_FOUND)
-   endif (SOAPYSDR_FOUND)
+   endif (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
  
  
 -  add_library(srslte_rf SHARED ${SOURCES_RF})
@@ -227,10 +227,10 @@ index 365eef8..ccb7f47 100644
 +    target_link_libraries(srslte_rf_emane ${BLADERF_LIBRARIES})
    endif (BLADERF_FOUND)
  
-   if (SOAPYSDR_FOUND)
+   if (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
 -    target_link_libraries(srslte_rf ${SOAPYSDR_LIBRARIES})
 +    target_link_libraries(srslte_rf_emane ${SOAPYSDR_LIBRARIES})
-   endif (SOAPYSDR_FOUND)
+   endif (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
  
    if (ENABLE_SHMEMRF)
 -    target_link_libraries(srslte_rf rt)
@@ -275,25 +275,13 @@ diff --git a/lib/src/upper/CMakeLists.txt b/lib/src/upper/CMakeLists.txt
 index 4ba2ff9..5fe630c 100644
 --- a/lib/src/upper/CMakeLists.txt
 +++ b/lib/src/upper/CMakeLists.txt
-@@ -1,4 +1,4 @@
--#
-+##
- # Copyright 2013-2017 Software Radio Systems Limited
- #
- # This file is part of srsLTE
-@@ -21,9 +21,9 @@
+@@ -21,4 +21,4 @@
  file(GLOB SOURCES "*.cc")
  add_library(srslte_upper STATIC ${SOURCES})
- target_link_libraries(srslte_upper srslte_common srslte_asn1)
+-target_link_libraries(srslte_upper srslte_common srslte_asn1)
 -install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR})
++target_link_libraries(srslte_upper srslte_common srslte_asn1 ${emanelte_LIBRARIES})
 +#install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR}) //MIN_INSTALL
- 
- # Run clang-tidy if available
- if(CLANG_TIDY_BIN)
-     set_target_properties(srslte_upper PROPERTIES CXX_CLANG_TIDY "${DO_CLANG_TIDY}")
--endif()
-\ No newline at end of file
-+endif()
 diff --git a/srsenb/CMakeLists.txt b/srsenb/CMakeLists.txt
 index 8a9f085..2d9a077 100644
 --- a/srsenb/CMakeLists.txt
@@ -319,9 +307,9 @@ index ef66c03..8d87ce8 100644
  endif (RPATH)
  
  
--add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc)
+-add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc)
 -target_link_libraries(srsenb  srsenb_upper
-+add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc)
++add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc)
 +target_link_libraries(srsenb-emane  srsenb_upper
                                srsenb_mac
                                srsenb_phy
