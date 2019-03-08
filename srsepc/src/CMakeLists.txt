@@ -34,8 +34,8 @@ if (RPATH)
 endif (RPATH)
 
 
-add_executable(srsepc-emane main.cc)
-target_link_libraries( srsepc-emane  srsepc_mme
+add_executable(srsepc main.cc)
+target_link_libraries( srsepc  srsepc_mme
                                srsepc_hss
                                srsepc_sgw
                                srslte_upper
@@ -48,8 +48,8 @@ target_link_libraries( srsepc-emane  srsepc_mme
                                ${emanelte_LIBRARIES}
                                ${ostatistic_LIBRARIES})
 
-add_executable(srsmbms-emane mbms-gw/main.cc )
-target_link_libraries(srsmbms-emane   srsepc_mbms_gw
+add_executable(srsmbms mbms-gw/main.cc )
+target_link_libraries(srsmbms   srsepc_mbms_gw
                                 srslte_upper
                                 srslte_common
                                 ${CMAKE_THREAD_LIBS_INIT} 
@@ -61,12 +61,12 @@ target_link_libraries(srsmbms-emane   srsepc_mbms_gw
                                 ${ostatistic_LIBRARIES})
 
 if (RPATH)
-  set_target_properties(srsepc-emane PROPERTIES INSTALL_RPATH ".")
-  set_target_properties(srsmbms-emane PROPERTIES INSTALL_RPATH ".")
+  set_target_properties(srsepc PROPERTIES INSTALL_RPATH ".")
+  set_target_properties(srsmbms PROPERTIES INSTALL_RPATH ".")
 endif (RPATH)
 
-install(TARGETS srsepc-emane DESTINATION ${RUNTIME_DIR})
-install(TARGETS srsmbms-emane DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsmbms DESTINATION ${RUNTIME_DIR})
 
 ########################################################################
 # Option to run command after build (useful for remote builds)
@@ -78,4 +78,4 @@ else(NOT ${BUILDEPC_CMD} STREQUAL "")
   message(STATUS "No post-build-EPC command defined")
 endif (NOT ${BUILDEPC_CMD} STREQUAL "")
 
-install(TARGETS srsepc-emane DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
