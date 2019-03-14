@@ -282,10 +282,8 @@ index f366ede..c26a17a 100644
  
  file(GLOB SOURCES "*.cc")
  add_library(srslte_upper STATIC ${SOURCES})
--target_link_libraries(srslte_upper srslte_common srslte_asn1)
+ target_link_libraries(srslte_upper srslte_common srslte_asn1 ${emanelte_LIBRARIES})
 -install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR})
-\ No newline at end of file
-+target_link_libraries(srslte_upper srslte_common srslte_asn1 ${emanelte_LIBRARIES})
 +#install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR}) //MIN_INSTALL
 diff --git b/srsenb/CMakeLists.txt a/srsenb/CMakeLists.txt
 index 8a9f085..2d9a077 100644
