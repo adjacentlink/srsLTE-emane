@@ -1,5 +1,5 @@
 diff --git a/lib/src/upper/pdcp_entity.cc b/lib/src/upper/pdcp_entity.cc
-index c26c6b9f..bd8124bb 100644
+index ad1e97e..94038bb 100644
 --- a/lib/src/upper/pdcp_entity.cc
 +++ b/lib/src/upper/pdcp_entity.cc
 @@ -28,6 +28,10 @@
@@ -13,24 +13,24 @@ index c26c6b9f..bd8124bb 100644
  namespace srslte {
  
  pdcp_entity::pdcp_entity()
-@@ -237,7 +241,7 @@ void pdcp_entity::integrity_generate( uint8_t  *msg,
+@@ -250,6 +254,8 @@ void pdcp_entity::integrity_generate( uint8_t  *msg,
                                        uint32_t  msg_len,
                                        uint8_t  *mac)
  {
--  uint8_t bearer;
 +  pthread_mutex_lock(&mutex_);
- 
++
    switch(integ_algo)
    {
-@@ -264,6 +268,7 @@ void pdcp_entity::integrity_generate( uint8_t  *msg,
+   case INTEGRITY_ALGORITHM_ID_EIA0:
+@@ -275,6 +281,7 @@ void pdcp_entity::integrity_generate( uint8_t  *msg,
    default:
      break;
    }
 +  pthread_mutex_unlock(&mutex_);
- }
  
- bool pdcp_entity::integrity_verify(uint8_t  *msg,
-@@ -275,6 +280,8 @@ bool pdcp_entity::integrity_verify(uint8_t  *msg,
+   log->debug("Integrity gen input:\n");
+   log->debug_hex(&k_int[16], 16, "  K_int");
+@@ -294,6 +301,8 @@ bool pdcp_entity::integrity_verify(uint8_t  *msg,
    uint8_t i = 0;
    bool isValid = true;
  
@@ -39,7 +39,7 @@ index c26c6b9f..bd8124bb 100644
    switch(integ_algo)
    {
    case INTEGRITY_ALGORITHM_ID_EIA0:
-@@ -324,6 +331,8 @@ bool pdcp_entity::integrity_verify(uint8_t  *msg,
+@@ -349,6 +358,8 @@ bool pdcp_entity::integrity_verify(uint8_t  *msg,
      break;
    }
  
@@ -48,3 +48,11 @@ index c26c6b9f..bd8124bb 100644
    return isValid;
  }
  
+@@ -384,6 +395,7 @@ void pdcp_entity::cipher_encrypt(uint8_t  *msg,
+   default:
+     break;
+   }
++  pthread_mutex_unlock(&mutex_);
+ }
+ 
+ void pdcp_entity::cipher_decrypt(uint8_t  *ct,
