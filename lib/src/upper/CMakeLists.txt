@@ -1,4 +1,4 @@
-##
+#
 # Copyright 2013-2017 Software Radio Systems Limited
 #
 # This file is part of srsLTE
@@ -20,10 +20,5 @@
 
 file(GLOB SOURCES "*.cc")
 add_library(srslte_upper STATIC ${SOURCES})
-target_link_libraries(srslte_upper srslte_common srslte_asn1)
+target_link_libraries(srslte_upper srslte_common srslte_asn1 ${emanelte_LIBRARIES})
 #install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR}) //MIN_INSTALL
-
-# Run clang-tidy if available
-if(CLANG_TIDY_BIN)
-    set_target_properties(srslte_upper PROPERTIES CXX_CLANG_TIDY "${DO_CLANG_TIDY}")
-endif()

@@ -137,7 +137,7 @@ bool threads_new_rt_cpu(pthread_t *thread, void *(*start_routine) (void*), void 
     }
   }
 
-  if(attr_enable) {
+  if(attr_enable) { // ALINK
       int policy = 0;
 
       struct sched_param sp = {0};

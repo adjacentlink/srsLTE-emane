@@ -1,7 +1,7 @@
-diff --git a/srsepc/hdr/hss/hss.h b/srsepc/hdr/hss/hss.h
-index 47d1657c..5837fc90 100644
---- a/srsepc/hdr/hss/hss.h
-+++ b/srsepc/hdr/hss/hss.h
+diff --git b/srsepc/hdr/hss/hss.h a/srsepc/hdr/hss/hss.h
+index 7d7e2e8..a4334ef 100644
+--- b/srsepc/hdr/hss/hss.h
++++ a/srsepc/hdr/hss/hss.h
 @@ -67,6 +67,7 @@ typedef struct{
      uint8_t  sqn[6];
      uint16_t qci;
@@ -12,7 +12,7 @@ index 47d1657c..5837fc90 100644
  enum hss_auth_algo {
 @@ -87,6 +88,8 @@ public:
  
-   bool resync_sqn(uint64_t imsi, uint8_t *auts);
+   virtual bool resync_sqn(uint64_t imsi, uint8_t *auts);
  
 +  std::map<std::string, uint64_t> get_ip_to_imsi() const;
 +
@@ -28,10 +28,10 @@ index 47d1657c..5837fc90 100644
  };
  
  } // namespace srsepc
-diff --git a/srsepc/hdr/spgw/spgw.h b/srsepc/hdr/spgw/spgw.h
-index 3222f512..9c098318 100644
---- a/srsepc/hdr/spgw/spgw.h
-+++ b/srsepc/hdr/spgw/spgw.h
+diff --git b/srsepc/hdr/spgw/spgw.h a/srsepc/hdr/spgw/spgw.h
+index 3222f51..9c09831 100644
+--- b/srsepc/hdr/spgw/spgw.h
++++ a/srsepc/hdr/spgw/spgw.h
 @@ -40,6 +40,8 @@
  #include "srslte/common/buffer_pool.h"
  #include "srslte/common/threads.h"
@@ -74,23 +74,21 @@ index 3222f512..9c098318 100644
  
    /*Time*/
    struct timeval m_t_last_dl;
-diff --git a/srsepc/src/hss/hss.cc b/srsepc/src/hss/hss.cc
-index c2fb7ce3..2d26c749 100644
---- a/srsepc/src/hss/hss.cc
-+++ b/srsepc/src/hss/hss.cc
-@@ -153,9 +153,10 @@ hss::read_db_file(std::string db_filename)
-   {
+diff --git b/srsepc/src/hss/hss.cc a/srsepc/src/hss/hss.cc
+index 959c042..b4dd819 100644
+--- b/srsepc/src/hss/hss.cc
++++ a/srsepc/src/hss/hss.cc
+@@ -154,8 +154,9 @@ hss::read_db_file(std::string db_filename)
      if(line[0] != '#')
      {
--      uint column_size = 8;
-+      const uint column_size = 8;
-+      const uint column_size_2 = 9; // optional static ip_addr
+       uint column_size = 8;
++      uint column_size_2 = 9;  // optional static ip_addr
        std::vector<std::string> split = split_string(line,',');
 -      if(split.size() != column_size)
 +      if(split.size() != column_size && split.size() != column_size_2)
        {
          m_hss_log->error("Error parsing UE database. Wrong number of columns in .csv\n");
-         m_hss_log->error("Columns: %lu, Expected %d.\n",split.size(),column_size);
+         m_hss_log->error("Columns: %zd, Expected %d.\n", split.size(), column_size);
 @@ -194,6 +195,26 @@ hss::read_db_file(std::string db_filename)
        m_hss_log->debug_hex(ue_ctx->sqn, 6, "SQN : ");
        ue_ctx->qci = atoi(split[7].c_str());
@@ -141,11 +139,11 @@ index c2fb7ce3..2d26c749 100644
 +  return m_ip_to_imsi;
 +}
  } //namespace srsepc
-diff --git a/srsepc/src/main.cc b/srsepc/src/main.cc
-index 1a487c61..3abf1101 100644
---- a/srsepc/src/main.cc
-+++ b/srsepc/src/main.cc
-@@ -402,7 +402,7 @@ main (int argc,char * argv[] )
+diff --git b/srsepc/src/main.cc a/srsepc/src/main.cc
+index 47e83b6..3a2a61a 100644
+--- b/srsepc/src/main.cc
++++ a/srsepc/src/main.cc
+@@ -451,7 +451,7 @@ main (int argc,char * argv[] )
    }
  
    spgw *spgw = spgw::get_instance();
@@ -154,10 +152,10 @@ index 1a487c61..3abf1101 100644
      cout << "Error initializing SP-GW" << endl;
      exit(1);
    }
-diff --git a/srsepc/src/spgw/spgw.cc b/srsepc/src/spgw/spgw.cc
-index c9a45017..d151ac05 100644
---- a/srsepc/src/spgw/spgw.cc
-+++ b/srsepc/src/spgw/spgw.cc
+diff --git b/srsepc/src/spgw/spgw.cc a/srsepc/src/spgw/spgw.cc
+index 497cd95..fd0b723 100644
+--- b/srsepc/src/spgw/spgw.cc
++++ a/srsepc/src/spgw/spgw.cc
 @@ -87,7 +87,7 @@ spgw::cleanup(void)
  }
  
@@ -176,7 +174,7 @@ index c9a45017..d151ac05 100644
    if (err != srslte::ERROR_NONE)
    {
      m_spgw_log->console("Could not initialize the S1-U interface.\n");
-@@ -264,9 +264,57 @@ spgw::init_s1u(spgw_args_t *args)
+@@ -259,9 +259,57 @@ spgw::init_s1u(spgw_args_t *args)
  }
  
  srslte::error_t
@@ -236,7 +234,7 @@ index c9a45017..d151ac05 100644
    return srslte::ERROR_NONE;
  }
  
-@@ -434,10 +482,39 @@ spgw::get_new_user_teid()
+@@ -414,10 +462,39 @@ spgw::get_new_user_teid()
  }
  
  in_addr_t
@@ -279,7 +277,7 @@ index c9a45017..d151ac05 100644
  }
  
  spgw_tunnel_ctx_t*
-@@ -447,9 +524,8 @@ spgw::create_gtp_ctx(struct srslte::gtpc_create_session_request *cs_req)
+@@ -427,9 +504,8 @@ spgw::create_gtp_ctx(struct srslte::gtpc_create_session_request *cs_req)
    uint64_t spgw_uplink_ctrl_teid = get_new_ctrl_teid();
    //Setup uplink user TEID
    uint64_t spgw_uplink_user_teid = get_new_user_teid();

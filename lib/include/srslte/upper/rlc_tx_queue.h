@@ -110,12 +110,15 @@ public:
     unread_bytes = 0;
   }
 
-  queue_metrics_t get_qmetrics(bool bReset) {
+  bool is_empty() {
+    return queue.empty();
+  }
+
+  queue_metrics_t get_qmetrics(bool bReset = false) {
     return queue.get_qmetrics(bReset);
   }
 
 private:
-  bool                        is_empty() { return queue.empty(); }
 
   block_queue<byte_buffer_t*> queue;
   uint32_t                    unread_bytes;
