@@ -26,7 +26,7 @@ add_library(srslte_asn1 STATIC
   liblte_m2ap.cc
   gtpc.cc
 )
-install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR})
+#install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 
 add_library(rrc_asn1 STATIC
         rrc_asn1.cc

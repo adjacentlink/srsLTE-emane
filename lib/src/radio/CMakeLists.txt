@@ -20,8 +20,8 @@
 
 if(RF_FOUND)
   add_library(srslte_radio STATIC radio.cc radio_multi.cc)
-  target_link_libraries(srslte_radio srslte_rf)
-  install(TARGETS srslte_radio DESTINATION ${LIBRARY_DIR})
+  target_link_libraries(srslte_radio srslte_rf_emane)
+# install(TARGETS srslte_radio DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 endif(RF_FOUND)
 
 add_subdirectory(test)

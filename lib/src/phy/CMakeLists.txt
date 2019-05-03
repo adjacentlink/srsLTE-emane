@@ -58,4 +58,4 @@ add_library(srslte_phy STATIC ${srslte_srcs})
 target_link_libraries(srslte_phy ${FFT_LIBRARIES})
 
 target_link_libraries(srslte_phy pthread m)
-install(TARGETS srslte_phy DESTINATION ${LIBRARY_DIR})
+#install(TARGETS srslte_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL

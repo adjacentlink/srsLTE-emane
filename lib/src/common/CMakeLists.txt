@@ -29,4 +29,4 @@ add_executable(arch_select arch_select.cc)
 
 target_include_directories(srslte_common PUBLIC ${SEC_INCLUDE_DIRS})
 target_link_libraries(srslte_common ${SEC_LIBRARIES})
-install(TARGETS srslte_common DESTINATION ${LIBRARY_DIR})
+#install(TARGETS srslte_common DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL

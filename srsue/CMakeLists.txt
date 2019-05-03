@@ -48,4 +48,4 @@ add_subdirectory(test)
 ########################################################################
 # Default configuration files
 ########################################################################
-install(FILES ue.conf.example DESTINATION ${DATA_DIR})
+#install(FILES ue.conf.example DESTINATION ${DATA_DIR}) // MIN_INSTALL

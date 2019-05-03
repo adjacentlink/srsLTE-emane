@@ -20,8 +20,8 @@
 
 if(RF_FOUND)
   # This library is only used by the examples 
-  add_library(srslte_rf_utils STATIC rf_utils.c)
-  target_link_libraries(srslte_rf_utils srslte_phy)
+  add_library(srslte_rf_emane_utils STATIC rf_utils.c)
+  target_link_libraries(srslte_rf_emane_utils srslte_phy)
 
   # Include common RF files
   set(SOURCES_RF "")
@@ -42,24 +42,25 @@ if(RF_FOUND)
     list(APPEND SOURCES_RF rf_soapy_imp.c)
   endif (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
 
-  add_library(srslte_rf SHARED ${SOURCES_RF})
-  target_link_libraries(srslte_rf srslte_rf_utils srslte_phy)
+  add_library(srslte_rf_emane SHARED ${SOURCES_RF})
+  target_link_libraries(srslte_rf_emane srslte_rf_emane_utils srslte_phy)
   
   if (UHD_FOUND)
-    target_link_libraries(srslte_rf ${UHD_LIBRARIES})
+    target_link_libraries(srslte_rf_emane ${UHD_LIBRARIES})
   endif (UHD_FOUND)
 
   if (BLADERF_FOUND)
-    target_link_libraries(srslte_rf ${BLADERF_LIBRARIES})
+    target_link_libraries(srslte_rf_emane ${BLADERF_LIBRARIES})
   endif (BLADERF_FOUND)
 
   if (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
-    target_link_libraries(srslte_rf ${SOAPYSDR_LIBRARIES})
+    target_link_libraries(srslte_rf_emane ${SOAPYSDR_LIBRARIES})
   endif (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
 
   if (ENABLE_SHMEMRF)
-    target_link_libraries(srslte_rf rt)
+    target_link_libraries(srslte_rf_emane rt)
   endif (ENABLE_SHMEMRF)
 
-  INSTALL(TARGETS srslte_rf DESTINATION ${LIBRARY_DIR})
+  INSTALL(TARGETS srslte_rf_emane DESTINATION ${LIBRARY_DIR})
+
 endif(RF_FOUND)

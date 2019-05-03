@@ -31,8 +31,8 @@ if (RPATH)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif (RPATH)
 
-add_executable(srsue main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc)
-target_link_libraries(srsue   srsue_mac
+add_executable(srsue-emane main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc)
+target_link_libraries(srsue-emane   srsue_mac
                               srsue_phy
                               srsue_upper
                               srslte_common
@@ -44,19 +44,19 @@ target_link_libraries(srsue   srsue_mac
                               ${Boost_LIBRARIES})
 
 if (RPATH)
-  set_target_properties(srsue PROPERTIES INSTALL_RPATH ".")
+  set_target_properties(srsue-emane PROPERTIES INSTALL_RPATH ".")
 endif (RPATH)
 
-install(TARGETS srsue DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsue-emane DESTINATION ${RUNTIME_DIR})
 
 ########################################################################
 # Option to run command after build (useful for remote builds)
 ########################################################################
 if (NOT ${BUILDUE_CMD} STREQUAL "")
   message(STATUS "Added custom post-build-UE command: ${BUILDUE_CMD}")
-  add_custom_command(TARGET srsue POST_BUILD COMMAND ${BUILDUE_CMD})
+  add_custom_command(TARGET srsue-emane POST_BUILD COMMAND ${BUILDUE_CMD})
 else(NOT ${BUILDUE_CMD} STREQUAL "")
   message(STATUS "No post-build-UE command defined")
 endif (NOT ${BUILDUE_CMD} STREQUAL "")
 
-install(TARGETS srsue DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsue-emane DESTINATION ${RUNTIME_DIR})
