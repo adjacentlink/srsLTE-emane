@@ -25,19 +25,18 @@
  */
 
 
-#include "srsue/hdr/upper/gw.h"
-
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <arpa/inet.h>
-#include <linux/ip.h>
-#include <linux/ipv6.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+
+#include "srsue/hdr/upper/gw.h"
 
 #ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/uestatisticmanager.h"
@@ -266,14 +265,14 @@ void gw::run_thread()
     gw_log->debug("Read %d bytes from TUN fd=%d, idx=%d\n", N_bytes, tun_fd, idx);
     if (N_bytes > 0) {
       struct iphdr *ip_pkt = (struct iphdr*)pdu->msg;
-      struct ipv6hdr *ip6_pkt = (struct ipv6hdr*)pdu->msg;
+      struct ip6_hdr *ip6_pkt = (struct ip6_hdr*)pdu->msg;
       uint16_t pkt_len = 0;
       pdu->N_bytes = idx + N_bytes;
       if (ip_pkt->version == 4 || ip_pkt->version == 6) {
         if (ip_pkt->version == 4){
           pkt_len = ntohs(ip_pkt->tot_len);
         } else if (ip_pkt->version == 6){
-          pkt_len = ntohs(ip6_pkt->payload_len)+40;
+          pkt_len = ntohs(ip6_pkt->ip6_ctlun.ip6_un1.ip6_un1_plen)+40;
         } else {
           gw_log->error_hex(pdu->msg, pdu->N_bytes, "Unsupported IP version. Dropping packet.\n");
           continue;
@@ -436,7 +435,7 @@ srslte::error_t gw::setup_if_addr4(uint32_t ip_addr, char *err_str)
 srslte::error_t gw::setup_if_addr6(uint8_t *ipv6_if_id, char *err_str)
 {
   struct sockaddr_in6 sai;
-  struct in6_ifreq ifr6;
+  struct in6_pktinfo ifr6;
   bool match = true;
 
   for (int i=0; i<8; i++){
@@ -468,9 +467,9 @@ srslte::error_t gw::setup_if_addr6(uint8_t *ipv6_if_id, char *err_str)
       perror("SIOGIFINDEX");
       return srslte::ERROR_CANT_START;
     }
-    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
-    ifr6.ifr6_prefixlen = 64;
-    memcpy((char *) &ifr6.ifr6_addr, (char *) &sai.sin6_addr,
+    ifr6.ipi6_ifindex = ifr.ifr_ifindex;
+    //ifr6.ifr6_prefixlen = 64;
+    memcpy((char *) &ifr6.ipi6_addr, (char *) &sai.sin6_addr,
       sizeof(struct in6_addr));
 
     if (ioctl(sock, SIOCSIFADDR, &ifr6) < 0) {

@@ -37,7 +37,8 @@ public:
     :m(NULL)
   {
     for (int i = 0; i < 3; ++i) {
-      sleep_period_start[i] = (struct timeval){};
+      sleep_period_start[i].tv_sec = 0;
+      sleep_period_start[i].tv_usec = 0;
     }
   }
   bool init(metrics_interface<metrics_t> *m_, float report_period_secs_=1.0) {
