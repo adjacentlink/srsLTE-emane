@@ -21,4 +21,4 @@
 file(GLOB SOURCES "*.cc")
 add_library(srslte_upper STATIC ${SOURCES})
 target_link_libraries(srslte_upper srslte_common srslte_asn1 ${emanelte_LIBRARIES})
-#install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR}) //MIN_INSTALL
+install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR})
