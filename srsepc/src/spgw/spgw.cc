@@ -1,10 +1,5 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -24,287 +19,163 @@
  *
  */
 
-#include <iostream> 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
-#include <linux/ip.h>
-#include <inttypes.h> // for printing uint64_t
 #include "srsepc/hdr/spgw/spgw.h"
 #include "srsepc/hdr/mme/mme_gtpc.h"
+#include "srsepc/hdr/spgw/gtpc.h"
+#include "srsepc/hdr/spgw/gtpu.h"
 #include "srslte/upper/gtpu.h"
+#include <inttypes.h> // for printing uint64_t
 
 #ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/epcstatisticmanager.h"
 #endif
+namespace srsepc {
 
-namespace srsepc{
-
-spgw*          spgw::m_instance = NULL;
+spgw*           spgw::m_instance    = NULL;
 pthread_mutex_t spgw_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-const uint16_t SPGW_BUFFER_SIZE = 2500;
-
-spgw::spgw():
-  m_running(false),
-  m_sgi_up(false),
-  m_s1u_up(false),
-  m_next_ctrl_teid(1),
-  m_next_user_teid(1)
+spgw::spgw() : m_running(false)
 {
+  m_gtpc = new spgw::gtpc;
+  m_gtpu = new spgw::gtpu;
   return;
 }
 
 spgw::~spgw()
 {
+  delete m_gtpc;
+  delete m_gtpu;
   return;
 }
 
-spgw*
-spgw::get_instance(void)
+spgw* spgw::get_instance()
 {
   pthread_mutex_lock(&spgw_instance_mutex);
-  if(NULL == m_instance) {
+  if (NULL == m_instance) {
     m_instance = new spgw();
   }
   pthread_mutex_unlock(&spgw_instance_mutex);
-  return(m_instance);
+  return (m_instance);
 }
 
-void
-spgw::cleanup(void)
+void spgw::cleanup()
 {
   pthread_mutex_lock(&spgw_instance_mutex);
-  if(NULL != m_instance) {
+  if (NULL != m_instance) {
     delete m_instance;
     m_instance = NULL;
   }
   pthread_mutex_unlock(&spgw_instance_mutex);
 }
 
-int
-spgw::init(spgw_args_t* args, srslte::log_filter *spgw_log)
+int spgw::init(spgw_args_t*                           args,
+               srslte::log_filter*                    gtpu_log,
+               srslte::log_filter*                    gtpc_log,
+               srslte::log_filter*                    spgw_log,
+               const std::map<std::string, uint64_t>& ip_to_imsi)
 {
   srslte::error_t err;
   m_pool = srslte::byte_buffer_pool::get_instance();
 
-  //Init log
+  // Init log
   m_spgw_log = spgw_log;
-  m_mme_gtpc = mme_gtpc::get_instance();
 
-  //Init SGi interface
-  err = init_sgi_if(args);
-  if (err != srslte::ERROR_NONE)
-  {
-    m_spgw_log->console("Could not initialize the SGi interface.\n");
+  // Init GTP-U
+  if (m_gtpu->init(args, this, m_gtpc, gtpu_log) != 0) {
+    m_spgw_log->console("Could not initialize the SPGW's GTP-U.\n");
     return -1;
   }
 
-  //Init S1-U
-  err = init_s1u(args);
-  if (err != srslte::ERROR_NONE)
-  {
-    m_spgw_log->console("Could not initialize the S1-U interface.\n");
-    return -1;
-  }
-  //Initialize UE ip pool
-  err = init_ue_ip(args);
-  if (err != srslte::ERROR_NONE)
-  {
+  // Init GTP-C
+  if (m_gtpc->init(args, this, m_gtpu, gtpc_log, ip_to_imsi) != 0) {
     m_spgw_log->console("Could not initialize the S1-U interface.\n");
     return -1;
   }
 
-  //Init mutex
-  pthread_mutex_init(&m_mutex,NULL);
   m_spgw_log->info("SP-GW Initialized.\n");
   m_spgw_log->console("SP-GW Initialized.\n");
   return 0;
 }
 
-void
-spgw::stop()
+void spgw::stop()
 {
-  if(m_running)
-  {
+  if (m_running) {
     m_running = false;
     thread_cancel();
     wait_thread_finish();
+  }
 
-    //Clean up SGi interface
-    if(m_sgi_up)
-    {
-      close(m_sgi_if);
-      close(m_sgi_sock);
-    }
-    //Clean up S1-U socket
-    if(m_s1u_up)
-    {
-      close(m_s1u);
-    }
-  }
-  std::map<uint32_t,spgw_tunnel_ctx*>::iterator it = m_teid_to_tunnel_ctx.begin();         //Map control TEID to tunnel ctx. Usefull to get reply ctrl TEID, UE IP, etc.
-  while(it!=m_teid_to_tunnel_ctx.end())
-  {
-    m_spgw_log->info("Deleting SP-GW GTP-C Tunnel. IMSI: %lu\n", it->second->imsi);
-    m_spgw_log->console("Deleting SP-GW GTP-C Tunnel. IMSI: %lu\n", it->second->imsi);
-    delete it->second;
-    m_teid_to_tunnel_ctx.erase(it++);
-  }
+  m_gtpu->stop();
+  m_gtpc->stop();
   return;
 }
 
-srslte::error_t
-spgw::init_sgi_if(spgw_args_t *args)
+void spgw::run_thread()
 {
-  struct ifreq ifr;
+  // Mark the thread as running
+  m_running = true;
+  srslte::byte_buffer_t *sgi_msg, *s1u_msg, *s11_msg;
+  s1u_msg = m_pool->allocate("spgw::run_thread::s1u");
+  s11_msg = m_pool->allocate("spgw::run_thread::s11");
 
-  if (m_sgi_up) {
-    return(srslte::ERROR_ALREADY_STARTED);
-  }
+  struct sockaddr_in src_addr_in;
+  struct sockaddr_un src_addr_un;
+  socklen_t       addrlen;
+  struct iphdr*   ip_pkt;
 
+  int sgi = m_gtpu->get_sgi();
+  int s1u = m_gtpu->get_s1u();
+  int s11 = m_gtpc->get_s11();
 
-  // Construct the TUN device
-  m_sgi_if = open("/dev/net/tun", O_RDWR);
-  m_spgw_log->info("TUN file descriptor = %d\n", m_sgi_if);
-  if (m_sgi_if < 0) {
-    m_spgw_log->error("Failed to open TUN device: %s\n", strerror(errno));
-    return(srslte::ERROR_CANT_START);
-  }
-
-  memset(&ifr, 0, sizeof(ifr));
-  ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
-  strncpy(ifr.ifr_ifrn.ifrn_name, args->sgi_if_name.c_str(), std::min(args->sgi_if_name.length(), (size_t)(IFNAMSIZ-1)));
-  ifr.ifr_ifrn.ifrn_name[IFNAMSIZ-1]='\0';
-
-  if (ioctl(m_sgi_if, TUNSETIFF, &ifr) < 0) {
-    m_spgw_log->error("Failed to set TUN device name: %s\n", strerror(errno));
-    close(m_sgi_if);
-    return(srslte::ERROR_CANT_START);
-  }
-
-  // Bring up the interface
-  m_sgi_sock = socket(AF_INET, SOCK_DGRAM, 0);
-
-  if (ioctl(m_sgi_sock, SIOCGIFFLAGS, &ifr) < 0) {
-    m_spgw_log->error("Failed to bring up socket: %s\n", strerror(errno));
-    close(m_sgi_if);
-    return(srslte::ERROR_CANT_START);
-  }
-
-  ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-  if (ioctl(m_sgi_sock, SIOCSIFFLAGS, &ifr) < 0) {
-    m_spgw_log->error("Failed to set socket flags: %s\n", strerror(errno));
-    close(m_sgi_if);
-    return(srslte::ERROR_CANT_START);
-  }
-
-  //Set IP of the interface
-  struct sockaddr_in *addr = (struct sockaddr_in*)&ifr.ifr_addr;
-  addr->sin_family = AF_INET;
-  addr->sin_addr.s_addr = inet_addr(args->sgi_if_addr.c_str());
-  addr->sin_port = 0;
-
-  if (ioctl(m_sgi_sock, SIOCSIFADDR, &ifr) < 0) {
-    m_spgw_log->error("Failed to set TUN interface IP. Address: %s, Error: %s\n", args->sgi_if_addr.c_str(), strerror(errno));
-    close(m_sgi_if);
-    close(m_sgi_sock);
-    return srslte::ERROR_CANT_START;
-  }
-
-  ifr.ifr_netmask.sa_family                                 = AF_INET;
-  ((struct sockaddr_in *)&ifr.ifr_netmask)->sin_addr.s_addr = inet_addr("255.255.255.0");
-  if (ioctl(m_sgi_sock, SIOCSIFNETMASK, &ifr) < 0) {
-    m_spgw_log->error("Failed to set TUN interface Netmask. Error: %s\n", strerror(errno));
-    close(m_sgi_if);
-    close(m_sgi_sock);
-    return srslte::ERROR_CANT_START;
-  }
-
-  //Set initial time of setup
-  gettimeofday(&m_t_last_dl, NULL);
-
-  m_sgi_up = true;
-  return(srslte::ERROR_NONE);
-}
-
-srslte::error_t
-spgw::init_s1u(spgw_args_t *args)
-{
-  //Open S1-U socket
-  m_s1u = socket(AF_INET,SOCK_DGRAM,0);
-  if (m_s1u == -1) {
-    m_spgw_log->error("Failed to open socket: %s\n", strerror(errno));
-    return srslte::ERROR_CANT_START;
-  }
-  m_s1u_up = true;
-
-  //Bind the socket
-  m_s1u_addr.sin_family = AF_INET;
-  m_s1u_addr.sin_addr.s_addr=inet_addr(args->gtpu_bind_addr.c_str());
-  m_s1u_addr.sin_port=htons(GTPU_RX_PORT);
-
-  if (bind(m_s1u,(struct sockaddr *)&m_s1u_addr,sizeof(struct sockaddr_in))) {
-    m_spgw_log->error("Failed to bind socket: %s\n", strerror(errno));
-    return srslte::ERROR_CANT_START;
-  }
-  m_spgw_log->info("S1-U socket = %d\n", m_s1u);
-  m_spgw_log->info("S1-U IP = %s, Port = %d \n", inet_ntoa(m_s1u_addr.sin_addr),ntohs(m_s1u_addr.sin_port));
-
-  return srslte::ERROR_NONE;
-}
-
-srslte::error_t
-spgw::init_ue_ip(spgw_args_t *args)
-{
-  m_h_next_ue_ip = ntohl(inet_addr(args->sgi_if_addr.c_str()));
-  return srslte::ERROR_NONE;
-}
-
-void
-spgw::run_thread()
-{
-  //Mark the thread as running
-  m_running=true;
-  srslte::byte_buffer_t *msg;
-  msg = m_pool->allocate();
-
-  struct sockaddr src_addr;
-  socklen_t addrlen;
-  struct iphdr   *ip_pkt;
-  int sgi = m_sgi_if;
+  size_t buf_len = SRSLTE_MAX_BUFFER_SIZE_BYTES - SRSLTE_BUFFER_HEADER_OFFSET;
 
   fd_set set;
-  //struct timeval to;
-  int max_fd = std::max(m_s1u,sgi);
+  int    max_fd = std::max(s1u, sgi);
+  max_fd        = std::max(max_fd, s11);
   while (m_running) {
-    msg->reset();
-    FD_ZERO(&set);
-    FD_SET(m_s1u, &set);
-    FD_SET(sgi, &set);
 
-    //m_spgw_log->info("Waiting for S1-U or SGi packets.\n");
-    int n = select(max_fd+1, &set, NULL, NULL, NULL);
+    s1u_msg->reset();
+    s11_msg->reset();
+
+    FD_ZERO(&set);
+    FD_SET(s1u, &set);
+    FD_SET(sgi, &set);
+    FD_SET(s11, &set);
+
+    int n = select(max_fd + 1, &set, NULL, NULL, NULL);
     if (n == -1) {
       m_spgw_log->error("Error from select\n");
     } else if (n) {
-      if (FD_ISSET(m_s1u, &set)) {
-        msg->N_bytes = recvfrom(m_s1u, msg->msg, SRSLTE_MAX_BUFFER_SIZE_BYTES, 0, &src_addr, &addrlen );
-        handle_s1u_pdu(msg);
+      if (FD_ISSET(sgi, &set)) {
+        /*
+         * SGi messages may need to be queued when waiting for UE Paging procedure.
+         * For this reason, buffers for SGi pdus are allocated here and deallocated
+         * at the gtpu::send_s1u_pdu() when the PDU is sent, at handle_sgi_pdu() when the PDU is dropped or at
+         * gtpc::free_all_queued_packets, which is called when the Downlink Data Notification
+         * procedure fails (see handle_downlink_data_notification_acknowledgment and
+         * handle_downlink_data_notification_failure)
+         */
+        m_spgw_log->debug("Message received at SPGW: SGi Message\n");
+        sgi_msg      = m_pool->allocate("spgw::run_thread::sgi_msg");
+        sgi_msg->N_bytes = read(sgi, sgi_msg->msg, buf_len);
+        m_gtpu->handle_sgi_pdu(sgi_msg);
       }
-      if (FD_ISSET(m_sgi_if, &set)) {
-        msg->N_bytes = read(sgi, msg->msg, SRSLTE_MAX_BUFFER_SIZE_BYTES);
-        handle_sgi_pdu(msg);
+      if (FD_ISSET(s1u, &set)) {
+        m_spgw_log->debug("Message received at SPGW: S1-U Message\n");
+        s1u_msg->N_bytes = recvfrom(s1u, s1u_msg->msg, buf_len, 0, (struct sockaddr*)&src_addr_in, &addrlen);
+        m_gtpu->handle_s1u_pdu(s1u_msg);
+      }
+      if (FD_ISSET(s11, &set)) {
+        m_spgw_log->debug("Message received at SPGW: S11 Message\n");
+        s11_msg->N_bytes = recvfrom(s11, s11_msg->msg, buf_len, 0, (struct sockaddr*)&src_addr_un, &addrlen);
+        m_gtpc->handle_s11_pdu(s11_msg);
       }
     } else {
       m_spgw_log->debug("No data from select.\n");
     }
   }
-  m_pool->deallocate(msg);
+  m_pool->deallocate(s1u_msg);
+  m_pool->deallocate(s11_msg);
   return;
 }
 

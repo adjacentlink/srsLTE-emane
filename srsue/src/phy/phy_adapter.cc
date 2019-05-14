@@ -29,7 +29,6 @@
 #ifdef PHY_ADAPTER_ENABLE
 
 #include "srsue/hdr/phy/phy_adapter.h"
-#include "srslte/msg_format_utils.h"
 
 #include "libemanelte/enbotamessage.pb.h"
 #include "libemanelte/ueotamessage.pb.h"

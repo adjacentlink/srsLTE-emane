@@ -40,7 +40,6 @@ extern "C" {
 }
 
 #include "lib/include/srslte/phy/phch/pdsch_cfg.h"
-#include "srslte/msg_format_utils.h"
 #include "srsenb/hdr/phy/phy_adapter.h"
 
 #include "libemanelte/enbotamessage.pb.h"
