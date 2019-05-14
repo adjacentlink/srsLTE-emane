@@ -26,7 +26,7 @@
 
 #include "srslte/config.h"
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 
 #define Error(fmt, ...)   if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
 #define Warning(fmt, ...) if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)

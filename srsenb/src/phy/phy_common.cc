@@ -25,7 +25,7 @@
 #include "srslte/common/threads.h"
 #include <sstream>
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "srsenb/hdr/phy/phy_adapter.h"
 #endif
 
@@ -126,7 +126,7 @@ void phy_common::worker_end(uint32_t           tti,
   // Wait for the green light to transmit in the current TTI
   sem_wait(&tx_sem[tti%nof_workers]);
 
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
   radio->set_tti(tti);
   radio->tx(buffer, nof_samples, tx_time);
 #else

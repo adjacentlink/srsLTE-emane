@@ -26,7 +26,7 @@
 
 #include "srslte/config.h"
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 
 #include "srsue/hdr/phy/phy_adapter.h"
 

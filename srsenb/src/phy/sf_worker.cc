@@ -26,7 +26,7 @@
 
 #include "srsenb/hdr/phy/sf_worker.h"
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "srsenb/hdr/phy/phy_adapter.h"
 #endif
 
@@ -384,7 +384,7 @@ void sf_worker::work_imp()
   ZERO_OBJECT(ul_sf);
   ul_sf.tti = tti_rx;
 
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
   // Process UL signal
   srslte_enb_ul_fft(&enb_ul);
 #endif
@@ -429,7 +429,7 @@ void sf_worker::work_imp()
   dl_sf.non_mbsfn_region = mbsfn_cfg.non_mbsfn_region_length;
 
   // Put base signals (references, PBCH, PCFICH and PSS/SSS) into the resource grid
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
   srslte_enb_dl_put_base(&enb_dl, &dl_sf);
 #else
   phy_adapter::enb_dl_tx_init(&enb_dl, tti_tx_dl, dl_grants[t_tx_dl].cfi);
@@ -594,7 +594,7 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
 
       // Compute UL grant
       srslte_pusch_grant_t* grant = &ue_db[rnti]->ul_cfg.pusch.grant;
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
       if (srslte_ra_ul_dci_to_grant(&phy->cell, &ul_sf, &ue_db[rnti]->ul_cfg.hopping, &grants[i].dci, grant)) {
 #else
       if (phy_adapter::enb_ul_get_pusch(&enb_ul, &phy_grant,
@@ -678,7 +678,7 @@ int sf_worker::decode_pucch()
       // Check if user needs to receive PUCCH
       if (fill_uci_cfg(rnti, false, &ue_db[rnti]->ul_cfg.pucch.uci_cfg)) {
         // Decode PUCCH
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
         if (srslte_enb_ul_get_pucch(&enb_ul, &ul_sf, &ue_db[rnti]->ul_cfg.pucch, &pucch_res)) {
 #else
         if (phy_adapter::enb_ul_get_pucch(&enb_ul, rnti, &pucch_res.uci_data)) {
@@ -714,7 +714,7 @@ int sf_worker::encode_phich(mac_interface_phy::ul_sched_ack_t* acks, uint32_t no
 {
   for (uint32_t i = 0; i < nof_acks; i++) {
     if (acks[i].rnti && ue_db.count(acks[i].rnti)) {
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
      srslte_enb_dl_put_phich(&enb_dl, &ue_db[acks[i].rnti]->phich_grant, acks[i].ack);
 #else
      phy_adapter::enb_dl_put_phich(&enb_dl,
@@ -737,7 +737,7 @@ int sf_worker::encode_pdcch_ul(mac_interface_phy::ul_sched_grant_t* grants, uint
 {
   for (uint32_t i = 0; i < nof_grants; i++) {
     if (grants[i].needs_pdcch) {
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
       if (srslte_enb_dl_put_pdcch_ul(&enb_dl, &grants[i].dci_cfg, &grants[i].dci)) {
 #else
       if (phy_adapter::enb_dl_put_pdcch_ul(&grants[i], &enb_dl)) {
@@ -760,7 +760,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
   for (uint32_t i = 0; i < nof_grants; i++) {
     uint16_t rnti = grants[i].dci.rnti;
     if (rnti) {
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
       if (srslte_enb_dl_put_pdcch_dl(&enb_dl, &grants[i].dci_cfg, &grants[i].dci)) {
 #else
       if (phy_adapter::enb_dl_put_pdcch_dl(&grants[i], &enb_dl, phy_adapter::DL_DCIREF_ID_BEGIN)) {
@@ -791,7 +791,7 @@ int sf_worker::encode_pmch(mac_interface_phy::dl_sched_grant_t* grant, srslte_mb
   pmch_cfg.pdsch_cfg.softbuffers.tx[0] = &temp_mbsfn_softbuffer;
 
   // Encode PMCH
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
   if (srslte_enb_dl_put_pmch(&enb_dl, &pmch_cfg, grant->data[0])) {
 #else
   if (phy_adapter::enb_dl_put_pmch(grant, phy_grant)) {

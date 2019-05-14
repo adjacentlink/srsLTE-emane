@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <unistd.h>
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
@@ -441,7 +441,7 @@ void sync::run_thread()
           }
 
           // Primary Cell (PCell) Synchronization
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
           switch (srslte_ue_sync_zerocopy(&ue_sync, buffer[0])) {
 #else
           switch (phy_adapter::ue_dl_sync_search(&ue_sync, tti)) {
@@ -1033,7 +1033,7 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
     ret = srslte_ue_cellsearch_scan_N_id_2(&cs, force_N_id_2, &found_cells[force_N_id_2]);
     max_peak_cell = force_N_id_2;
   } else {
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
     ret = srslte_ue_cellsearch_scan(&cs, found_cells, &max_peak_cell);
 #else
     ret = phy_adapter::ue_dl_cell_search(&cs, found_cells, force_N_id_2, &max_peak_cell);
@@ -1072,7 +1072,7 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
 
   /* Find and decode MIB */
   int sfn_offset;
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   ret = phy_adapter::ue_dl_mib_search(&cs, &ue_mib_sync, cell);
 
   if (ret == 1) {
@@ -1165,7 +1165,7 @@ void sync::sfn_sync::reset()
 
 sync::sfn_sync::ret_code sync::sfn_sync::run_subframe(srslte_cell_t* cell, uint32_t* tti_cnt, bool sfidx_only)
 {
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
   int ret = srslte_ue_sync_zerocopy(ue_sync, buffer);
   if (ret < 0) {
     Error("SYNC:  Error calling ue_sync_get_buffer.\n");

@@ -25,7 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
@@ -171,7 +171,7 @@ void sf_worker::set_crnti(uint16_t rnti)
   for (uint32_t cc_idx = 0; cc_idx < cc_workers.size(); cc_idx++) {
     cc_workers[cc_idx]->set_crnti(rnti);
   }
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   phy_adapter::ue_set_crnti(rnti_value);
 #endif
 }
@@ -242,7 +242,7 @@ void sf_worker::work_imp()
   }
 
   /***** Uplink Generation + Transmission *******/
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   phy_adapter::ue_ul_tx_init();
 #endif
 
@@ -328,7 +328,7 @@ void sf_worker::update_measurements()
   if (get_id() == 0) {
 
     // Average RSSI over all symbols in antenna port 0 (make sure SF length is non-zero)
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE_PENDING
     float rssi_dbm =
         SRSLTE_SF_LEN_PRB(cell.nof_prb) > 0
             ? (10 * log10(srslte_vec_avg_power_cf(cc_workers[0]->get_rx_buffer(0), SRSLTE_SF_LEN_PRB(cell.nof_prb))) +

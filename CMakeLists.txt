@@ -85,7 +85,7 @@ option(USE_GLIBC_IPV6  "Use glibc's own ipv6.h"                   ON)
 
 set(GCC_ARCH native CACHE STRING "GCC compile for specific architecture.")
 
-option(ENABLE_PHY_ADAPTER "Enable PHY Adapter for use with emane" OFF)
+option(ENABLE_PHY_ADAPTER "Enable PHY Adapter for use with emane" ON)
 
 ########################################################################
 # Find dependencies

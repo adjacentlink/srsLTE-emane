@@ -26,9 +26,6 @@
 #include "srslte/upper/gtpu.h"
 #include <inttypes.h> // for printing uint64_t
 
-#ifdef PHY_ADAPTER_ENABLE
-#include "libemanelte/epcstatisticmanager.h"
-#endif
 namespace srsepc {
 
 spgw*           spgw::m_instance    = NULL;

@@ -65,7 +65,7 @@ struct in6_ifreq {
 };
 #endif
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "libemanelte/uestatisticmanager.h"
 #endif
 
@@ -177,7 +177,7 @@ void gw::write_pdu(uint32_t lcid, srslte::byte_buffer_t *pdu)
     struct iphdr*   ip_pkt  = (struct iphdr*)pdu->msg;
     struct ipv6hdr* ip6_pkt = (struct ipv6hdr*)pdu->msg;
     if (ip_pkt->version == 4 || ip_pkt->version == 6) {
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
       if(ip_pkt->version == 4)
         UESTATS::updateDownlinkTraffic(iph->saddr, iph->daddr, pdu->N_bytes);
 #endif
@@ -208,7 +208,7 @@ void gw::write_pdu_mch(uint32_t lcid, srslte::byte_buffer_t *pdu)
     if (!if_up) {
       gw_log->warning("TUN/TAP not up - dropping gw RX message\n");
     } else {
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
       struct iphdr *iph = (struct iphdr *) pdu->msg;
       if(iph->version == 4)
         UESTATS::updateDownlinkTraffic(iph->saddr, iph->daddr, pdu->N_bytes);
@@ -329,7 +329,7 @@ void gw::run_thread()
             pdu->set_timestamp();
             ul_tput_bytes += pdu->N_bytes;
             pdcp->write_sdu(cfg.lcid, pdu, false);
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
             UESTATS::updateUplinkTraffic(ip_pkt->saddr, ip_pkt->daddr, pdu->N_bytes);
 #endif
             do {
@@ -450,7 +450,7 @@ srslte::error_t gw::setup_if_addr4(uint32_t ip_addr, char *err_str)
       return (srslte::ERROR_CANT_START);
     }
     current_ip_addr = ip_addr;
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
     UESTATS::setIpAddress(htonl(ip_addr), inet_addr(mask));
 #endif
   }

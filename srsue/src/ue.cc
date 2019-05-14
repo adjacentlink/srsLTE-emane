@@ -28,7 +28,7 @@
 #include <iterator>
 #include <sstream>
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "srsue/hdr/phy/phy_adapter.h"
 #include "libemanelte/uestatisticmanager.h"
 #endif
@@ -273,7 +273,7 @@ bool ue::init(all_args_t *args_) {
     phy.force_freq(args->rf.dl_freq, args->rf.ul_freq);
   }
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   UESTATS::initialize(args->expert.metrics_period_secs);
   phy_adapter::ue_initialize(phy_log[0], 1, args->mhal);
   phy_adapter::ue_start();
@@ -329,7 +329,7 @@ void ue::stop()
        nas_pcap.close();
     }
     started = false;
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
     phy_adapter::ue_stop();
 #endif
   }
@@ -390,7 +390,7 @@ bool ue::get_metrics(ue_metrics_t &m)
       rlc.get_metrics(m.rlc);
       gw.get_metrics(m.gw);
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
      UESTATS::RLCQueueMetricsList rlcQueueMetrics;
      UESTATS::RLCQueueMetricsList rlcMrbQueueMetrics;
 
@@ -447,7 +447,7 @@ bool ue::get_metrics(ue_metrics_t &m)
   phy.get_metrics(m.phy);
   mac.get_metrics(m.mac);
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   UESTATS::setRRCState(rrc_state_text[rrc.get_state()]);
   UESTATS::setEMMState(emm_state_text[nas.get_state()]);
 

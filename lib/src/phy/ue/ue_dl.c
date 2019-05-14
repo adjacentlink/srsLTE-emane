@@ -76,7 +76,7 @@ int srslte_ue_dl_init(srslte_ue_dl_t* q, cf_t* in_buffer[SRSLTE_MAX_PORTS], uint
     q->mi_manual_index      = 0;
     q->pregen_rnti          = 0;
 
-#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY 
+#ifndef PHY_ADAPTER_ENABLE_PENDING // XXX_MEMORY 
     for (int j = 0; j < SRSLTE_MAX_PORTS; j++) {
       q->sf_symbols[j] = srslte_vec_malloc(MAX_SFLEN_RE * sizeof(cf_t));
       if (!q->sf_symbols[j]) {
@@ -85,7 +85,6 @@ int srslte_ue_dl_init(srslte_ue_dl_t* q, cf_t* in_buffer[SRSLTE_MAX_PORTS], uint
       }
     }
 #endif
-
     for (int i = 0; i < nof_rx_antennas; i++) {
       if (srslte_ofdm_rx_init(&q->fft[i], SRSLTE_CP_NORM, in_buffer[i], q->sf_symbols[i], max_prb)) {
         ERROR("Error initiating FFT\n");

@@ -52,7 +52,7 @@
 #include "srslte/interfaces/sched_interface.h"
 #include "srslte/interfaces/enb_metrics_interface.h"
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "libemanelte/mhalenb.h"
 #endif
 
@@ -149,7 +149,7 @@ typedef struct {
   gui_args_t    gui;
   expert_args_t expert;
   runtime_args_t runtime;
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   EMANELTE::MHAL::mhal_config_t mhal;
 #endif
 }all_args_t;

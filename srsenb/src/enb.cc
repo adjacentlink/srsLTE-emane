@@ -25,7 +25,7 @@
 #include <iostream>
 #include <sstream>
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
 #include "srsenb/hdr/phy/phy_adapter.h"
 #include "libemanelte/enbstatisticmanager.h"
 #endif
@@ -297,7 +297,7 @@ bool enb::init(all_args_t *args_)
 
   radio.register_error_handler(rf_msg);
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   ENBSTATS::initialize(args->expert.metrics_period_secs);
   phy_adapter::enb_initialize(phy_log[0], 1, phy_cfg.cell.id, phy_cfg.cell.cp, args->rf.ul_freq, args->rf.dl_freq, cell_cfg.nof_prb, args->mhal, &rrc_cfg);
 #endif
@@ -341,7 +341,7 @@ void enb::stop()
     }
     radio.stop();
     started = false;
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
     phy_adapter::enb_stop();
 #endif
   }
@@ -367,7 +367,7 @@ bool enb::get_metrics(enb_metrics_t &m)
   s1ap.get_metrics(m.s1ap);
   rlc.get_metrics(m.rlc);
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   ENBSTATS::setS1State(m.s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
                        m.s1ap.status == S1AP_READY     ? "READY"     : "ERROR");
 
