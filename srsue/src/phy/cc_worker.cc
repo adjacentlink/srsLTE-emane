@@ -341,7 +341,11 @@ bool cc_worker::work_dl_regular()
 
     // Send grant to MAC and get action for this TB, then call tb_decoded to unlock MAC
     phy->mac->new_grant_dl(cc_idx, mac_grant, &dl_action);
+#ifndef PHY_ADAPTER_ENABLE
     decode_pdsch(ack_resource, &dl_action, dl_ack);
+#else
+    phy_adapter::ue_dl_decode_pdsch(&dl_action, dl_ack);
+#endif
     phy->mac->tb_decoded(cc_idx, mac_grant, dl_ack);
   }
 
@@ -430,7 +434,11 @@ int cc_worker::decode_pdcch_dl()
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
       Debug("PDCCH looking for rnti=0x%x\n", dl_rnti);
+#ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
+#else
+      nof_grants = phy_adapter::ue_dl_find_dl_dci(&ue_dl, dl_rnti, &dci_msg);
+#endif
       if (nof_grants < 0) {
         Error("Looking for DL grants\n");
         return -1;
@@ -528,7 +536,11 @@ int cc_worker::decode_pmch(mac_interface_phy::tb_action_dl_t* action, srslte_mbs
 
     srslte_softbuffer_rx_reset_tbs(pmch_cfg.pdsch_cfg.softbuffers.rx[0], pmch_cfg.pdsch_cfg.grant.tb[0].tbs);
 
+#ifndef PHY_ADAPTER_ENABLE
     if (srslte_ue_dl_decode_pmch(&ue_dl, &sf_cfg_dl, &pmch_cfg, &pmch_dec)) {
+#else
+    if (phy_adapter::ue_dl_decode_pmch(&ue_dl, mbsfn_area_id, payload)) {
+#endif
       Error("Decoding PMCH\n");
       return -1;
     }
@@ -565,7 +577,11 @@ void cc_worker::decode_phich()
   for (uint32_t I_phich = 0; I_phich < 2; I_phich++) {
     phich_grant.I_phich = I_phich;
     if (phy->get_ul_pending_ack(&sf_cfg_dl, cc_idx, &phich_grant, &dci_ul)) {
+#ifndef PHY_ADAPTER_ENABLE
       if (srslte_ue_dl_decode_phich(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, &phich_grant, &phich_res)) {
+#else
+      if (phy_adapter::ue_dl_decode_phich(&ue_dl, tti%10, phy->get_dl_rnti(tti), I_lowest, n_dmrs)) {
+#endif
         Error("Decoding PHICH\n");
       }
       phy->set_ul_received_ack(&sf_cfg_dl, cc_idx, phich_res.ack_value, I_phich, &dci_ul);
@@ -581,6 +597,7 @@ void cc_worker::decode_phich()
 
 void cc_worker::update_measurements()
 {
+#ifndef PHY_ADAPTER_ENABLE
   float snr_ema_coeff = phy->args->snr_ema_coeff;
 
   // In TDD, ignore special subframes without PDSCH
@@ -653,7 +670,15 @@ void cc_worker::update_measurements()
   dl_metrics.pathloss = phy->pathloss[cc_idx];
   dl_metrics.sinr     = phy->avg_snr_db_cqi[cc_idx];
   dl_metrics.sync_err = ue_dl.chest_res.sync_error;
-
+#else
+  // XXX TODO "good" values taken from sockrf run
+  dl_metrics.n        = phy->avg_noise[cc_idx]      =  0.001;
+  dl_metrics.rsrp     = phy->avg_rsrp_dbm[cc_idx]   = -50.0;
+  dl_metrics.rsrq     = phy->avg_rsrq_db            =  -5.0;
+  dl_metrics.rssi     = phy->avg_rssi_dbm           =  10.0;
+  dl_metrics.pathloss = phy->pathloss[cc_idx]       =  50.0;
+  dl_metrics.sinr     = phy->avg_snr_db_cqi[cc_idx] = 10*log10(10/phy->avg_noise[cc_idx]);
+#endif
   phy->set_dl_metrics(dl_metrics, cc_idx);
   phy->set_ul_metrics(ul_metrics, cc_idx);
 }
@@ -784,7 +809,11 @@ int cc_worker::decode_pdcch_ul()
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
+#ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
+#else
+      nof_grants = phy_adapter::ue_dl_find_ul_dci(&ue_dl, ul_rnti, &dci_msg);
+#endif
       if (nof_grants < 0) {
         Error("Looking for UL grants\n");
         return -1;
@@ -841,7 +870,12 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   ue_ul_cfg.ul_cfg.pucch.rnti = phy->mac->get_ul_sched_rnti(CURRENT_TTI_TX);
 
   // Encode signal
+#ifndef PHY_ADAPTER_ENABLE
   int ret = srslte_ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
+#else
+  int ret = phy_adapter::ue_ul_put_pusch(rnti, grant, &uci_data, payload);
+            phy_adapter::ue_ul_put_pucch(&ue_ul, &uci_data, last_dl_pdcch_ncce); // XXX
+#endif
   if (ret < 0) {
     Error("Encoding UL cc=%d\n", cc_idx);
   }

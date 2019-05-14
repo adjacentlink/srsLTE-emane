@@ -25,6 +25,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "srsue/hdr/phy/phy_adapter.h"
+#endif
+
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -167,6 +171,9 @@ void sf_worker::set_crnti(uint16_t rnti)
   for (uint32_t cc_idx = 0; cc_idx < cc_workers.size(); cc_idx++) {
     cc_workers[cc_idx]->set_crnti(rnti);
   }
+#ifdef PHY_ADAPTER_ENABLE
+  phy_adapter::ue_set_crnti(rnti_value);
+#endif
 }
 
 void sf_worker::set_tdd_config(srslte_tdd_config_t config)
@@ -235,6 +242,9 @@ void sf_worker::work_imp()
   }
 
   /***** Uplink Generation + Transmission *******/
+#ifdef PHY_ADAPTER_ENABLE
+  phy_adapter::ue_ul_tx_init();
+#endif
 
   bool  tx_signal_ready                                    = false;
   cf_t* tx_signal_ptr[SRSLTE_MAX_RADIOS][SRSLTE_MAX_PORTS] = {};
@@ -318,11 +328,15 @@ void sf_worker::update_measurements()
   if (get_id() == 0) {
 
     // Average RSSI over all symbols in antenna port 0 (make sure SF length is non-zero)
+#ifndef PHY_ADAPTER_ENABLE
     float rssi_dbm =
         SRSLTE_SF_LEN_PRB(cell.nof_prb) > 0
             ? (10 * log10(srslte_vec_avg_power_cf(cc_workers[0]->get_rx_buffer(0), SRSLTE_SF_LEN_PRB(cell.nof_prb))) +
                30)
             : 0;
+#else
+    float rssi_dbm = phy_adapter::ue_dl_decode_signal(&ue_dl.chest, cell.id, cfi, tti);
+#endif
     if (std::isnormal(rssi_dbm)) {
       phy->avg_rssi_dbm = SRSLTE_VEC_EMA(rssi_dbm, phy->avg_rssi_dbm, phy->args->snr_ema_coeff);
     }

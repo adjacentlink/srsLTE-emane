@@ -32,6 +32,10 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "libemanelte/epcstatisticmanager.h"
+#endif
+
 namespace srsepc {
 
 /**************************************
@@ -250,10 +254,16 @@ void spgw::gtpu::handle_sgi_pdu(srslte::byte_buffer_t* msg)
     goto pkt_discard_out;
   } else {
     send_s1u_pdu(enb_fteid, msg);
+#ifdef PHY_ADAPTER_ENABLE
+    EPCSTATS::updateDownlinkTraffic(iph->saddr, iph->daddr, msg->N_bytes);
+#endif
   }
   return;
 
 pkt_discard_out:
+#ifdef PHY_ADAPTER_ENABLE
+  EPCSTATS::updateDstNotFound(iph->saddr, iph->daddr, msg->N_bytes);
+#endif
   m_pool->deallocate(msg);
   return;
 }
@@ -270,6 +280,10 @@ void spgw::gtpu::handle_s1u_pdu(srslte::byte_buffer_t* msg)
     m_gtpu_log->error("Could not write to TUN interface.\n");
   } else {
     m_gtpu_log->debug("Forwarded packet to TUN interface. Bytes= %d/%d\n", n, msg->N_bytes);
+#ifdef PHY_ADAPTER_ENABLE
+    struct iphdr *iph = (struct iphdr *) msg->msg;
+    EPCSTATS::updateUplinkTraffic(iph->saddr, iph->daddr, msg->N_bytes);
+#endif
   }
   return;
 }

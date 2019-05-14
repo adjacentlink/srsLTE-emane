@@ -31,6 +31,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "libemanelte/epcstatisticmanager.h"
+#endif
+
 namespace srsepc {
 
 /**********************************************
@@ -298,6 +302,14 @@ void spgw::gtpc::handle_modify_bearer_request(const struct srslte::gtpc_header& 
 
   // Send Modify Bearer Response PDU
   send_s11_pdu(mb_resp_pdu);
+
+#ifdef PHY_ADAPTER_ENABLE
+  EPCSTATS::addBearer(tunnel_ctx->ue_ipv4, 
+                      tunnel_ctx->dw_user_fteid.teid, 
+                      tunnel_ctx->dw_user_fteid.ipv4,
+                      tunnel_ctx->imsi,
+                      tunnel_ctx->ebi);
+#endif
   return;
 }
 
@@ -314,6 +326,9 @@ void spgw::gtpc::handle_delete_session_request(const srslte::gtpc_header&       
   in_addr_t          ue_ipv4    = tunnel_ctx->ue_ipv4;
   m_gtpu->delete_gtpu_tunnel(ue_ipv4);
   delete_gtpc_ctx(ctrl_teid);
+#ifdef PHY_ADAPTER_ENABLE
+  EPCSTATS::delBearer(ue_ipv4);
+#endif
   return;
 }
 
@@ -332,6 +347,9 @@ void spgw::gtpc::handle_release_access_bearers_request(const srslte::gtpc_header
 
   // Delete data tunnel & do NOT delete control tunnel
   m_gtpu->delete_gtpu_tunnel(ue_ipv4);
+#ifdef PHY_ADAPTER_ENABLE
+  EPCSTATS::delBearer(ue_ipv4);
+#endif
   return;
 }
 
