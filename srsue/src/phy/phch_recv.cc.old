@@ -34,7 +34,6 @@
 #ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
-#include "srslte/msg_format_utils.h"
 
 #define Error(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h->error(fmt, ##__VA_ARGS__)
 #define Warning(fmt, ...) if (SRSLTE_DEBUG_ENABLED) log_h->warning(fmt, ##__VA_ARGS__)
@@ -427,7 +426,7 @@ void phch_recv::run_thread()
             buffer[i] = worker->get_buffer(i);
           }
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_MERGED
           switch(phy_adapter::ue_dl_sync_search(&ue_sync, tti)) {
 #else
           switch(srslte_ue_sync_zerocopy_multi(&ue_sync, buffer)) {
@@ -789,7 +788,7 @@ bool phch_recv::set_frequency()
     radio_h->set_rx_freq(set_dl_freq);
     radio_h->set_tx_freq(set_ul_freq);
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_MERGED
     phy_adapter::ue_set_frequencies(set_ul_freq, set_dl_freq, current_earfcn);
 #endif
     ul_dl_factor = radio_h->get_tx_freq()/radio_h->get_rx_freq();
@@ -847,7 +846,7 @@ void phch_recv::get_current_cell(srslte_cell_t *cell_, uint32_t *earfcn) {
 
 int phch_recv::radio_recv_fnc(cf_t *data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte_timestamp_t *rx_time)
 {
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_MERGED
   return nsamples;
 #else
   if (radio_h->rx_now(data, nsamples, rx_time)) {
@@ -967,7 +966,7 @@ phch_recv::search::ret_code phch_recv::search::run(srslte_cell_t *cell)
   Info("SYNC:  Searching for cell...\n");
   printf("."); fflush(stdout);
 
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_MERGED
   ret = phy_adapter::ue_dl_cell_search(&cs, found_cells, force_N_id_2, &max_peak_cell);
 #else
   if (force_N_id_2 >= 0 && force_N_id_2 < 3) {
@@ -1006,7 +1005,7 @@ phch_recv::search::ret_code phch_recv::search::run(srslte_cell_t *cell)
 
   /* Find and decode MIB */
   int sfn_offset = 0;
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_MERGED
   ret = phy_adapter::ue_dl_mib_search(&cs, &ue_mib_sync, cell);
 
   if (ret == 1) {
@@ -1087,7 +1086,7 @@ void phch_recv::sfn_sync::reset()
 
 phch_recv::sfn_sync::ret_code phch_recv::sfn_sync::run_subframe(srslte_cell_t *cell, uint32_t *tti_cnt, bool sfidx_only)
 {
-#ifdef PHY_ADAPTER_ENABLE
+#ifdef PHY_ADAPTER_ENABLE_MERGED
   int ret = phy_adapter::ue_dl_system_frame_search(ue_sync, tti_cnt);
   if(ret == 1) {
      Info("SYNC:  DONE, TTI=%d\n", *tti_cnt);

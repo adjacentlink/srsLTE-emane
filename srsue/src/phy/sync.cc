@@ -26,6 +26,10 @@
 #include <algorithm>
 #include <unistd.h>
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "srsue/hdr/phy/phy_adapter.h"
+#endif
+
 #define Error(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h->error(fmt, ##__VA_ARGS__)
 #define Warning(fmt, ...) if (SRSLTE_DEBUG_ENABLED) log_h->warning(fmt, ##__VA_ARGS__)
 #define Info(fmt, ...)    if (SRSLTE_DEBUG_ENABLED) log_h->info(fmt, ##__VA_ARGS__)
@@ -437,7 +441,11 @@ void sync::run_thread()
           }
 
           // Primary Cell (PCell) Synchronization
+#ifndef PHY_ADAPTER_ENABLE
           switch (srslte_ue_sync_zerocopy(&ue_sync, buffer[0])) {
+#else
+          switch (phy_adapter::ue_dl_sync_search(&ue_sync, tti)) {
+#endif
             case 1:
 
               // Check tti is synched with ue_sync
@@ -1025,7 +1033,11 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
     ret = srslte_ue_cellsearch_scan_N_id_2(&cs, force_N_id_2, &found_cells[force_N_id_2]);
     max_peak_cell = force_N_id_2;
   } else {
+#ifndef PHY_ADAPTER_ENABLE
     ret = srslte_ue_cellsearch_scan(&cs, found_cells, &max_peak_cell);
+#else
+    ret = phy_adapter::ue_dl_cell_search(&cs, found_cells, force_N_id_2, &max_peak_cell);
+#endif
   }
 
   if (ret < 0) {
@@ -1060,12 +1072,18 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
 
   /* Find and decode MIB */
   int sfn_offset;
+#ifdef PHY_ADAPTER_ENABLE
+  ret = phy_adapter::ue_dl_mib_search(&cs, &ue_mib_sync, cell);
+
+  if (ret == 1) {
+    phy_adapter::ue_set_bandwidth(cell->nof_prb);
+#else
   ret = srslte_ue_mib_sync_decode(&ue_mib_sync,
                                   40,
                                   bch_payload, &cell->nof_ports, &sfn_offset);
   if (ret == 1) {
     srslte_pbch_mib_unpack(bch_payload, cell, NULL);
-
+#endif
     fprintf(stdout,
             "Found Cell:  Mode=%s, PCI=%d, PRB=%d, Ports=%d, CFO=%.1f KHz\n",
             cell->frame_type ? "TDD" : "FDD",
@@ -1147,7 +1165,7 @@ void sync::sfn_sync::reset()
 
 sync::sfn_sync::ret_code sync::sfn_sync::run_subframe(srslte_cell_t* cell, uint32_t* tti_cnt, bool sfidx_only)
 {
-
+#ifndef PHY_ADAPTER_ENABLE
   int ret = srslte_ue_sync_zerocopy(ue_sync, buffer);
   if (ret < 0) {
     Error("SYNC:  Error calling ue_sync_get_buffer.\n");
@@ -1162,6 +1180,13 @@ sync::sfn_sync::ret_code sync::sfn_sync::run_subframe(srslte_cell_t* cell, uint3
   } else {
     Info("SYNC:  Waiting for PSS while trying to decode MIB (%d/%d)\n", cnt, timeout);
   }
+#else
+  int ret = phy_adapter::ue_dl_system_frame_search(ue_sync, tti_cnt);
+  if(ret == 1) {
+     Info("SYNC:  DONE, TTI=%d\n", *tti_cnt);
+     return SFN_FOUND;
+  } 
+#endif
 
   cnt++;
   if (cnt >= timeout) {
