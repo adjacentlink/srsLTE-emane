@@ -27,7 +27,7 @@
 #include "srsenb/hdr/phy/sf_worker.h"
 #include "srsenb/hdr/phy/txrx.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
 #endif
 
@@ -114,7 +114,7 @@ void txrx::run_thread()
   log_h->console("\n==== eNodeB started ===\n");
   log_h->console("Type <t> to view trace\n");
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   phy_adapter::enb_start();
 #endif                    
 
@@ -127,7 +127,7 @@ void txrx::run_thread()
         buffer[p] = worker->get_buffer_rx(p);
       }
       
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
       phy_adapter::enb_ul_get_signal(tti, &rx_time);
 #else
       radio_h->rx_now(buffer, sf_len, &rx_time);

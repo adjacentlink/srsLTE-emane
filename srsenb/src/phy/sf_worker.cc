@@ -26,7 +26,7 @@
 
 #include "srsenb/hdr/phy/sf_worker.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
 #endif
 
@@ -429,9 +429,11 @@ void sf_worker::work_imp()
   dl_sf.non_mbsfn_region = mbsfn_cfg.non_mbsfn_region_length;
 
   // Put base signals (references, PBCH, PCFICH and PSS/SSS) into the resource grid
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
   srslte_enb_dl_put_base(&enb_dl, &dl_sf);
 #else
+  srslte_enb_dl_put_base(&enb_dl, &dl_sf); // XXX TODO REMOVE
+
   phy_adapter::enb_dl_tx_init(&enb_dl, tti_tx_dl, dl_grants[t_tx_dl].cfi);
 #endif
 

@@ -154,7 +154,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
 
     ("runtime.daemonize", bpo::value<bool>(&args->runtime.daemonize)->default_value(false), "Run this process as a daemon")
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
     /* EMANE MHAL section */
     ("mhal.emane_configfile",
       bpo::value<string>(&args->mhal.emane_configfile)->default_value("emanelte.xml"),

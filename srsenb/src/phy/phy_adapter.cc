@@ -26,7 +26,7 @@
 
 #include "srslte/config.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 
 #define Error(fmt, ...)   if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
 #define Warning(fmt, ...) if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
@@ -76,7 +76,7 @@ namespace {
 
   // scaling between reference signal res and pdsch res in symbols without reference signals, by tti and rnti
   typedef std::map<uint16_t, float> rho_a_db_map_t; // map of rnti to rho_a
-  rho_a_db_map_t rho_a_db_map[10];                     // vector of rho_a maps by subframe number
+  rho_a_db_map_t rho_a_db_map[10];                  // vector of rho_a maps by subframe number
 
   // cyclic prefix normal or extended for this cell
   srslte_cp_t cell_cp = SRSLTE_CP_NORM;
@@ -187,7 +187,7 @@ static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
     }
 }
 
-
+#if 0
 // set pdcch and pdsch dl
 static void enb_dl_put_dl_grant_i(const srslte_enb_dl_pdsch_t * grant,
                                   const srslte_dci_msg_t * dci,
@@ -328,18 +328,28 @@ static void enb_dl_put_dl_grant_i(const srslte_enb_dl_pdsch_t * grant,
            dci_msg_t_to_string(dci).c_str(),
            ra_dl_grant_t_to_string(phy_grant).c_str());
 }
+#endif
 
 
-void enb_initialize(srslte::log * log_h, uint32_t sf_interval_msec, uint32_t physical_cell_id, srslte_cp_t cp, float ul_freq, float dl_freq, int n_prb,  EMANELTE::MHAL::mhal_config_t & mhal_config, rrc_cfg_t * rrc_cfg)
+void enb_initialize(srslte::log * log_h, 
+                    uint32_t sf_interval_msec, 
+                    uint32_t physical_cell_id, 
+                    srslte_cp_t cp,
+                    float ul_freq,
+                    float dl_freq, 
+                    int n_prb, 
+                    EMANELTE::MHAL::mhal_config_t & mhal_config,
+                    rrc_cfg_t * rrc_cfg)
 {
   log_h_ = log_h;
 
   pdsch_rs_power_milliwatt = pow(10.0, static_cast<float>(rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr) / 10.0);
+
   uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
 
   if(p_b < 4)
     {
-      pdsch_rho_b_over_rho_a = pdsch_cfg_cell_specific_ratio_table[0][p_b];
+      // pdsch_rho_b_over_rho_a = pdsch_cfg_cell_specific_ratio_table[0][p_b]; // FIXME
     }
 
   cell_cp = cp;
@@ -435,7 +445,6 @@ void enb_stop()
 
   pthread_mutex_destroy(&ul_mutex_);
 }
-
 
 
 void enb_dl_tx_init(const srslte_enb_dl_t *enb_dl,
@@ -638,12 +647,13 @@ void enb_dl_tx_end()
 }
 
 
+#if 0
 // set the power scaling on a per rnti basis
-void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db,  float rho_b_db)
+void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, float rho_b_db)
 {
   const uint32_t sf_idx = (tti % 10);
 
-  rho_a_db_map[sf_idx].insert(std::make_pair<uint16_t, float>(rnti, rho_a_db));
+  rho_a_db_map[sf_idx].emplace(rnti, rho_a_db);
 
   Debug("PHY_ADPT:enb_dl_set_power_allocation "
         "sf_idx %d, "
@@ -653,8 +663,10 @@ void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db,  f
         rnti,
         rho_a_db);
 }
+#endif
 
 
+#if 0
 // handles pdcch and pdsch dl
 int enb_dl_put_pdcch_dl(srslte_enb_dl_pdsch_t * grant,
                         const srslte_enb_dl_t * enb_dl,
@@ -720,8 +732,10 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_pdsch_t * grant,
 
   return SRSLTE_SUCCESS;
 }
+#endif
 
 
+#if 0
 void enb_dl_put_pmch(const srslte_enb_dl_pdsch_t *grant, const srslte_ra_dl_grant_t *phy_grant)
 {
    if(grant->rnti == 0)
@@ -772,8 +786,10 @@ void enb_dl_put_pmch(const srslte_enb_dl_pdsch_t *grant, const srslte_ra_dl_gran
         len,
         ra_dl_grant_t_to_string(phy_grant).c_str());
 }
+#endif
 
 
+#if 0
 // handles pdcch ul
 int enb_dl_put_pdcch_ul(srslte_enb_ul_pusch_t * ul_pusch,
                         const srslte_enb_dl_t * enb_dl)
@@ -858,8 +874,10 @@ int enb_dl_put_pdcch_ul(srslte_enb_ul_pusch_t * ul_pusch,
 
   return SRSLTE_SUCCESS;
 }
+#endif
 
 
+#if 0
 void enb_dl_put_phich(const srslte_enb_dl_t *enb_dl,
                       const srslte_enb_dl_phich_t * ack,
                       uint32_t n_prb_L,
@@ -914,8 +932,7 @@ void enb_dl_put_phich(const srslte_enb_dl_t *enb_dl,
 
    Info("PHY_ADPT:enb_dl_put_phich msg:\n%s\n", GetDebugString(phich->DebugString()).c_str());
 }
-
-
+#endif
 
 
 bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
@@ -984,6 +1001,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 }
 
 
+#if 0
 int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_t max_entries, uint32_t & num_entries)
 {
   int result = SRSLTE_SUCCESS;
@@ -1052,8 +1070,10 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   return result;
 }
+#endif
 
 
+#if 0
 int enb_ul_get_pucch(srslte_enb_ul_t * q,
                      uint16_t rnti, 
                      srslte_uci_data_t *uci_data)
@@ -1118,8 +1138,10 @@ int enb_ul_get_pucch(srslte_enb_ul_t * q,
 
   return SRSLTE_SUCCESS;
 }
+#endif
 
 
+#if 0
 int enb_ul_get_pusch(srslte_enb_ul_t * q,
                      srslte_ra_ul_grant_t *ra_ul_grant,
                      uint16_t rnti, 
@@ -1239,6 +1261,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t * q,
 
   return SRSLTE_ERROR;
 }
+#endif
 
 } // end namespace phy_adapter
 } // end namespace srsenb
