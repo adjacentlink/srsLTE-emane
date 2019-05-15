@@ -347,10 +347,14 @@ void enb_initialize(srslte::log * log_h,
 
   uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
 
+#ifdef PHY_ADAPTER_ENABLE_PENDING
   if(p_b < 4)
     {
-      // pdsch_rho_b_over_rho_a = pdsch_cfg_cell_specific_ratio_table[0][p_b]; // FIXME
+      // this table no longer resides in lib/include/srslte/phy/phch/pdsch_cfg.h
+      // new location unknown
+      pdsch_rho_b_over_rho_a = pdsch_cfg_cell_specific_ratio_table[0][p_b];
     }
+#endif
 
   cell_cp = cp;
 
