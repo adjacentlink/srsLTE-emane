@@ -28,7 +28,7 @@
 #include <iterator>
 #include <sstream>
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #include "libemanelte/uestatisticmanager.h"
 #endif

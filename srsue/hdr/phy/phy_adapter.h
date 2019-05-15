@@ -39,6 +39,7 @@
 namespace srsue {
 namespace phy_adapter {
 
+#if 0
 void ue_initialize(srslte::log * log_h, 
                    uint32_t sf_interval,
                    EMANELTE::MHAL::mhal_config_t & mhal_config);
@@ -119,16 +120,22 @@ void ue_ul_tx_end();
 // set prach
 void ue_ul_put_prach(int index, uint32_t prach_freq_offset);
 
-// set pucch
+#endif
+
+// set pucch, pusch
+// see lib/src/phy/ue/ue_ul.c
+int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
+
+/* OLD API
 bool ue_ul_put_pucch(srslte_ue_ul_t * q,
                      srslte_uci_data_t * uci,
                      uint32_t ncce);
 
-// set pusch
 bool ue_ul_put_pusch(uint16_t rnti,
                      srslte_ra_ul_grant_t *grant,
                      srslte_uci_data_t * uci,
                      uint8_t *payload);
+*/
 
 } // end namespace phy_adapter
 } // end namespace srsue

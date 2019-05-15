@@ -65,7 +65,7 @@ struct in6_ifreq {
 };
 #endif
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/uestatisticmanager.h"
 #endif
 
@@ -177,9 +177,9 @@ void gw::write_pdu(uint32_t lcid, srslte::byte_buffer_t *pdu)
     struct iphdr*   ip_pkt  = (struct iphdr*)pdu->msg;
     struct ipv6hdr* ip6_pkt = (struct ipv6hdr*)pdu->msg;
     if (ip_pkt->version == 4 || ip_pkt->version == 6) {
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE_PENDING // XXX TODO IPv6
       if(ip_pkt->version == 4)
-        UESTATS::updateDownlinkTraffic(iph->saddr, iph->daddr, pdu->N_bytes);
+        UESTATS::updateDownlinkTraffic(ip_pkt->saddr, ip_pkt->daddr, pdu->N_bytes);
 #endif
       int n = write(tun_fd, pdu->msg, pdu->N_bytes);
       if (n > 0 && (pdu->N_bytes != (uint32_t)n)) {

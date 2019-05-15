@@ -539,7 +539,16 @@ int rf_zmq_open_multi(char* args, void** h, uint32_t nof_channels)
 
     handler->running = true;
     if (handler->receiver) {
-      pthread_create(&handler->thread, NULL, rf_zmq_async_rx_thread, handler);
+      pthread_attr_t attr;
+
+      struct sched_param priority = {50};
+
+      pthread_attr_init(&attr);
+
+      pthread_attr_setschedpolicy(&attr, SCHED_RR);
+      pthread_attr_setschedparam(&attr, &priority);
+
+      pthread_create(&handler->thread, &attr, rf_zmq_async_rx_thread, handler);
     }
 
     ret = SRSLTE_SUCCESS;

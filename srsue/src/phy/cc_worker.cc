@@ -23,6 +23,10 @@
 #include "srsue/hdr/phy/cc_worker.h"
 #include "srslte/interfaces/ue_interfaces.h"
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "srsue/hdr/phy/phy_adapter.h"
+#endif
+
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -873,8 +877,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
 #ifndef PHY_ADAPTER_ENABLE_PENDING
   int ret = srslte_ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
 #else
-  int ret = phy_adapter::ue_ul_put_pusch(rnti, grant, &uci_data, payload);
-            phy_adapter::ue_ul_put_pucch(&ue_ul, &uci_data, last_dl_pdcch_ncce); // XXX
+  int ret = phy_adapter::ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
 #endif
   if (ret < 0) {
     Error("Encoding UL cc=%d\n", cc_idx);

@@ -1172,6 +1172,42 @@ void ue_ul_put_prach(int index, uint32_t prach_freq_offset)
    pthread_mutex_unlock(&ul_mutex_);
 }
 
+// srslte_ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
+/*
+typedef struct SRSLTE_API {
+  srslte_cell_t  cell;
+  uint16_t       current_rnti;
+  bool           signals_pregenerated;
+  srslte_pusch_t pusch;
+  srslte_pucch_t pucch;
+  srslte_ra_ul_pusch_hopping_t hopping;
+} srslte_ue_ul_t;
+
+typedef struct SRSLTE_API {
+  srslte_tdd_config_t tdd_config;
+  uint32_t            tti;
+  bool                shortened;
+} srslte_ul_sf_cfg_t;
+
+typedef struct SRSLTE_API {
+
+  srslte_ul_cfg_t ul_cfg;
+  bool     grant_available;
+  uint32_t cc_idx;
+  bool     normalize_en;
+  bool     cfo_en;
+  float    cfo_tol;
+  float    cfo_value;
+
+} srslte_ue_ul_cfg_t;
+
+typedef struct SRSLTE_API {
+  uint8_t*           ptr;
+  srslte_uci_value_t uci;
+} srslte_pusch_data_t;
+*/
+
+
 
 bool ue_ul_put_pucch(srslte_ue_ul_t * q,
                      srslte_uci_data_t * uci_data,

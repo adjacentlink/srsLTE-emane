@@ -42,7 +42,7 @@
 
 #include "ue_metrics_interface.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/mhalue.h"
 #endif
 
@@ -130,7 +130,7 @@ typedef struct {
   nas_args_t    nas;
   expert_args_t expert;
   runtime_args_t runtime;
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   EMANELTE::MHAL::mhal_config_t mhal;
 #endif
 }all_args_t;
