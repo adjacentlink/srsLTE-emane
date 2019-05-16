@@ -22,7 +22,7 @@
 #include "srslte/srslte.h"
 #include "srsenb/hdr/phy/prach_worker.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
 #endif
 
@@ -88,7 +88,7 @@ int prach_worker::new_tti(uint32_t tti_rx, cf_t* buffer_rx)
       return -1;
     }
     if (current_buffer->nof_samples+SRSLTE_SF_LEN_PRB(cell.nof_prb) < sf_buffer_sz) {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE // MEMORY
       memcpy(&current_buffer->samples[sf_cnt*SRSLTE_SF_LEN_PRB(cell.nof_prb)], buffer_rx, sizeof(cf_t)*SRSLTE_SF_LEN_PRB(cell.nof_prb));
 #endif
       current_buffer->nof_samples += SRSLTE_SF_LEN_PRB(cell.nof_prb);
@@ -113,7 +113,7 @@ int prach_worker::run_tti(sf_buffer *b)
 {
   if (srslte_prach_tti_opportunity(&prach, b->tti, -1))
   {
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
     if(phy_adapter::enb_ul_get_prach(prach_indices, 
                                      prach_offsets, 
                                      prach_p2avg, 

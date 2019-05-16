@@ -40,9 +40,6 @@ namespace srsenb {
 
 namespace phy_adapter {
 
- // DCI to pdsch data ref
- const uint32_t DL_DCIREF_ID_BEGIN = 0;
-
 void enb_initialize(srslte::log * log_h, 
                     uint32_t sf_interval,
                     uint32_t physical_cell_id,
@@ -70,12 +67,11 @@ void enb_initialize(srslte::log * log_h,
  // set the power scaling on a per rnti basis
  void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db,  float rho_b_db);
 
-#if 0
  // set dl pdcch
- int enb_dl_put_pdcch_dl(srslte_enb_dl_pdsch_t * grant,
-                         const srslte_enb_dl_t * enb_dl,
-                         uint32_t & refid);
-#endif
+ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
+                         srslte_dci_cfg_t* dci_cfg, 
+                         srslte_dci_dl_t* dci_dl,
+                         uint32_t idx);
 
 #if 0
  // set dl mch
@@ -112,18 +108,12 @@ void enb_initialize(srslte::log * log_h,
                       srslte_uci_data_t *uci_data);
 #endif
 
-#if 0
  // get pusch
- int enb_ul_get_pusch(srslte_enb_ul_t * q,
-                      srslte_ra_ul_grant_t *grant,
-                      uint16_t rnti, 
-                      uint32_t rv_idx, 
-                      uint32_t current_tx_nb,
-                      uint8_t *data, 
-                      srslte_cqi_value_t *cqi_value, 
-                      srslte_uci_data_t *uci_data, 
-                      uint32_t tti);
-#endif
+ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
+                      srslte_ul_sf_cfg_t* ul_sf,
+                      srslte_pusch_cfg_t* cfg,
+                      srslte_pusch_res_t* res,
+                      uint16_t rnti);
  } 
 }
 #endif //EMU_SRSENB_PHY_ADAPTER_H
