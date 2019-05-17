@@ -113,13 +113,7 @@ int prach_worker::run_tti(sf_buffer *b)
 {
   if (srslte_prach_tti_opportunity(&prach, b->tti, -1))
   {
-#ifdef PHY_ADAPTER_ENABLE
-    if(phy_adapter::enb_ul_get_prach(prach_indices, 
-                                     prach_offsets, 
-                                     prach_p2avg, 
-                                     sizeof(prach_indices) / sizeof(prach_indices[0]),
-                                     prach_nof_det))
-#else
+#ifndef PHY_ADAPTER_ENABLE
     // Detect possible PRACHs
     if (srslte_prach_detect_offset(&prach,
                                    prach_cfg.freq_offset,
@@ -129,6 +123,12 @@ int prach_worker::run_tti(sf_buffer *b)
                                    prach_offsets,
                                    prach_p2avg,
                                    &prach_nof_det)) 
+#else
+  if(phy_adapter::enb_ul_get_prach(prach_indices, 
+                                     prach_offsets, 
+                                     prach_p2avg, 
+                                     sizeof(prach_indices) / sizeof(prach_indices[0]),
+                                     prach_nof_det))
 #endif
     {
       log_h->error("Error detecting PRACH\n");

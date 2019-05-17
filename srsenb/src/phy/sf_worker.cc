@@ -619,7 +619,6 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
 #else
       if (phy_adapter::enb_ul_get_pusch(&enb_ul, &ul_sf, &ue_db[rnti]->ul_cfg.pusch, &pusch_res, rnti)) {
 #endif
-
         Error("Decoding PUSCH\n");
         return SRSLTE_ERROR;
       }
@@ -788,10 +787,10 @@ int sf_worker::encode_pmch(mac_interface_phy::dl_sched_grant_t* grant, srslte_mb
   pmch_cfg.pdsch_cfg.softbuffers.tx[0] = &temp_mbsfn_softbuffer;
 
   // Encode PMCH
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
   if (srslte_enb_dl_put_pmch(&enb_dl, &pmch_cfg, grant->data[0])) {
 #else
-  if (phy_adapter::enb_dl_put_pmch(grant, phy_grant)) {
+  if (phy_adapter::enb_dl_put_pmch(&enb_dl, &pmch_cfg, grant)) {
 #endif
     Error("Error putting PMCH\n");
     return SRSLTE_ERROR;
@@ -800,7 +799,7 @@ int sf_worker::encode_pmch(mac_interface_phy::dl_sched_grant_t* grant, srslte_mb
   // Logging
   char str[512];
   srslte_pdsch_tx_info(&pmch_cfg.pdsch_cfg, str, 512);
-  Info("pmch: %s\n", str);
+  Info("PMCH: %s\n", str);
 
   return SRSLTE_SUCCESS;
 }

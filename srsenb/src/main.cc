@@ -354,7 +354,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
   }
 }
 
-static int  sigcnt = 0;
+static int  sigcnt = 9;
 static bool running    = true;
 static bool do_metrics = false;
 

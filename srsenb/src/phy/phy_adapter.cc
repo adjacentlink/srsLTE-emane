@@ -207,7 +207,6 @@ typedef struct SRSLTE_API {
   srslte_phich_t     phich;
 } srslte_enb_dl_t;
 
-
 typedef struct SRSLTE_API {
   uint8_t               payload[SRSLTE_DCI_MAX_BITS];
   uint32_t              nof_bits;
@@ -231,8 +230,8 @@ typedef struct SRSLTE_API {
 
 // set pdcch dl
 static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
-                                  const srslte_dci_msg_t * dci_msg,
-                                  uint32_t id)
+                                 const srslte_dci_msg_t * dci_msg,
+                                 uint32_t id)
  {
    const uint32_t sf_idx = (tti_tx_ % 10);
 
@@ -372,9 +371,9 @@ typedef struct SRSLTE_API {
 
 // set pdsch dl
 static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
-                                  srslte_pdsch_cfg_t* pdsch, 
-                                  uint8_t* data[SRSLTE_MAX_CODEWORDS],
-                                  uint32_t id)
+                                 srslte_pdsch_cfg_t* pdsch, 
+                                 uint8_t* data[SRSLTE_MAX_CODEWORDS],
+                                 uint32_t id)
  {
    const auto grant = pdsch->grant;
 
@@ -410,16 +409,16 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
                               rho_a_db);
 
    // Add resource block assignment from the phy_grant
-   for(uint32_t i=0; i<q->cell.nof_prb; ++i)
+   for(uint32_t rb = 0; rb < q->cell.nof_prb; ++rb)
      {
-       if(grant.prb_idx[0][i])
+       if(grant.prb_idx[0][rb])
          {
-           channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
+           channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
          }
 
-       if(grant.prb_idx[1][i])
+       if(grant.prb_idx[1][rb])
          {
-           channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
+           channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
          }
      }
 
@@ -437,9 +436,106 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
 
    data_message->set_tbs(len);
 
-   data_message->set_data(data, len);
+   data_message->set_data(data[tb], len);
 
    ENBSTATS::putDLGrant(rnti);
+
+   return SRSLTE_SUCCESS;
+}
+
+
+/*
+typedef struct SRSLTE_API {
+  srslte_cell_t      cell;
+  srslte_dl_sf_cfg_t dl_sf;
+  srslte_pbch_t      pbch;
+  srslte_pcfich_t    pcfich;
+  srslte_regs_t      regs;
+  srslte_pdcch_t     pdcch;
+  srslte_pdsch_t     pdsch;
+  srslte_pmch_t      pmch;
+  srslte_phich_t     phich;
+} srslte_enb_dl_t;
+
+typedef struct SRSLTE_API {
+  srslte_pdsch_cfg_t pdsch_cfg;
+  uint16_t           area_id;
+} srslte_pmch_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_tdd_config_t tdd_config;
+  uint32_t            tti;
+  uint32_t            cfi;
+  srslte_sf_t         sf_type;
+  uint32_t            non_mbsfn_region;
+} srslte_dl_sf_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_pdsch_grant_t  grant;
+  uint16_t              rnti;
+  uint32_t              max_nof_iterations;
+  srslte_mimo_decoder_t decoder_type;
+  float                 p_a;
+  uint32_t              p_b;
+  float                 rs_power;
+  bool                  power_scale;
+  bool                  csi_enable;
+
+  union {
+    srslte_softbuffer_tx_t* tx[SRSLTE_MAX_CODEWORDS];
+    srslte_softbuffer_rx_t* rx[SRSLTE_MAX_CODEWORDS];
+  } softbuffers;
+
+  bool     meas_time_en;
+  uint32_t meas_time_value;
+} srslte_pdsch_cfg_t;
+*/
+
+static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
+                            srslte_pmch_cfg_t* pmch_cfg,
+                            uint8_t* data,
+                            uint16_t rnti)
+ {
+   const auto pdsch_cfg = pmch_cfg->pdsch_cfg;
+
+   const auto grant = pdsch_cfg.grant;
+
+   if(grant.nof_tb != 1)
+    {
+      Error("PMCH:%s rnti %hu, nof_tb %u, expected 1\n", __func__, rnti, grant.nof_tb);
+
+      return SRSLTE_ERROR;
+    }
+
+   const uint32_t tb = 0;
+
+   // ppmch
+   auto pmch_message = enb_dl_msg_.mutable_pmch();
+
+   const uint32_t len = grant.tb[tb].tbs/8;
+
+   pmch_message->set_area_id(pmch_cfg->area_id);
+
+   pmch_message->set_tbs(len);
+
+   pmch_message->set_rnti(rnti);
+
+   pmch_message->set_data(data ? data : zeros_, len);
+
+   auto channel_message = downlink_control_message_->mutable_pmch();
+
+   initDownlinkChannelMessage(channel_message,
+                              EMANELTE::MHAL::CHAN_PMCH,
+                              convert(grant.tb[tb].mod),
+                              rnti,
+                              grant.tb[tb].tbs);
+
+   // channel_message.add_resource_blocks();
+   for(uint32_t rb = 0; rb < q->cell.nof_prb; ++rb)
+     {
+       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+     }
 
    return SRSLTE_SUCCESS;
 }
@@ -845,7 +941,6 @@ typedef struct SRSLTE_API {
   bool     is_dwpts;
   bool     sram_id;
 } srslte_dci_dl_t;
-
 */
 int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                         srslte_dci_cfg_t* dci_cfg,
@@ -870,83 +965,32 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
 
 // see lib/src/phy/enb/enb_dl.c
 // srslte_enb_dl_put_pdsch(srslte_enb_dl_t* q, srslte_pdsch_cfg_t* pdsch, uint8_t* data[SRSLTE_MAX_CODEWORDS])
-/*
-typedef struct SRSLTE_API {
-  srslte_cell_t      cell;
-  srslte_dl_sf_cfg_t dl_sf;
-  srslte_pbch_t      pbch;
-  srslte_pcfich_t    pcfich;
-  srslte_regs_t      regs;
-  srslte_pdcch_t     pdcch;
-  srslte_pdsch_t     pdsch;
-  srslte_pmch_t      pmch;
-  srslte_phich_t     phich;
-} srslte_enb_dl_t;
-
-*/
- int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
-                      srslte_pdsch_cfg_t* pdsch, 
-                      uint8_t* data[SRSLTE_MAX_CODEWORDS],
-                      uint32_t id)
+int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
+                     srslte_pdsch_cfg_t* pdsch, 
+                     uint8_t* data[SRSLTE_MAX_CODEWORDS],
+                     uint32_t id)
 {
   return enb_dl_put_dl_pdsch_i(q, pdsch, data, id);
 }
 
 
-
-#if 0
-void enb_dl_put_pmch(const srslte_enb_dl_pdsch_t *grant, const srslte_ra_dl_grant_t *phy_grant)
+// see lib/src/phy/enb/enb_dl.c
+// int srslte_enb_dl_put_pmch(srslte_enb_dl_t* q, srslte_pmch_cfg_t* pmch_cfg, uint8_t* data)
+int enb_dl_put_pmch(srslte_enb_dl_t* q, 
+                    srslte_pmch_cfg_t* pmch_cfg, 
+                    mac_interface_phy::dl_sched_grant_t* dl_sched_grant)
 {
-   if(grant->rnti == 0)
-    {
-      return;
-    }
+  if(dl_sched_grant->dci.rnti != 0)
+   {
+    return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti);
+   }
+  else
+   {
+     Error("PMCH:%s rnti is 0\n", __func__);
 
-   const int tb = 0;
-
-   // ppmch
-   EMANELTE::MHAL::ENB_DL_Message_PMCH * pmch = enb_dl_msg_.mutable_pmch();
-
-   // data len is in transfer blocks (bits)
-   const uint32_t len = phy_grant->mcs[tb].tbs/8;
-
-   // see srslte_enb_dl_put_pmch() hard coded to 1 as of rev 18.06
-   pmch->set_area_id(1); // XXX TODO
-
-   pmch->set_tbs(len);
-
-   pmch->set_rnti(grant->rnti);
-
-   // data has NOT been verified at mac yet, inquire made 7/12/2018 JG
-   pmch->set_data(grant->data[tb] ? grant->data[tb] : zeros_, len);
-
-   EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pmch();
-
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PMCH,
-                              convert(phy_grant->mcs[tb].mod),
-                              rnti,
-                              phy_grant->mcs[tb].tbs);
-
-   // channel_message.add_resource_blocks();
-   for(uint32_t rb=0; rb<phy_grant->nof_prb; ++rb)
-     {
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-     }
-
-
-   ENBSTATS::putDLGrant(grant->rnti);
-
-   Info("ADPT:%s: tb[%d], rnti 0x%x, len %u"
-        "\n\t\t\t phy_grant %s\n",
-        __func__,
-        tb,
-        grant->rnti,
-        len,
-        ra_dl_grant_t_to_string(phy_grant).c_str());
+     return SRSLTE_ERROR;
+   }
 }
-#endif
 
 
 #if 0

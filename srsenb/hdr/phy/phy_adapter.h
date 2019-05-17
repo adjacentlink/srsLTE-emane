@@ -80,10 +80,10 @@ void enb_initialize(srslte::log * log_h,
                       uint32_t id);
 
 
-#if 0
  // set dl mch
- void enb_dl_put_pmch(const srslte_enb_dl_pdsch_t *grant, const srslte_ra_dl_grant_t *phy_grant);
-#endif
+ int enb_dl_put_pmch(srslte_enb_dl_t* q,
+                     srslte_pmch_cfg_t* pmch_cfg,
+                     mac_interface_phy::dl_sched_grant_t* dl_sched_grant);
 
 #if 0
  //set ul pdcch
