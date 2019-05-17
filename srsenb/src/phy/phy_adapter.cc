@@ -70,17 +70,17 @@ namespace {
   uint32_t tti_tx_    = 0;
 
   // referenceSignalPower as set by sib.conf sib2.rr_config_common_sib.pdsch_cnfg.rs_power
-  float pdsch_rs_power_milliwatt = 0.0;
+  float pdsch_rs_power_milliwatt_ = 0.0;
 
   // scaling between pdsch res in symbols with reference signals to symbols without reference signals
-  float pdsch_rho_b_over_rho_a = 1.0;
+  float pdsch_rho_b_over_rho_a_ = 1.0;
 
   // scaling between reference signal res and pdsch res in symbols without reference signals, by tti and rnti
   typedef std::map<uint16_t, float> rho_a_db_map_t; // map of rnti to rho_a
-  rho_a_db_map_t rho_a_db_map[10];                  // vector of rho_a maps by subframe number
+  rho_a_db_map_t rho_a_db_map_[10];                  // vector of rho_a maps by subframe number
 
   // cyclic prefix normal or extended for this cell
-  srslte_cp_t cell_cp = SRSLTE_CP_NORM;
+  srslte_cp_t cell_cp_ = SRSLTE_CP_NORM;
 
   inline bool rnti_is_user_i(uint32_t rnti)
    {
@@ -98,6 +98,8 @@ namespace {
 
   inline std::string GetDebugString(const std::string & str)
    {
+#define ENABLE_DEBUG_STRING
+
 #ifdef ENABLE_DEBUG_STRING
        return str;
 #else
@@ -110,6 +112,7 @@ namespace {
   initDownlinkChannelMessage(EMANELTE::MHAL::ChannelMessage * channel_message,
                              EMANELTE::MHAL::CHANNEL_TYPE ctype,
                              EMANELTE::MHAL::MOD_TYPE modType,
+                             uint16_t rnti,
                              uint32_t infoBits,
                              float txPowerScaledB = 0.0)
   {
@@ -120,6 +123,9 @@ namespace {
     channel_message->set_number_of_bits(infoBits);
 
     channel_message->set_tx_power_scale_db(txPowerScaledB);
+
+    if(rnti)
+      channel_message->set_rnti(rnti);
   }
 }
 
@@ -159,7 +165,7 @@ static EMANELTE::MHAL::DCI_FORMAT convert(srslte_dci_format_t format)
         return(EMANELTE::MHAL::DCI_FORMAT_2B);
 
       default:
-       throw("PHY_ADPT:convert: invalid dci format");
+       throw("ADPT:convert: invalid dci format");
 
       return (EMANELTE::MHAL::DCI_FORMAT_ERR);
    }
@@ -182,7 +188,7 @@ static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
          return (EMANELTE::MHAL::MOD_64QAM);
 
        default:
-         throw("PHY_ADPT:convert: invalid mod type");
+         throw("ADPT:convert: invalid mod type");
 
        return (EMANELTE::MHAL::MOD_ERR);
     }
@@ -200,6 +206,603 @@ typedef struct SRSLTE_API {
   srslte_pmch_t      pmch;
   srslte_phich_t     phich;
 } srslte_enb_dl_t;
+
+
+typedef struct SRSLTE_API {
+  uint8_t               payload[SRSLTE_DCI_MAX_BITS];
+  uint32_t              nof_bits;
+  srslte_dci_location_t location;
+  srslte_dci_format_t   format;
+  uint16_t              rnti;
+} srslte_dci_msg_t;
+
+typedef struct SRSLTE_API {
+  uint32_t L;    // Aggregation level
+  uint32_t ncce; // Position of first CCE of the dci
+} srslte_dci_location_t;
+
+typedef struct SRSLTE_API {
+  uint32_t mcs_idx;
+  int      rv;
+  bool     ndi;
+  uint32_t cw_idx;
+} srslte_dci_tb_t;
+*/
+
+// set pdcch dl
+static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
+                                  const srslte_dci_msg_t * dci_msg,
+                                  uint32_t id)
+ {
+   const uint32_t sf_idx = (tti_tx_ % 10);
+
+   const auto rnti = dci_msg->rnti;
+
+   auto pdcch_message = enb_dl_msg_.add_pdcch();
+
+   auto channel_message = downlink_control_message_->add_pdcch();
+
+   initDownlinkChannelMessage(channel_message,
+                              EMANELTE::MHAL::CHAN_PDCCH,
+                              EMANELTE::MHAL::MOD_QPSK,
+                              rnti,
+                              dci_msg->nof_bits);
+
+   const srslte_pdcch_t * ppdcch = &q->pdcch;
+   const srslte_regs_t  * h = ppdcch->regs;
+
+   uint32_t start_reg = dci_msg->location.ncce * 9;
+   uint32_t nof_regs  = (1<<dci_msg->location.L)*9;
+
+   for (uint32_t i = start_reg; i < start_reg+nof_regs; ++i) {
+     srslte_regs_reg_t *reg = h->pdcch[q->dl_sf.cfi-1].regs[i];
+
+     uint32_t k0 = reg->k0;
+     uint32_t l  = reg->l;
+     const uint32_t * k = &reg->k[0];
+
+     uint32_t rb = k0 / 12;
+
+     Debug("PDCCH DL DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
+           "(l=%u, "
+           "k0=%u, "
+           "k[0]=%u "
+           "k[1]=%u "
+           "k[2]=%u "
+           "k[3]=%u) in rb=%u\n", sf_idx, i, rnti, l, k0, k[0], k[1], k[2], k[3], rb);
+
+     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+   }
+
+   // dci
+   auto dl_dci_message = pdcch_message->mutable_dl_dci();
+
+   dl_dci_message->set_rnti(dci_msg->rnti);
+
+   dl_dci_message->set_refid(id);
+
+   // dci msg
+   auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
+
+   dl_dci_msg->set_num_bits(dci_msg->nof_bits);
+
+   dl_dci_msg->set_l_level(dci_msg->location.L);
+
+   dl_dci_msg->set_l_ncce(dci_msg->location.ncce);
+
+   dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
+
+   dl_dci_msg->set_format(convert(dci_msg->format));
+
+   return SRSLTE_SUCCESS;
+}
+
+// lib/src/phy/phch/pdsch.c
+// srslte_pdsch_encode(srslte_pdsch_t* q, 
+//                     srslte_dl_sf_cfg_t* sf, 
+//                     srslte_pdsch_cfg_t* cfg, 
+//                     uint8_t*data[SRSLTE_MAX_CODEWORDS] ...);
+
+/*
+typedef struct SRSLTE_API {
+  srslte_cell_t      cell;
+  srslte_dl_sf_cfg_t dl_sf;
+  srslte_pbch_t      pbch;
+  srslte_pcfich_t    pcfich;
+  srslte_regs_t      regs;
+  srslte_pdcch_t     pdcch;
+  srslte_pdsch_t     pdsch;
+  srslte_pmch_t      pmch;
+  srslte_phich_t     phich;
+} srslte_enb_dl_t;
+
+typedef struct SRSLTE_API {
+  srslte_tdd_config_t tdd_config;
+  uint32_t            tti;
+  uint32_t            cfi;
+  srslte_sf_t         sf_type;
+  uint32_t            non_mbsfn_region;
+} srslte_dl_sf_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_pdsch_grant_t  grant;
+  uint16_t              rnti;
+  uint32_t              max_nof_iterations;
+  srslte_mimo_decoder_t decoder_type;
+  float                 p_a;
+  uint32_t              p_b;
+  float                 rs_power;
+  bool                  power_scale;
+  bool                  csi_enable;
+
+  union {
+    srslte_softbuffer_tx_t* tx[SRSLTE_MAX_CODEWORDS];
+    srslte_softbuffer_rx_t* rx[SRSLTE_MAX_CODEWORDS];
+  } softbuffers;
+
+  bool     meas_time_en;
+  uint32_t meas_time_value;
+} srslte_pdsch_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_tx_scheme_t tx_scheme;
+  uint32_t           pmi;
+  bool               prb_idx[2][SRSLTE_MAX_PRB];
+  uint32_t           nof_prb;
+  uint32_t           nof_re;
+  uint32_t           nof_symb_slot[2];
+  srslte_ra_tb_t     tb[SRSLTE_MAX_CODEWORDS];
+  int                last_tbs[SRSLTE_MAX_CODEWORDS];
+  uint32_t           nof_tb;
+  uint32_t           nof_layers;
+} srslte_pdsch_grant_t;
+
+typedef struct SRSLTE_API {
+  srslte_mod_t mod;
+  int          tbs;
+  int          rv;
+  uint32_t     nof_bits;
+  uint32_t     cw_idx;
+  bool         enabled;
+  // this is for debugging and metrics purposes
+  uint32_t mcs_idx;
+} srslte_ra_tb_t;
+
+*/
+
+// set pdsch dl
+static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
+                                  srslte_pdsch_cfg_t* pdsch, 
+                                  uint8_t* data[SRSLTE_MAX_CODEWORDS],
+                                  uint32_t id)
+ {
+   const auto grant = pdsch->grant;
+
+   const auto rnti  = pdsch->rnti;
+
+   if(grant.nof_tb != 1)
+    {
+      Error("PDSCH:%s rnti %hu, id %u, nof_tb %u, expected 1\n", __func__, rnti, id, grant.nof_tb);
+
+      return SRSLTE_ERROR;
+    }
+
+   const uint32_t tb = 0;
+
+   const uint32_t sf_idx = (tti_tx_ % 10);
+
+   float rho_a_db = 0.0;
+
+   auto riter = rho_a_db_map_[sf_idx].find(rnti);
+
+   if(riter != rho_a_db_map_[sf_idx].end())
+     {
+       rho_a_db = riter->second;
+     }
+
+   auto channel_message = downlink_control_message_->add_pdsch();
+
+   initDownlinkChannelMessage(channel_message,
+                              EMANELTE::MHAL::CHAN_PDSCH,
+                              convert(grant.tb[tb].mod),
+                              rnti,
+                              grant.tb[tb].tbs,
+                              rho_a_db);
+
+   // Add resource block assignment from the phy_grant
+   for(uint32_t i=0; i<q->cell.nof_prb; ++i)
+     {
+       if(grant.prb_idx[0][i])
+         {
+           channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
+         }
+
+       if(grant.prb_idx[1][i])
+         {
+           channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
+         }
+     }
+
+   auto pdsch_message = enb_dl_msg_.mutable_pdsch();
+
+   // pdsch data
+   auto data_message = pdsch_message->add_data();
+
+   // data len is in transfer blocks (bits)
+   const uint32_t len = grant.tb[tb].tbs/8;
+
+   data_message->set_refid(id);
+
+   data_message->set_tb(tb);
+
+   data_message->set_tbs(len);
+
+   data_message->set_data(data, len);
+
+   ENBSTATS::putDLGrant(rnti);
+
+   return SRSLTE_SUCCESS;
+}
+
+
+
+void enb_initialize(srslte::log * log_h, 
+                    uint32_t sf_interval_msec, 
+                    uint32_t physical_cell_id, 
+                    srslte_cp_t cp,
+                    float ul_freq,
+                    float dl_freq, 
+                    int n_prb, 
+                    EMANELTE::MHAL::mhal_config_t & mhal_config,
+                    rrc_cfg_t * rrc_cfg)
+{
+  log_h_ = log_h;
+
+  pdsch_rs_power_milliwatt_ = pow(10.0, static_cast<float>(rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr) / 10.0);
+
+  uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
+
+#ifdef PHY_ADAPTER_ENABLE_PENDING
+  if(p_b < 4)
+    {
+      // this table no longer resides in lib/include/srslte/phy/phch/pdsch_cfg.h
+      // new location unknown
+      pdsch_rho_b_over_rho_a_ = pdsch_cfg_cell_specific_ratio_table[0][p_b];
+    }
+#endif
+
+  cell_cp_ = cp;
+
+  Info("ADPT:%s sf_interval "
+       "%u msec, "
+       "ul_freq %6.4f MHz, "
+       "fl_freq %6.4f MHz, "
+       "n_prb %d, "
+       "rs_power=%d "
+       "pdsch_rs_power_milliwatt=%0.2f "
+       "p_b=%d "
+       "pdsch_rho_b_over_rho_a=%.02f\n",
+       __func__,
+       sf_interval_msec,
+       ul_freq/1e6,
+       dl_freq/1e6,
+       n_prb,
+       rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr,
+       pdsch_rs_power_milliwatt_,
+       rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b,
+       pdsch_rho_b_over_rho_a_);
+
+  EMANELTE::MHAL::ENB::initialize(
+     mhal_config,
+     EMANELTE::MHAL::ENB::mhal_enb_config_t(physical_cell_id,
+                                            sf_interval_msec,
+                                            cp == SRSLTE_CP_NORM ? SRSLTE_CP_NORM_NSYMB : SRSLTE_CP_EXT_NSYMB,
+                                            ul_freq,
+                                            dl_freq,
+                                            n_prb,
+                                            pdsch_rs_power_milliwatt_,
+                                            pdsch_rho_b_over_rho_a_));
+}
+
+
+void enb_start()
+{
+  Info("ADPT:%s\n", __func__);
+
+  pthread_mutexattr_t mattr;
+
+  if(pthread_mutexattr_init(&mattr) < 0)
+   {
+     Error("ADPT:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
+
+     exit(1);
+   }
+  else
+   {
+     if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
+       {
+         Error("ADPT:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
+
+         exit(1);
+       }
+
+     if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
+       {
+         Error("ADPT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
+
+         exit(1);
+       }
+
+     if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
+       {
+         Error("ADPT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
+
+         exit(1);
+       }
+
+     pthread_mutexattr_destroy(&mattr);
+  }
+
+  enb_dl_msg_.Clear();
+
+  tx_control_.Clear();
+
+  downlink_control_message_ = tx_control_.mutable_downlink();
+
+  downlink_control_message_->Clear();
+
+  EMANELTE::MHAL::ENB::start();
+}
+
+
+void enb_stop()
+{
+  Info("ADPT:%s\n", __func__);
+
+  EMANELTE::MHAL::ENB::stop();
+
+  pthread_mutex_destroy(&dl_mutex_);
+
+  pthread_mutex_destroy(&ul_mutex_);
+}
+
+
+void enb_dl_tx_init(const srslte_enb_dl_t *q,
+                    uint32_t tti_tx,
+                    uint32_t cfi)
+{
+  // lock here, unlocked after tx_end to prevent any worker thread(s)
+  // from attempting to start a new tx sequence before the current tx sequence
+  // is finished
+  pthread_mutex_lock(&dl_mutex_);
+
+  enb_dl_msg_.Clear();
+
+  tx_control_.Clear();
+
+  downlink_control_message_ = tx_control_.mutable_downlink();
+
+  downlink_control_message_->Clear();
+
+  downlink_control_message_->set_num_resource_blocks(q->cell.nof_prb);
+
+  Info("ADPT:%s: curr_tti %u, tti_tx %u\n", __func__, curr_tti_, tti_tx);
+
+  // subframe index
+  const uint32_t sf_idx = (tti_tx % 10);
+
+  rho_a_db_map_[sf_idx].clear();
+
+  // always set tti for timing tracking
+  enb_dl_msg_.set_tti(tti_tx);
+
+  // always set cfi
+  // note - cfi should be nof_ctrl_symbols on regular frames and
+  //        non_mbsfn_region_length (from sib13) on mbsfn frames
+  enb_dl_msg_.set_cfi(cfi);
+  downlink_control_message_->set_cfi(enb_dl_msg_.cfi());
+
+  // always set phy_cell_id to distinguish multiple cells
+  enb_dl_msg_.set_phy_cell_id(q->cell.id);
+  tx_control_.set_phy_cell_id(q->cell.id);
+
+  // save our pci
+  my_pci_ = q->cell.id;
+
+  // save the tti_tx
+  tti_tx_ = tti_tx;
+
+  // PCFICH encoding
+  EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pcfich();
+
+  initDownlinkChannelMessage(channel_message,
+                             EMANELTE::MHAL::CHAN_PCFICH,
+                             EMANELTE::MHAL::MOD_QPSK,
+                             0,
+                             2);  // 2 bit to encode dfi
+
+  for(int i=0; i<3; ++i)
+    {
+      const srslte_pcfich_t   * p1 = &q->pcfich;
+      const srslte_regs_t     * p2 = p1->regs;
+      const srslte_regs_ch_t  *rch = &p2->pcfich;
+      const srslte_regs_reg_t *reg = rch->regs[i];
+
+      uint32_t k0 = reg->k0;
+      uint32_t l  = reg->l;
+      const uint32_t * k = &reg->k[0];
+
+      //srslte_regs_ch_t * pcfich = &((q->pcfich.regs)->pcfich);
+      uint32_t rb = k0 / 12;
+      Debug("PCFICH group i=%d on this subframe placed at resource starting at "
+            "(l=%u, "
+            "k0=%u, "
+            "k[0]=%u "
+            "k[1]=%u "
+            "k[2]=%u "
+            "k[3]=%u) in resource block=%u\n", i, l, k0, k[0], k[1], k[2], k[3], rb);
+
+      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+    }
+
+  // Set side chain PSS, SSS and MIB information on appropriate subframes
+  if(sf_idx == 0 || sf_idx == 5) 
+    {
+      // physical cell group and id derived from pci
+
+      // set cyclical prefix mode
+      enb_dl_msg_.mutable_pss_sss()->set_cp_mode(q->cell.cp == SRSLTE_CP_NORM ? 
+                                                 EMANELTE::MHAL::CP_NORM : 
+                                                 EMANELTE::MHAL::CP_EXTD);
+
+      // MIB on first subframe
+      if(sf_idx == 0)
+       {
+         EMANELTE::MHAL::ENB_DL_Message_PBCH * pbch = enb_dl_msg_.mutable_pbch();
+
+         EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pbch();
+
+         initDownlinkChannelMessage(channel_message,
+                                    EMANELTE::MHAL::CHAN_PBCH,
+                                    EMANELTE::MHAL::MOD_QPSK,
+                                    0,
+                                    40);  // MIB + 16 bit CRC
+
+         // MIB occupies the middle 72 resource elements of the second slot of subframe 0, which
+         // is the middle 6 or 7 resource blocks depending on nof_prb being even or odd.
+         // Approximate this by sending a segment for each fullly occupied resource block,
+         // So 5 blocks when num_prb is odd.
+         int first_prb = q->cell.nof_prb / 2 - 3 + (q->cell.nof_prb % 2);
+
+         int num_prb = q->cell.nof_prb % 2 ? 5 : 6;
+
+         for(int i=0; i<num_prb; ++i)
+           {
+             channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(first_prb + i));
+           }
+
+         switch(q->cell.phich_resources) 
+          {
+            case SRSLTE_PHICH_R_1_6:
+               pbch->set_phich_resources(EMANELTE::MHAL::PR_ONE_SIXTH);
+            break;
+
+            case SRSLTE_PHICH_R_1_2:
+               pbch->set_phich_resources(EMANELTE::MHAL::PR_ONE_HALF);
+            break;
+
+            case SRSLTE_PHICH_R_1:
+               pbch->set_phich_resources(EMANELTE::MHAL::PR_ONE);
+            break;
+
+            case SRSLTE_PHICH_R_2:
+               pbch->set_phich_resources(EMANELTE::MHAL::PR_TWO);
+            break;
+
+            default:
+             throw("ADPT:enb_dl_put_base: unhandled cell phich_resources type");
+          }
+
+         switch(q->cell.phich_length) 
+          {
+            case SRSLTE_PHICH_NORM:
+               pbch->set_phich_length(EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_NORM);
+            break;
+
+            case SRSLTE_PHICH_EXT:
+               pbch->set_phich_length(EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_EXTD);
+            break;
+
+            default:
+             throw("ADPT:enb_dl_put_base: unhandled cell phich_length type");
+          }
+
+         pbch->set_num_prb(q->cell.nof_prb);
+
+         pbch->set_num_antennas(q->cell.nof_ports);
+      }
+   }
+}
+
+
+// send msg to mhal
+bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
+{
+  bool result = false;
+
+  EMANELTE::MHAL::Data data;
+  
+  if(enb_dl_msg_.SerializeToString(&data))
+    {
+      tx_control_.set_reference_signal_power_milliwatt(pdsch_rs_power_milliwatt_);
+
+      // align sot to sf time
+      const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
+     
+      EMANELTE::MHAL::Timestamp * const ts = tx_control_.mutable_sf_time();
+      ts->set_ts_sec(tv_sf_time.tv_sec);
+      ts->set_ts_usec(tv_sf_time.tv_usec);
+
+      tx_control_.set_message_type(EMANELTE::MHAL::DOWNLINK);
+      tx_control_.set_tx_seqnum(tx_seqnum_++);
+      tx_control_.set_tti_tx(tti_tx_);
+
+      Info("ADPT:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+           __func__,
+           GetDebugString(tx_control_.DebugString()).c_str(),
+           GetDebugString(enb_dl_msg_.DebugString()).c_str());
+
+      EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
+    }
+  else
+    {
+      Error("ADPT:%s SerializeToString ERROR len %zu\n", __func__, data.length());
+    }
+
+  return result;
+}
+
+
+// tx sequence is done
+void enb_dl_tx_end()
+{
+  pthread_mutex_unlock(&dl_mutex_);
+}
+
+
+#warning "this need review"
+// set the power scaling on a per rnti basis
+void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, float rho_b_db)
+{
+  const uint32_t sf_idx = (tti % 10);
+
+  rho_a_db_map_[sf_idx].emplace(rnti, rho_a_db);
+
+  Debug("ADPT:%s "
+        "sf_idx %d, "
+        "rnti %d, "
+        "rho_a_db %0.2f\n",
+        __func__,
+        sf_idx,
+        rnti,
+        rho_a_db);
+}
+
+
+// see lib/src/phy/enb/enb_dl.c 
+// int srslte_enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, srslte_dci_cfg_t* dci_cfg, srslte_dci_dl_t* dci_dl)
+
+/* typedef struct SRSLTE_API {
+  srslte_cell_t      cell;
+  srslte_dl_sf_cfg_t dl_sf;
+  srslte_pbch_t      pbch;
+  srslte_pcfich_t    pcfich;
+  srslte_regs_t      regs;
+  srslte_pdcch_t     pdcch;
+  srslte_pdsch_t     pdsch;
+  srslte_pmch_t      pmch;
+  srslte_phich_t     phich;
+} srslte_enb_dl_t; 
 
 typedef struct SRSLTE_API {
   uint16_t              rnti;
@@ -243,654 +846,7 @@ typedef struct SRSLTE_API {
   bool     sram_id;
 } srslte_dci_dl_t;
 
-typedef struct SRSLTE_API {
-  uint32_t L;    // Aggregation level
-  uint32_t ncce; // Position of first CCE of the dci
-} srslte_dci_location_t;
-
-typedef struct SRSLTE_API {
-  uint8_t               payload[SRSLTE_DCI_MAX_BITS];
-  uint32_t              nof_bits;
-  srslte_dci_location_t location;
-  srslte_dci_format_t   format;
-  uint16_t              rnti;
-} srslte_dci_msg_t;
-
-typedef struct SRSLTE_API {
-  uint32_t mcs_idx;
-  int      rv;
-  bool     ndi;
-  uint32_t cw_idx;
-} srslte_dci_tb_t;
 */
-
-// set pdcch and pdsch dl
-static void enb_dl_put_dl_grant_i(const srslte_enb_dl_t  * q,
-                                  const srslte_dci_msg_t * dci_msg,
-                                  uint32_t idx)
- {
-   const uint32_t sf_idx = (tti_tx_ % 10);
-
-   auto pdcch_message = enb_dl_msg_.add_pdcch();
-
-   auto channel_message = downlink_control_message_->add_pdcch();
-
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PDCCH,
-                              EMANELTE::MHAL::MOD_QPSK,
-                              dci_msg->nof_bits);
-
-   channel_message->set_rnti(dci_msg->rnti);
-
-   const srslte_pdcch_t * ppdcch = &q->pdcch;
-   const srslte_regs_t  * h = ppdcch->regs;
-
-   uint32_t start_reg = dci_msg->location.ncce * 9;
-   uint32_t nof_regs  = (1<<dci_msg->location.L)*9;
-
-   for (uint32_t i = start_reg; i < start_reg+nof_regs; ++i) {
-     srslte_regs_reg_t *reg = h->pdcch[q->dl_sf.cfi-1].regs[i];
-
-     uint32_t k0 = reg->k0;
-     uint32_t l  = reg->l;
-     const uint32_t * k = &reg->k[0];
-
-     uint32_t rb = k0 / 12;
-
-     Info("PDCCH DL DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
-           "(l=%u, "
-           "k0=%u, "
-           "k[0]=%u "
-           "k[1]=%u "
-           "k[2]=%u "
-           "k[3]=%u) in rb=%u\n", sf_idx, i, dci_msg->rnti, l, k0, k[0], k[1], k[2], k[3], rb);
-
-     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-   }
-
-   // dci
-   auto dl_dci_message = pdcch_message->mutable_dl_dci();
-
-   dl_dci_message->set_rnti(dci_msg->rnti);
-
-   dl_dci_message->set_refid(idx);
-
-   // dci msg
-   auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
-
-   dl_dci_msg->set_num_bits(dci_msg->nof_bits);
-
-   dl_dci_msg->set_l_level(dci_msg->location.L);
-
-   dl_dci_msg->set_l_ncce(dci_msg->location.ncce);
-
-   dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
-
-   dl_dci_msg->set_format(convert(dci_msg->format));
-
-   // pdsch
-   float rho_a_db = 0.0;
-
-   auto riter = rho_a_db_map[sf_idx].find(dci_msg->rnti);
-
-   if(riter != rho_a_db_map[sf_idx].end())
-     {
-       rho_a_db = riter->second;
-     }
-
-   Debug("PHY_ADPT:enb_dl_put_dl_grant_i "
-         "sf_idx %d, "
-         "rnti %d, "
-         "rho_a_db %0.2f\n",
-         sf_idx,
-         dci_msg->rnti,
-         rho_a_db);
-
-   channel_message = downlink_control_message_->add_pdsch();
-
-#if 0
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PDSCH,
-                              convert(phy_grant->mcs[0].mod),
-                              phy_grant->mcs[0].tbs,
-                              rho_a_db);
-
-   channel_message->set_rnti(grant->rnti);
-
-   // Add resource block assignment from the phy_grant
-   for(uint32_t i=0; i<q->cell.nof_prb; ++i)
-     {
-       if(phy_grant->prb_idx[0][i])
-         {
-           channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
-         }
-
-       if(phy_grant->prb_idx[1][i])
-         {
-           channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
-         }
-     }
-
-   EMANELTE::MHAL::ENB_DL_Message_PDSCH * pdsch = enb_dl_msg_.mutable_pdsch();
-
-   // pdsch data
-   EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data* dl_data = pdsch->add_data();
-
-   // data len is in transfer blocks (bits)
-   const uint32_t len = phy_grant->mcs[tb].tbs/8;
-
-   dl_data->set_refid(idx);
-
-   dl_data->set_tb(tb);
-
-   dl_data->set_tbs(len);
-
-   // data has been verified at mac
-   dl_data->set_data(grant->data[tb], len);
-
-   ENBSTATS::putDLGrant(grant->rnti);
- 
-   InfoHex(grant->data[tb], phy_grant->mcs[tb].tbs/8,
-           "PHY_ADPT:enb_dl_put_dl_grant: tb[%d], rnti 0x%x, refid %u, len %u"
-           "\n\t\t\t dci_msg %s"
-           "\n\t\t\t phy_grant %s\n",
-           tb,
-           grant->rnti,
-           idx,
-           len, 
-           dci_msg_t_to_string(dci).c_str(),
-           ra_dl_grant_t_to_string(phy_grant).c_str());
-#endif
-
-}
-
-#if 0
-
-// set pdcch and pdsch dl
-static void enb_dl_put_dl_grant_i_OLD(const srslte_enb_dl_pdsch_t * grant,
-                                  const srslte_dci_msg_t * dci,
-                                  const srslte_ra_dl_grant_t * phy_grant,
-                                  const srslte_enb_dl_t * q,
-                                  uint32_t idx)
- {
-   const uint32_t sf_idx = (tti_tx_ % 10);
-
-   // pdcch
-   EMANELTE::MHAL::ENB_DL_Message_PDCCH * pdcch = enb_dl_msg_.add_pdcch();
-
-   EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->add_pdcch();
-
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PDCCH,
-                              EMANELTE::MHAL::MOD_QPSK,
-                              dci->nof_bits);
-
-   channel_message->set_rnti(grant->rnti);
-
-   const srslte_pdcch_t * ppdcch = &q->pdcch;
-   const srslte_regs_t  * h = ppdcch->regs;
-
-   uint32_t start_reg  = grant->location.ncce * 9;
-   uint32_t nof_regs   = (1<<grant->location.L)*9;
-
-  for (uint32_t i = start_reg; i < start_reg+nof_regs; ++i) {
-    srslte_regs_reg_t *reg = h->pdcch[q->cfi-1].regs[i];
-
-    uint32_t k0 = reg->k0;
-    uint32_t l  = reg->l;
-    const uint32_t * k = &reg->k[0];
-
-    uint32_t rb = k0 / 12;
-
-    Debug("PDCCH DL DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
-          "(l=%u, "
-          "k0=%u, "
-          "k[0]=%u "
-          "k[1]=%u "
-          "k[2]=%u "
-          "k[3]=%u) in rb=%u\n", sf_idx, i, grant->rnti, l, k0, k[0], k[1], k[2], k[3], rb);
-
-    channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-  }
-
-   // dci
-   EMANELTE::MHAL::ENB_DL_Message_PDCCH_DL_DCI * dl_dci_message = pdcch->mutable_dl_dci();
-
-   dl_dci_message->set_rnti(grant->rnti);
-
-   dl_dci_message->set_refid(idx);
-
-   // dci msg
-   EMANELTE::MHAL::ENB_DL_Message_DCI_MSG * dl_dci_msg = dl_dci_message->mutable_dci_msg();
-
-   dl_dci_msg->set_num_bits(dci->nof_bits);
-
-   dl_dci_msg->set_l_level(grant->location.L);
-
-   dl_dci_msg->set_l_ncce(grant->location.ncce);
-
-   dl_dci_msg->set_data(dci->data, dci->nof_bits);
-
-   dl_dci_msg->set_format(convert(grant->dci_format));
-
-   // pdsch
-   float rho_a_db = 0.0;
-
-   rho_a_db_map_t::iterator riter = rho_a_db_map[sf_idx].find(grant->rnti);
-   if(riter != rho_a_db_map[sf_idx].end())
-     {
-       rho_a_db = riter->second;
-     }
-
-   channel_message = downlink_control_message_->add_pdsch();
-
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PDSCH,
-                              convert(phy_grant->mcs[0].mod),
-                              phy_grant->mcs[0].tbs,
-                              rho_a_db);
-
-   channel_message->set_rnti(grant->rnti);
-
-   // Add resource block assignment from the phy_grant
-   for(uint32_t i=0; i<q->cell.nof_prb; ++i)
-     {
-       if(phy_grant->prb_idx[0][i])
-         {
-           channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
-         }
-
-       if(phy_grant->prb_idx[1][i])
-         {
-           channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(i));
-         }
-     }
-
-   EMANELTE::MHAL::ENB_DL_Message_PDSCH * pdsch = enb_dl_msg_.mutable_pdsch();
-
-   // pdsch data
-   EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data* dl_data = pdsch->add_data();
-
-   // data len is in transfer blocks (bits)
-   const uint32_t len = phy_grant->mcs[tb].tbs/8;
-
-   dl_data->set_refid(idx);
-
-   dl_data->set_tb(tb);
-
-   dl_data->set_tbs(len);
-
-   // data has been verified at mac
-   dl_data->set_data(grant->data[tb], len);
-
-   ENBSTATS::putDLGrant(grant->rnti);
- 
-   InfoHex(grant->data[tb], phy_grant->mcs[tb].tbs/8,
-           "PHY_ADPT:enb_dl_put_dl_grant: tb[%d], rnti 0x%x, refid %u, len %u"
-           "\n\t\t\t dci_msg %s"
-           "\n\t\t\t phy_grant %s\n",
-           tb,
-           grant->rnti,
-           idx,
-           len, 
-           dci_msg_t_to_string(dci).c_str(),
-           ra_dl_grant_t_to_string(phy_grant).c_str());
-}
-#endif
-
-
-void enb_initialize(srslte::log * log_h, 
-                    uint32_t sf_interval_msec, 
-                    uint32_t physical_cell_id, 
-                    srslte_cp_t cp,
-                    float ul_freq,
-                    float dl_freq, 
-                    int n_prb, 
-                    EMANELTE::MHAL::mhal_config_t & mhal_config,
-                    rrc_cfg_t * rrc_cfg)
-{
-  log_h_ = log_h;
-
-  pdsch_rs_power_milliwatt = pow(10.0, static_cast<float>(rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr) / 10.0);
-
-  uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
-
-#ifdef PHY_ADAPTER_ENABLE_PENDING
-  if(p_b < 4)
-    {
-      // this table no longer resides in lib/include/srslte/phy/phch/pdsch_cfg.h
-      // new location unknown
-      pdsch_rho_b_over_rho_a = pdsch_cfg_cell_specific_ratio_table[0][p_b];
-    }
-#endif
-
-  cell_cp = cp;
-
-  Info("PHY_ADPT:enb_initialize sf_interval "
-       "%u msec, "
-       "ul_freq %6.4f MHz, "
-       "fl_freq %6.4f MHz, "
-       "n_prb %d, "
-       "rs_power=%d "
-       "pdsch_rs_power_milliwatt=%0.2f "
-       "p_b=%d "
-       "pdsch_rho_b_over_rho_a=%.02f\n",
-       sf_interval_msec,
-       ul_freq/1e6,
-       dl_freq/1e6,
-       n_prb,
-       rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr,
-       pdsch_rs_power_milliwatt,
-       rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b,
-       pdsch_rho_b_over_rho_a);
-
-  EMANELTE::MHAL::ENB::initialize(
-     mhal_config,
-     EMANELTE::MHAL::ENB::mhal_enb_config_t(physical_cell_id,
-                                            sf_interval_msec,
-                                            cp == SRSLTE_CP_NORM ? SRSLTE_CP_NORM_NSYMB : SRSLTE_CP_EXT_NSYMB,
-                                            ul_freq,
-                                            dl_freq,
-                                            n_prb,
-                                            pdsch_rs_power_milliwatt,
-                                            pdsch_rho_b_over_rho_a));
-}
-
-
-void enb_start()
-{
-  Info("PHY_ADPT:enb_start\n");
-
-  pthread_mutexattr_t mattr;
-
-  if(pthread_mutexattr_init(&mattr) < 0)
-   {
-     Error("PHY_ADPT:enb_start pthread_mutexattr_init error %s, exit\n", strerror(errno));
-
-     exit(1);
-   }
-  else
-   {
-     if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
-       {
-         Error("PHY_ADPT:enb_start pthread_mutexattr_setprotocol error %s, exit\n", strerror(errno));
-
-         exit(1);
-       }
-
-     if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
-       {
-         Error("PHY_ADPT:enb_start pthread_mutex_init error %s, exit\n", strerror(errno));
-
-         exit(1);
-       }
-
-     if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
-       {
-         Error("PHY_ADPT:enb_start pthread_mutex_init error %s, exit\n", strerror(errno));
-
-         exit(1);
-       }
-
-     pthread_mutexattr_destroy(&mattr);
-  }
-
-  enb_dl_msg_.Clear();
-
-  tx_control_.Clear();
-
-  downlink_control_message_ = tx_control_.mutable_downlink();
-
-  downlink_control_message_->Clear();
-
-  EMANELTE::MHAL::ENB::start();
-}
-
-
-void enb_stop()
-{
-  Info("PHY_ADPT:enb_start\n");
-
-  EMANELTE::MHAL::ENB::stop();
-
-  pthread_mutex_destroy(&dl_mutex_);
-
-  pthread_mutex_destroy(&ul_mutex_);
-}
-
-
-void enb_dl_tx_init(const srslte_enb_dl_t *q,
-                    uint32_t tti_tx,
-                    uint32_t cfi)
-{
-  // lock here, unlocked after tx_end to prevent any worker thread(s)
-  // from attempting to start a new tx sequence before the current tx sequence
-  // is finished
-  pthread_mutex_lock(&dl_mutex_);
-
-  enb_dl_msg_.Clear();
-
-  tx_control_.Clear();
-
-  downlink_control_message_ = tx_control_.mutable_downlink();
-
-  downlink_control_message_->Clear();
-
-  downlink_control_message_->set_num_resource_blocks(q->cell.nof_prb);
-
-  Info("PHY_ADPT:enb_dl_tx_init: curr_tti %u, tti_tx %u\n", curr_tti_, tti_tx);
-
-  // subframe index
-  const uint32_t sf_idx = (tti_tx % 10);
-
-  rho_a_db_map[sf_idx].clear();
-
-  // always set tti for timing tracking
-  enb_dl_msg_.set_tti(tti_tx);
-
-  // always set cfi
-  // note - cfi should be nof_ctrl_symbols on regular frames and
-  //        non_mbsfn_region_length (from sib13) on mbsfn frames
-  enb_dl_msg_.set_cfi(cfi);
-  downlink_control_message_->set_cfi(enb_dl_msg_.cfi());
-
-  // always set phy_cell_id to distinguish multiple cells
-  enb_dl_msg_.set_phy_cell_id(q->cell.id);
-  tx_control_.set_phy_cell_id(q->cell.id);
-
-  // save our pci
-  my_pci_ = q->cell.id;
-
-  // save the tti_tx
-  tti_tx_ = tti_tx;
-
-  // PCFICH encoding
-  EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pcfich();
-
-  initDownlinkChannelMessage(channel_message,
-                             EMANELTE::MHAL::CHAN_PCFICH,
-                             EMANELTE::MHAL::MOD_QPSK,
-                             2);  // 2 bit to encode dfi
-
-  for(int i=0; i<3; ++i)
-    {
-      const srslte_pcfich_t * p1 = &q->pcfich;
-      const srslte_regs_t * p2 = p1->regs;
-      const srslte_regs_ch_t *rch = &p2->pcfich;
-      const srslte_regs_reg_t *reg = rch->regs[i];
-
-      uint32_t k0 = reg->k0;
-      uint32_t l = reg->l;
-      const uint32_t * k = &reg->k[0];
-
-      //srslte_regs_ch_t * pcfich = &((q->pcfich.regs)->pcfich);
-      uint32_t rb = k0 / 12;
-      Debug("PCFICH group i=%d on this subframe placed at resource starting at "
-            "(l=%u, "
-            "k0=%u, "
-            "k[0]=%u "
-            "k[1]=%u "
-            "k[2]=%u "
-            "k[3]=%u) in resource block=%u\n", i, l, k0, k[0], k[1], k[2], k[3], rb);
-
-      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-    }
-
-  // Set side chain PSS, SSS and MIB information on appropriate subframes
-  if(sf_idx == 0 || sf_idx == 5) 
-    {
-      // physical cell group and id derived from pci
-
-      // set cyclical prefix mode
-      enb_dl_msg_.mutable_pss_sss()->set_cp_mode(q->cell.cp == SRSLTE_CP_NORM ? 
-                                                 EMANELTE::MHAL::CP_NORM : 
-                                                 EMANELTE::MHAL::CP_EXTD);
-
-      // MIB on first subframe
-      if(sf_idx == 0)
-       {
-         EMANELTE::MHAL::ENB_DL_Message_PBCH * pbch = enb_dl_msg_.mutable_pbch();
-
-         EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pbch();
-
-         initDownlinkChannelMessage(channel_message,
-                                    EMANELTE::MHAL::CHAN_PBCH,
-                                    EMANELTE::MHAL::MOD_QPSK,
-                                    40);  // MIB + 16 bit CRC
-
-         // MIB occupies the middle 72 resource elements of the second slot of subframe 0, which
-         // is the middle 6 or 7 resource blocks depending on nof_prb being even or odd.
-         // Approximate this by sending a segment for each fullly occupied resource block,
-         // So 5 blocks when num_prb is odd.
-         int first_prb = q->cell.nof_prb / 2 - 3 + (q->cell.nof_prb % 2);
-
-         int num_prb = q->cell.nof_prb % 2 ? 5 : 6;
-
-         for(int i=0; i<num_prb; ++i)
-           {
-             channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(first_prb + i));
-           }
-
-         switch(q->cell.phich_resources) 
-          {
-            case SRSLTE_PHICH_R_1_6:
-               pbch->set_phich_resources(EMANELTE::MHAL::PR_ONE_SIXTH);
-            break;
-
-            case SRSLTE_PHICH_R_1_2:
-               pbch->set_phich_resources(EMANELTE::MHAL::PR_ONE_HALF);
-            break;
-
-            case SRSLTE_PHICH_R_1:
-               pbch->set_phich_resources(EMANELTE::MHAL::PR_ONE);
-            break;
-
-            case SRSLTE_PHICH_R_2:
-               pbch->set_phich_resources(EMANELTE::MHAL::PR_TWO);
-            break;
-
-            default:
-             throw("PHY_ADPT:enb_dl_put_base: unhandled cell phich_resources type");
-          }
-
-         switch(q->cell.phich_length) 
-          {
-            case SRSLTE_PHICH_NORM:
-               pbch->set_phich_length(EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_NORM);
-            break;
-
-            case SRSLTE_PHICH_EXT:
-               pbch->set_phich_length(EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_EXTD);
-            break;
-
-            default:
-             throw("PHY_ADPT:enb_dl_put_base: unhandled cell phich_length type");
-          }
-
-         pbch->set_num_prb(q->cell.nof_prb);
-
-         pbch->set_num_antennas(q->cell.nof_ports);
-      }
-   }
-}
-
-
-// send msg to mhal
-bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
-{
-  bool result = false;
-
-  EMANELTE::MHAL::Data data;
-  
-  if(enb_dl_msg_.SerializeToString(&data))
-    {
-      tx_control_.set_reference_signal_power_milliwatt(pdsch_rs_power_milliwatt);
-
-      // align sot to sf time
-      const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
-     
-      EMANELTE::MHAL::Timestamp * const ts = tx_control_.mutable_sf_time();
-      ts->set_ts_sec(tv_sf_time.tv_sec);
-      ts->set_ts_usec(tv_sf_time.tv_usec);
-
-      tx_control_.set_message_type(EMANELTE::MHAL::DOWNLINK);
-      tx_control_.set_tx_seqnum(tx_seqnum_++);
-      tx_control_.set_tti_tx(tti_tx_);
-
-      Info("PHY_ADPT:enb_dl_send_signal tx_ctrl:%s\n \t\tmsg:%s\n",
-           GetDebugString(tx_control_.DebugString()).c_str(),
-           GetDebugString(enb_dl_msg_.DebugString()).c_str());
-
-      EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
-    }
-  else
-    {
-      Error("PHY_ADPT:TX enb_dl_send_signal: SerializeToString ERROR len %zu\n", data.length());
-    }
-
-  return result;
-}
-
-
-// tx sequence is done
-void enb_dl_tx_end()
-{
-  pthread_mutex_unlock(&dl_mutex_);
-}
-
-
-// set the power scaling on a per rnti basis
-void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, float rho_b_db)
-{
-  const uint32_t sf_idx = (tti % 10);
-
-  rho_a_db_map[sf_idx].emplace(rnti, rho_a_db);
-
-  Debug("PHY_ADPT:enb_dl_set_power_allocation "
-        "sf_idx %d, "
-        "rnti %d, "
-        "rho_a_db %0.2f\n",
-        sf_idx,
-        rnti,
-        rho_a_db);
-}
-
-
-
-// see lib/src/phy/enb/enb_dl.c 
-// int srslte_enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, srslte_dci_cfg_t* dci_cfg, srslte_dci_dl_t* dci_dl)
-
-/* typedef struct SRSLTE_API {
-  srslte_cell_t      cell;
-  srslte_dl_sf_cfg_t dl_sf;
-  srslte_pbch_t      pbch;
-  srslte_pcfich_t    pcfich;
-  srslte_regs_t      regs;
-  srslte_pdcch_t     pdcch;
-  srslte_pdsch_t     pdsch;
-  srslte_pmch_t      pmch;
-  srslte_phich_t     phich;
-} srslte_enb_dl_t; */
 int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                         srslte_dci_cfg_t* dci_cfg,
                         srslte_dci_dl_t* dci_dl, 
@@ -902,17 +858,40 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
 
   if(srslte_dci_msg_pack_pdsch(&q->cell, &q->dl_sf, dci_cfg, dci_dl, &dci_msg) == SRSLTE_SUCCESS)
     {
-      Info("PHY_ADPT:%s success calling srslte_dci_msg_pack_pdsch(), idx %u\n", __func__, idx);
-
-      enb_dl_put_dl_grant_i(q, &dci_msg, idx);
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, idx);
     }
   else
     {
-      Error("PHY_ADPT:%s error calling srslte_dci_msg_pack_pdsch(), idx %u\n", __func__, idx);
-    }
+      Error("PDCCH:%s error calling srslte_dci_msg_pack_pdsch(), idx %u\n", __func__, idx);
 
-  return SRSLTE_SUCCESS;
+      return SRSLTE_ERROR;
+    }
 }
+
+// see lib/src/phy/enb/enb_dl.c
+// srslte_enb_dl_put_pdsch(srslte_enb_dl_t* q, srslte_pdsch_cfg_t* pdsch, uint8_t* data[SRSLTE_MAX_CODEWORDS])
+/*
+typedef struct SRSLTE_API {
+  srslte_cell_t      cell;
+  srslte_dl_sf_cfg_t dl_sf;
+  srslte_pbch_t      pbch;
+  srslte_pcfich_t    pcfich;
+  srslte_regs_t      regs;
+  srslte_pdcch_t     pdcch;
+  srslte_pdsch_t     pdsch;
+  srslte_pmch_t      pmch;
+  srslte_phich_t     phich;
+} srslte_enb_dl_t;
+
+*/
+ int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
+                      srslte_pdsch_cfg_t* pdsch, 
+                      uint8_t* data[SRSLTE_MAX_CODEWORDS],
+                      uint32_t id)
+{
+  return enb_dl_put_dl_pdsch_i(q, pdsch, data, id);
+}
+
 
 
 #if 0
@@ -946,6 +925,7 @@ void enb_dl_put_pmch(const srslte_enb_dl_pdsch_t *grant, const srslte_ra_dl_gran
    initDownlinkChannelMessage(channel_message,
                               EMANELTE::MHAL::CHAN_PMCH,
                               convert(phy_grant->mcs[tb].mod),
+                              rnti,
                               phy_grant->mcs[tb].tbs);
 
    // channel_message.add_resource_blocks();
@@ -955,12 +935,12 @@ void enb_dl_put_pmch(const srslte_enb_dl_pdsch_t *grant, const srslte_ra_dl_gran
        channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
      }
 
-   channel_message->set_rnti(grant->rnti);
 
    ENBSTATS::putDLGrant(grant->rnti);
 
-   Info("PHY_ADPT:enb_dl_put_pmch: tb[%d], rnti 0x%x, len %u"
+   Info("ADPT:%s: tb[%d], rnti 0x%x, len %u"
         "\n\t\t\t phy_grant %s\n",
+        __func__,
         tb,
         grant->rnti,
         len,
@@ -996,9 +976,8 @@ int enb_dl_put_pdcch_ul(srslte_enb_ul_pusch_t * ul_pusch,
           initDownlinkChannelMessage(channel_message,
                                      EMANELTE::MHAL::CHAN_PDCCH,
                                      EMANELTE::MHAL::MOD_QPSK,
+                                     rnti,
                                      dci_msg.nof_bits);
-
-          channel_message->set_rnti(ul_pusch->rnti);
 
           const srslte_pdcch_t * ppdcch = &q->pdcch;
           const srslte_regs_t * h = ppdcch->regs;
@@ -1039,15 +1018,16 @@ int enb_dl_put_pdcch_ul(srslte_enb_ul_pusch_t * ul_pusch,
 
           ul_dci_msg->set_format(EMANELTE::MHAL::DCI_FORMAT_0);
 
-          Info("PHY_ADPT:enb_dl_put_pdcch_ul:"
+          Info("ADPT:%s:"
                "\n\t\t\t dci_msg %s"
                "\n\t\t\t ul_pusch %s\n",
+               __func__,
                dci_msg_t_to_string(&dci_msg).c_str(),
                enb_ul_pusch_t_to_string(ul_pusch).c_str());
         }
       else
         {
-          Error("PHY_ADPT:enb_dl_put_pdcch_ul: rnti=%d error packing dci_msg\n", ul_pusch->rnti);
+          Error("ADPT:%s: rnti=%d error packing dci_msg\n", __func__, ul_pusch->rnti);
           return SRSLTE_ERROR;
         }
     }
@@ -1081,9 +1061,8 @@ void enb_dl_put_phich(const srslte_enb_dl_t *q,
    initDownlinkChannelMessage(channel_message,
                               EMANELTE::MHAL::CHAN_PHICH,
                               EMANELTE::MHAL::MOD_BPSK,
+                              ack->rnti,
                               3);  // phich is 000 for nak, 111 for ack. each bit is BPSK modulated to a symbol, and each symbol spread to 4 REs (12 REs total)
-
-   channel_message->set_rnti(ack->rnti);
 
    srslte_regs_t *h = q->phich.regs;
    if (SRSLTE_CP_ISEXT(h->cell.cp)) {
@@ -1092,7 +1071,7 @@ void enb_dl_put_phich(const srslte_enb_dl_t *q,
 
    srslte_regs_ch_t *rch = &h->phich[ngroup];
 
-   Debug("PHY_ADPT:enb_dl_put_phich msg: ngroup=%d nof_regs=%d\n", ngroup, rch->nof_regs);
+   Debug("ADPT:%s msg: ngroup=%d nof_regs=%d\n", __func__, ngroup, rch->nof_regs);
 
    // nof_regs is 3 for phich groups (12 REs total per group).
    // l should always be 0 for Normal PHICH duration and [0,2] for Extended
@@ -1110,7 +1089,7 @@ void enb_dl_put_phich(const srslte_enb_dl_t *q,
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
-   Info("PHY_ADPT:enb_dl_put_phich msg:\n%s\n", GetDebugString(phich->DebugString()).c_str());
+   Info("ADPT:%s msg:\n%s\n", __func__, GetDebugString(phich->DebugString()).c_str());
 }
 #endif
 
@@ -1149,7 +1128,8 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const EMANELTE::MHAL::RxControl & rx_control = iter->second;
 
-        Info("PHY_ADPT:RX enb_ul_get_signal: %s, sf_time %ld:%06ld, msg:%s\n",
+        Info("ADPT:%s %s, sf_time %ld:%06ld, msg:%s\n",
+              __func__,
               bInStep ? "in-step" : "late",
               rx_control.rxData_.sf_time_.tv_sec,
               rx_control.rxData_.sf_time_.tv_usec,
@@ -1162,7 +1142,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
         // check ul msg src vs our pci
         if(pci != my_pci_)
          {
-           Debug("PHY_ADPT:enb_ul_get_signal: pci 0x%x != my_pci 0x%x, ignore\n", pci, my_pci_);
+           Debug("ADPT:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
          }
         else
          {
@@ -1171,7 +1151,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       }
     else
       {
-        Error("PHY_ADPT:RX enb_ul_get_signal: ParseFromString ERROR\n");
+        Error("ADPT:%s enb_ul_get_signal: ParseFromString ERROR\n", __func__);
       }
    }
 
@@ -1189,8 +1169,8 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   pthread_mutex_lock(&ul_mutex_);
 
-  Debug("PHY_ADPT:RX enb_ul_get_prach: check %zu messages of %u max\n", 
-         ue_ul_msgs_.size(), max_entries);
+  Debug("ADPT:%s check %zu messages of %u max\n", 
+        __func__, ue_ul_msgs_.size(), max_entries);
 
   std::set<uint32_t> unique;
 
@@ -1223,25 +1203,27 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
              ++num_entries;
 
-             Info("PHY_ADPT:enb_ul_get_prach: entry[%u], accept index %d\n",
+             Info("ADPT:%s entry[%u], accept index %d\n",
+                  __func__,
                   num_entries, 
                   preamble.index());
            }
          else
           {
-             Info("PHY_ADPT:enb_ul_get_prach: entry[%u], ignore duplicate index %d\n",
+             Info("ADPT:%s entry[%u], ignore duplicate index %d\n",
+                  __func__,
                   num_entries, 
                   preamble.index());
           }
 
          // see srsenb/src/mac/scheduler.cc sched::dl_sched_rar
-         Warning("PHY_ADPT:enb_ul_get_prach: XXX only supporting 1 parch/frame\n");
+         Warning("ADPT:%s XXX only supporting 1 parch/frame\n", __func__);
 
          break;
        }
      else
        {
-         Debug("PHY_ADPT:enb_ul_get_prach: no preambles\n");
+         Debug("ADPT:%s no preambles\n", __func__);
        }
     }
 
@@ -1270,7 +1252,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t * q,
 {
   pthread_mutex_lock(&ul_mutex_);
 
-  Info("PHY_ADPT:RX enb_ul_get_pucch: check %zu messages for rnti %hx\n", ue_ul_msgs_.size(), rnti);
+  Info("ADPT:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
 
   for(UE_UL_Messages::iterator ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
@@ -1304,7 +1286,8 @@ int enb_ul_get_pucch(srslte_enb_ul_t * q,
 
                   q->pucch.last_corr = 1.0;
 
-                  Info("PHY_ADPT:enb_ul_get_pucch: grant %d of %d, found pucch_ul_rnti %hx\n",
+                  Info("ADPT:%s grant %d of %d, found pucch_ul_rnti %hx\n",
+                       __func__,
                        n+1, pucch.grant_size(), rnti);
 
                   // pass
@@ -1396,7 +1379,7 @@ uint32_t tti;
 
   pthread_mutex_lock(&ul_mutex_);
 
-  Info("PHY_ADPT:RX enb_ul_get_pusch: check %zu messages for rnti %hx\n", ue_ul_msgs_.size(), rnti);
+  Info("ADPT:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
 
   for(UE_UL_Messages::iterator ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
@@ -1433,7 +1416,8 @@ uint32_t tti;
  
                   q->pucch.last_corr = 1.0;
  
-                  Info("PHY_ADPT:enb_ul_get_pusch: grant %d of %d, found pusch_ul_rnti %hx\n",
+                  Info("ADPT:%: grant %d of %d, found pusch_ul_rnti %hx\n",
+                       __func__,
                        n+1, pusch.grant_size(), rnti);
 
                   if(cqi_value)
@@ -1461,13 +1445,13 @@ uint32_t tti;
             }
            else
             {
-              Info("PHY_ADPT:enb_ul_get_pusch: ignore pusch_ul_rnti %hx\n", ul_rnti); 
+              Info("ADPT:%s ignore pusch_ul_rnti %hx\n", __func__, ul_rnti); 
             }
          }
       }
    }
 
-  Info("PHY_ADPT:RX enb_ul_get_pusch: nothing found for rnti %hx\n", rnti);
+  Info("ADPT:%s nothing found for rnti %hx\n", __func__, rnti);
 
   pthread_mutex_unlock(&ul_mutex_);
 

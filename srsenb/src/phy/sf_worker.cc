@@ -830,7 +830,11 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
       }
 
       // Encode PDSCH
+#ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdsch(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants[i].data)) {
+#else
+      if (phy_adapter::enb_dl_put_pdsch(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants[i].data, i)) {
+#endif
         Error("Error putting PDSCH %d\n", i);
         return SRSLTE_ERROR;
       }

@@ -71,7 +71,14 @@ void enb_initialize(srslte::log * log_h,
  int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                          srslte_dci_cfg_t* dci_cfg, 
                          srslte_dci_dl_t* dci_dl,
-                         uint32_t idx);
+                         uint32_t id);
+
+ // set dl pdsch
+ int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
+                      srslte_pdsch_cfg_t* pdsch, 
+                      uint8_t* data[SRSLTE_MAX_CODEWORDS],
+                      uint32_t id);
+
 
 #if 0
  // set dl mch
