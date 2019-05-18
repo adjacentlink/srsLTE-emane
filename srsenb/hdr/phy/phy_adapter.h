@@ -71,13 +71,13 @@ void enb_initialize(srslte::log * log_h,
  int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                          srslte_dci_cfg_t* dci_cfg, 
                          srslte_dci_dl_t* dci_dl,
-                         uint32_t id);
+                         uint32_t num);
 
  // set dl pdsch
  int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
                       srslte_pdsch_cfg_t* pdsch, 
                       uint8_t* data[SRSLTE_MAX_CODEWORDS],
-                      uint32_t id);
+                      uint32_t num);
 
 
  // set dl mch
@@ -85,15 +85,15 @@ void enb_initialize(srslte::log * log_h,
                      srslte_pmch_cfg_t* pmch_cfg,
                      mac_interface_phy::dl_sched_grant_t* dl_sched_grant);
 
-#if 0
  //set ul pdcch
- int enb_dl_put_pdcch_ul(srslte_enb_ul_pusch_t * ul_pusch,
-                         const srslte_enb_dl_t * enb_dl);
-#endif
+ int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q, 
+                         srslte_dci_cfg_t* dci_cfg, 
+                         srslte_dci_ul_t* dci_ul,
+                         uint32_t num);
 
 #if 0
  // set phich
- void enb_dl_put_phich(const srslte_enb_dl_t *enb_dl,
+ void enb_dl_put_phich(const srslte_enb_dl_t *q,
                       const srslte_enb_dl_phich_t * ack,
                       uint32_t n_prb_L,
                       uint32_t n_dmrs);

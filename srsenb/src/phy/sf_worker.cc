@@ -733,10 +733,10 @@ int sf_worker::encode_pdcch_ul(mac_interface_phy::ul_sched_grant_t* grants, uint
 {
   for (uint32_t i = 0; i < nof_grants; i++) {
     if (grants[i].needs_pdcch) {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdcch_ul(&enb_dl, &grants[i].dci_cfg, &grants[i].dci)) {
 #else
-      if (phy_adapter::enb_dl_put_pdcch_ul(&grants[i], &enb_dl)) {
+      if (phy_adapter::enb_dl_put_pdcch_ul(&enb_dl, &grants[i].dci_cfg, &grants[i].dci, i)) {
 #endif
         ERROR("Error putting PUSCH %d\n", i);
         return SRSLTE_ERROR;
@@ -745,7 +745,7 @@ int sf_worker::encode_pdcch_ul(mac_interface_phy::ul_sched_grant_t* grants, uint
       // Logging
       char str[512];
       srslte_dci_ul_info(&grants[i].dci, str, 512);
-      Info("PDCCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+      Info("PDCCH_UL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
     }
   }
   return SRSLTE_SUCCESS;
@@ -769,7 +769,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
         // Logging
         char str[512];
         srslte_dci_dl_info(&grants[i].dci, str, 512);
-        Info("PDCCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+        Info("PDCCH_DL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
       }
     }
   }

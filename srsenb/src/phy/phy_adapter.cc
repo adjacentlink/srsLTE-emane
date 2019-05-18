@@ -228,10 +228,11 @@ typedef struct SRSLTE_API {
 } srslte_dci_tb_t;
 */
 
-// set pdcch dl
+// see lib/src/phy/phch/pdcch.c
+// srslte_pdcch_encode(&q->pdcch, &q->dl_sf, &dci_msg, q->sf_symbols)
 static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                                  const srslte_dci_msg_t * dci_msg,
-                                 uint32_t id)
+                                 uint32_t num)
  {
    const uint32_t sf_idx = (tti_tx_ % 10);
 
@@ -278,7 +279,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
 
    dl_dci_message->set_rnti(dci_msg->rnti);
 
-   dl_dci_message->set_refid(id);
+   dl_dci_message->set_refid(num);
 
    // dci msg
    auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
@@ -373,7 +374,7 @@ typedef struct SRSLTE_API {
 static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
                                  srslte_pdsch_cfg_t* pdsch, 
                                  uint8_t* data[SRSLTE_MAX_CODEWORDS],
-                                 uint32_t id)
+                                 uint32_t num)
  {
    const auto grant = pdsch->grant;
 
@@ -381,7 +382,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
 
    if(grant.nof_tb != 1)
     {
-      Error("PDSCH:%s rnti %hu, id %u, nof_tb %u, expected 1\n", __func__, rnti, id, grant.nof_tb);
+      Error("PDSCH:%s rnti %hu, num %u, nof_tb %u, expected 1\n", __func__, rnti, num, grant.nof_tb);
 
       return SRSLTE_ERROR;
     }
@@ -430,7 +431,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    // data len is in transfer blocks (bits)
    const uint32_t len = grant.tb[tb].tbs/8;
 
-   data_message->set_refid(id);
+   data_message->set_refid(num);
 
    data_message->set_tb(tb);
 
@@ -558,7 +559,7 @@ void enb_initialize(srslte::log * log_h,
 
   uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#if 0 // TODO
   if(p_b < 4)
     {
       // this table no longer resides in lib/include/srslte/phy/phch/pdsch_cfg.h
@@ -885,9 +886,6 @@ void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, fl
 }
 
 
-// see lib/src/phy/enb/enb_dl.c 
-// int srslte_enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, srslte_dci_cfg_t* dci_cfg, srslte_dci_dl_t* dci_dl)
-
 /* typedef struct SRSLTE_API {
   srslte_cell_t      cell;
   srslte_dl_sf_cfg_t dl_sf;
@@ -940,24 +938,25 @@ typedef struct SRSLTE_API {
   bool     is_tdd;
   bool     is_dwpts;
   bool     sram_id;
-} srslte_dci_dl_t;
-*/
+} srslte_dci_dl_t; */
+
+// see lib/src/phy/enb/enb_dl.c 
+// int srslte_enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, srslte_dci_cfg_t* dci_cfg, srslte_dci_dl_t* dci_dl)
 int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                         srslte_dci_cfg_t* dci_cfg,
                         srslte_dci_dl_t* dci_dl, 
-                        uint32_t idx)
+                        uint32_t num)
 {
   srslte_dci_msg_t dci_msg;
-
   bzero(&dci_msg, sizeof(dci_msg));
 
   if(srslte_dci_msg_pack_pdsch(&q->cell, &q->dl_sf, dci_cfg, dci_dl, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, idx);
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, num);
     }
   else
     {
-      Error("PDCCH:%s error calling srslte_dci_msg_pack_pdsch(), idx %u\n", __func__, idx);
+      Error("PDCCH_DL:%s error calling srslte_dci_msg_pack_pdsch(), num %u\n", __func__, num);
 
       return SRSLTE_ERROR;
     }
@@ -968,9 +967,9 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
 int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
                      srslte_pdsch_cfg_t* pdsch, 
                      uint8_t* data[SRSLTE_MAX_CODEWORDS],
-                     uint32_t id)
+                     uint32_t num)
 {
-  return enb_dl_put_dl_pdsch_i(q, pdsch, data, id);
+  return enb_dl_put_dl_pdsch_i(q, pdsch, data, num);
 }
 
 
@@ -982,7 +981,7 @@ int enb_dl_put_pmch(srslte_enb_dl_t* q,
 {
   if(dl_sched_grant->dci.rnti != 0)
    {
-    return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti);
+     return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti);
    }
   else
    {
@@ -992,93 +991,27 @@ int enb_dl_put_pmch(srslte_enb_dl_t* q,
    }
 }
 
-
-#if 0
-// handles pdcch ul
-int enb_dl_put_pdcch_ul(srslte_enb_ul_pusch_t * ul_pusch,
-                        const srslte_enb_dl_t * q)
+// see lib/src/phy/enb/enb_dl.c
+// int srslte_enb_dl_put_pdcch_ul(srslte_enb_dl_t* q, srslte_dci_cfg_t* dci_cfg, srslte_dci_ul_t* dci_ul)
+int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q, 
+                        srslte_dci_cfg_t* dci_cfg,
+                        srslte_dci_ul_t* dci_ul,
+                        uint32_t num)
 {
-  const uint32_t sf_idx = (tti_tx_ % 10);
+  srslte_dci_msg_t dci_msg;
+  bzero(&dci_msg, sizeof(dci_msg));
 
-  if((ul_pusch->needs_pdcch) && (ul_pusch->rnti > 0))
+  if(srslte_dci_msg_pack_pusch(&q->cell, &q->dl_sf, dci_cfg, dci_ul, &dci_msg) == SRSLTE_SUCCESS)
     {
-      srslte_ra_ul_dci_t * ra_ul_dci = &ul_pusch->grant;
-
-      EMANELTE::MHAL::ENB_DL_Message_PDCCH * pdcch = enb_dl_msg_.add_pdcch();
-
-      EMANELTE::MHAL::ENB_DL_Message_PDCCH_UL_DCI * ul_dci = pdcch->mutable_ul_dci();
-
-      EMANELTE::MHAL::ENB_DL_Message_DCI_MSG * ul_dci_msg = ul_dci->mutable_dci_msg();
-
-      srslte_dci_msg_t dci_msg;
-      bzero(&dci_msg, sizeof(dci_msg));
-
-      if(srslte_dci_msg_pack_pusch(ra_ul_dci, &dci_msg, q->cell.nof_prb) == SRSLTE_SUCCESS)
-        {
-          EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->add_pdcch();
-
-          initDownlinkChannelMessage(channel_message,
-                                     EMANELTE::MHAL::CHAN_PDCCH,
-                                     EMANELTE::MHAL::MOD_QPSK,
-                                     rnti,
-                                     dci_msg.nof_bits);
-
-          const srslte_pdcch_t * ppdcch = &q->pdcch;
-          const srslte_regs_t * h = ppdcch->regs;
-
-          uint32_t start_reg = ul_pusch->location.ncce * 9;
-
-          uint32_t nof_regs = (1<<ul_pusch->location.L)*9;
-
-          for (uint32_t i=start_reg;i<start_reg+nof_regs;i++) {
-            srslte_regs_reg_t *reg = h->pdcch[q->cfi-1].regs[i];
-
-            uint32_t k0 = reg->k0;
-            uint32_t l = reg->l;
-            const uint32_t * k = &reg->k[0];
-
-            uint32_t rb = k0 / 12;
-
-            Debug("PDCCH UL DCI group sf_idx=%d reg=%d rnti=%d placement: "
-                  "(l=%u, "
-                  "k0=%u, "
-                  "k[0]=%u "
-                  "k[1]=%u "
-                  "k[2]=%u "
-                  "k[3]=%u) in rb=%u\n", sf_idx, i, ul_pusch->rnti, l, k0, k[0], k[1], k[2], k[3], rb);
-
-            channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-          }
-
-          ul_dci->set_rnti(ul_pusch->rnti);
-
-          ul_dci_msg->set_num_bits(dci_msg.nof_bits);
-
-          ul_dci_msg->set_l_level(ul_pusch->location.L);
-
-          ul_dci_msg->set_l_ncce(ul_pusch->location.ncce);
-
-          ul_dci_msg->set_data(dci_msg.data, dci_msg.nof_bits);
-
-          ul_dci_msg->set_format(EMANELTE::MHAL::DCI_FORMAT_0);
-
-          Info("ADPT:%s:"
-               "\n\t\t\t dci_msg %s"
-               "\n\t\t\t ul_pusch %s\n",
-               __func__,
-               dci_msg_t_to_string(&dci_msg).c_str(),
-               enb_ul_pusch_t_to_string(ul_pusch).c_str());
-        }
-      else
-        {
-          Error("ADPT:%s: rnti=%d error packing dci_msg\n", __func__, ul_pusch->rnti);
-          return SRSLTE_ERROR;
-        }
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, num);
     }
+  else
+    {
+      Error("PDCCH_UL:%s error calling srslte_dci_msg_pack_pdcch(), num %u\n", __func__, num);
 
-  return SRSLTE_SUCCESS;
+      return SRSLTE_ERROR;
+    }
 }
-#endif
 
 
 #if 0
