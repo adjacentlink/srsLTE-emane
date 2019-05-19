@@ -91,13 +91,8 @@ void enb_initialize(srslte::log * log_h,
                          srslte_dci_ul_t* dci_ul,
                          uint32_t num);
 
-#if 0
  // set phich
- void enb_dl_put_phich(const srslte_enb_dl_t *q,
-                      const srslte_enb_dl_phich_t * ack,
-                      uint32_t n_prb_L,
-                      uint32_t n_dmrs);
-#endif
+ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interface_phy::ul_sched_ack_t * ack);
 
  // send to mhal with sot time
  bool enb_dl_send_signal(time_t sot_sec, float frac_sec);

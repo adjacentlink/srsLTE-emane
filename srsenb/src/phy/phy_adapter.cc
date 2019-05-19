@@ -38,6 +38,7 @@
 extern "C" {
 #include "srslte/phy/phch/ra.h"
 #include "srslte/phy/phch/dci.h"
+#include "srslte/phy/phch/phich.h"
 }
 
 #include "lib/include/srslte/phy/phch/pdsch_cfg.h"
@@ -251,17 +252,17 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    const srslte_pdcch_t * ppdcch = &q->pdcch;
    const srslte_regs_t  * h = ppdcch->regs;
 
-   uint32_t start_reg = dci_msg->location.ncce * 9;
-   uint32_t nof_regs  = (1<<dci_msg->location.L)*9;
+   const uint32_t start_reg = dci_msg->location.ncce * 9;
+   const uint32_t nof_regs  = (1<<dci_msg->location.L)*9;
 
    for (uint32_t i = start_reg; i < start_reg+nof_regs; ++i) {
      srslte_regs_reg_t *reg = h->pdcch[q->dl_sf.cfi-1].regs[i];
 
-     uint32_t k0 = reg->k0;
-     uint32_t l  = reg->l;
+     const uint32_t k0 = reg->k0;
+     const uint32_t l  = reg->l;
      const uint32_t * k = &reg->k[0];
 
-     uint32_t rb = k0 / 12;
+     const uint32_t rb = k0 / 12;
 
      Debug("PDCCH DL DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
            "(l=%u, "
@@ -393,7 +394,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
 
    float rho_a_db = 0.0;
 
-   auto riter = rho_a_db_map_[sf_idx].find(rnti);
+   const auto riter = rho_a_db_map_[sf_idx].find(rnti);
 
    if(riter != rho_a_db_map_[sf_idx].end())
      {
@@ -542,6 +543,7 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 }
 
 
+// BEGIN phy_adapter enb api
 
 void enb_initialize(srslte::log * log_h, 
                     uint32_t sf_interval_msec, 
@@ -1014,41 +1016,112 @@ int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q,
 }
 
 
-#if 0
-void enb_dl_put_phich(const srslte_enb_dl_t *q,
-                      const srslte_enb_dl_phich_t * ack,
-                      uint32_t n_prb_L,
-                      uint32_t n_dmrs)
+/* typedef struct SRSLTE_API {
+  srslte_cell_t      cell;
+  srslte_dl_sf_cfg_t dl_sf;
+  srslte_pbch_t      pbch;
+  srslte_pcfich_t    pcfich;
+  srslte_regs_t      regs;
+  srslte_pdcch_t     pdcch;
+  srslte_pdsch_t     pdsch;
+  srslte_pmch_t      pmch;
+  srslte_phich_t     phich;
+} srslte_enb_dl_t; 
+
+typedef struct SRSLTE_API {
+  uint32_t k[4];
+  uint32_t k0;
+  uint32_t l;
+  bool     assigned;
+}srslte_regs_reg_t;
+
+typedef struct SRSLTE_API {
+  uint32_t          nof_regs;
+  srslte_regs_reg_t **regs;
+}srslte_regs_ch_t;
+
+typedef struct SRSLTE_API {
+  srslte_cell_t cell;
+  uint32_t      max_ctrl_symbols;
+  uint32_t      ngroups_phich;
+  uint32_t      ngroups_phich_m1;
+
+  srslte_phich_r_t      phich_res;
+  srslte_phich_length_t phich_len;
+  
+  srslte_regs_ch_t pcfich;
+  srslte_regs_ch_t *phich;   // there are several phich
+  srslte_regs_ch_t pdcch[3]; // PDCCH indexing, permutation and interleaving is computed for
+                             // the three possible CFI value
+
+  uint32_t           phich_mi;
+  uint32_t           nof_regs;
+  srslte_regs_reg_t *regs;
+}srslte_regs_t;
+
+typedef struct SRSLTE_API {
+  srslte_cell_t  cell;
+  uint32_t       nof_rx_antennas;
+  srslte_regs_t* regs;
+
+  // bit message 
+  uint8_t data[SRSLTE_PHICH_NBITS];
+  float data_rx[SRSLTE_PHICH_NBITS];
+
+  // tx & rx objects
+  srslte_modem_table_t mod;
+  srslte_sequence_t    seq[SRSLTE_NOF_SF_X_FRAME];
+} srslte_phich_t;
+
+typedef struct SRSLTE_API {
+  uint32_t ngroup;
+  uint32_t nseq;
+} srslte_phich_resource_t;
+
+typedef struct SRSLTE_API {
+  uint32_t n_prb_lowest;
+  uint32_t n_dmrs;
+  uint32_t I_phich;
+} srslte_phich_grant_t;
+
+ typedef struct {
+    uint16_t rnti;
+    bool     ack;
+  } ul_sched_ack_t; */
+
+// see lib/src/phy/enb/enb_dl.c
+int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interface_phy::ul_sched_ack_t * ack)
 {
-   const uint32_t sf_idx = (tti_tx_ % 10);
+  srslte_phich_resource_t resource;
+  bzero(&resource, sizeof(resource));
 
-   EMANELTE::MHAL::ENB_DL_Message_PHICH * phich = enb_dl_msg_.mutable_phich();
+  srslte_phich_calc(&q->phich, grant, &resource);
 
-   uint32_t ngroup, nseq;
+  auto phich = enb_dl_msg_.mutable_phich();
 
-   srslte_phich_calc(const_cast<srslte_phich_t *>(&q->phich), n_prb_L, n_dmrs, &ngroup, &nseq);
+  phich->set_rnti(ack->rnti);
+  phich->set_ack(ack->ack);
 
-   phich->set_rnti(ack->rnti);
-   phich->set_ack(ack->ack);
-   phich->set_num_prb_low(n_prb_L);
-   phich->set_num_dmrs(n_dmrs);
+  phich->set_num_prb_low(grant->n_prb_lowest);
+  phich->set_num_dmrs(grant->n_dmrs);
 
-   EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->add_phich();
+  auto channel_message = downlink_control_message_->add_phich();
 
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PHICH,
-                              EMANELTE::MHAL::MOD_BPSK,
-                              ack->rnti,
-                              3);  // phich is 000 for nak, 111 for ack. each bit is BPSK modulated to a symbol, and each symbol spread to 4 REs (12 REs total)
+  initDownlinkChannelMessage(channel_message,
+                             EMANELTE::MHAL::CHAN_PHICH,
+                             EMANELTE::MHAL::MOD_BPSK,
+                             ack->rnti,
+                             3);  // phich is 000 for nak, 
+                                  // 111 for ack. each bit is BPSK modulated 
+                                  // to a symbol, and each symbol spread to 4 REs (12 REs total)
 
-   srslte_regs_t *h = q->phich.regs;
-   if (SRSLTE_CP_ISEXT(h->cell.cp)) {
-     ngroup /= 2;
+   auto regs = q->phich.regs;
+
+   if (SRSLTE_CP_ISEXT(regs->cell.cp)) {
+     resource.ngroup /= 2;
    }
 
-   srslte_regs_ch_t *rch = &h->phich[ngroup];
-
-   Debug("ADPT:%s msg: ngroup=%d nof_regs=%d\n", __func__, ngroup, rch->nof_regs);
+   srslte_regs_ch_t *rch = &regs->phich[resource.ngroup];
 
    // nof_regs is 3 for phich groups (12 REs total per group).
    // l should always be 0 for Normal PHICH duration and [0,2] for Extended
@@ -1057,18 +1130,11 @@ void enb_dl_put_phich(const srslte_enb_dl_t *q,
      uint32_t rb = k0 / 12;
      uint32_t l = rch->regs[i]->l;
 
-     Debug("enb_dl_put_phich: for rnti=%d, "
-           "putting PHICH ack=%d in "
-           "l=%u "
-           "k0=%u "
-           "rb=%u\n", ack->rnti, ack->ack, l, k0, rb);
-
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
-   Info("ADPT:%s msg:\n%s\n", __func__, GetDebugString(phich->DebugString()).c_str());
+   return SRSLTE_SUCCESS;
 }
-#endif
 
 
 bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)

@@ -710,13 +710,10 @@ int sf_worker::encode_phich(mac_interface_phy::ul_sched_ack_t* acks, uint32_t no
 {
   for (uint32_t i = 0; i < nof_acks; i++) {
     if (acks[i].rnti && ue_db.count(acks[i].rnti)) {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
      srslte_enb_dl_put_phich(&enb_dl, &ue_db[acks[i].rnti]->phich_grant, acks[i].ack);
 #else
-     phy_adapter::enb_dl_put_phich(&enb_dl,
-                                    &acks[i],
-                                    ue_db[rnti].phich_info.n_prb_lowest,
-                                    ue_db[rnti].phich_info.n_dmrs);
+     phy_adapter::enb_dl_put_phich(&enb_dl, &ue_db[acks[i].rnti]->phich_grant, &acks[i]);
 #endif
       Info("PHICH: rnti=0x%x, hi=%d, I_lowest=%d, n_dmrs=%d, tti_tx_dl=%d\n",
            acks[i].rnti,
