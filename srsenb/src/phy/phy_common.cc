@@ -131,7 +131,6 @@ void phy_common::worker_end(uint32_t           tti,
   radio->tx(buffer, nof_samples, tx_time);
 #else
   phy_adapter::enb_dl_send_signal(tx_time.full_secs, tx_time.frac_secs);
-  phy_adapter::enb_dl_tx_end();
 #endif
 
   // Allow next TTI to transmit

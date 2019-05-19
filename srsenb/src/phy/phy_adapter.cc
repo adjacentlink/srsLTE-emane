@@ -858,14 +858,9 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       Error("ADPT:%s SerializeToString ERROR len %zu\n", __func__, data.length());
     }
 
-  return result;
-}
-
-
-// tx sequence is done
-void enb_dl_tx_end()
-{
   pthread_mutex_unlock(&dl_mutex_);
+
+  return result;
 }
 
 
@@ -1115,20 +1110,18 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
                                   // 111 for ack. each bit is BPSK modulated 
                                   // to a symbol, and each symbol spread to 4 REs (12 REs total)
 
-   auto regs = q->phich.regs;
+   const auto regs = q->phich.regs;
 
    if (SRSLTE_CP_ISEXT(regs->cell.cp)) {
      resource.ngroup /= 2;
    }
 
-   srslte_regs_ch_t *rch = &regs->phich[resource.ngroup];
+   const auto & rch = regs->phich[resource.ngroup];
 
    // nof_regs is 3 for phich groups (12 REs total per group).
    // l should always be 0 for Normal PHICH duration and [0,2] for Extended
-   for (uint32_t i = 0; i < rch->nof_regs; i++) {
-     uint32_t k0 = rch->regs[i]->k0;
-     uint32_t rb = k0 / 12;
-     uint32_t l = rch->regs[i]->l;
+   for (uint32_t i = 0; i < rch.nof_regs; i++) {
+     uint32_t rb = rch.regs[i]->k0 / 12;
 
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
@@ -1276,7 +1269,6 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 }
 
 
-#if 0
 /*
 typedef struct SRSLTE_API {
   srslte_cell_t         cell;
@@ -1287,23 +1279,120 @@ typedef struct SRSLTE_API {
   srslte_pusch_t        pusch;
   srslte_pucch_t        pucch;
 } srslte_enb_ul_t;
+
+typedef struct SRSLTE_API {
+  srslte_cell_t          cell;
+  srslte_modem_table_t   mod;
+  srslte_uci_cqi_pucch_t cqi;
+
+  srslte_pucch_user_t** users;
+  srslte_sequence_t     tmp_seq;
+  uint16_t              ue_rnti;
+  bool                  is_ue;
+
+  uint8_t  bits_scram[SRSLTE_PUCCH_MAX_BITS];
+  cf_t     d[SRSLTE_PUCCH_MAX_BITS / 2];
+  uint32_t n_cs_cell[SRSLTE_NSLOTS_X_FRAME][SRSLTE_CP_NORM_NSYMB];
+  uint32_t f_gh[SRSLTE_NSLOTS_X_FRAME];
+  float    tmp_arg[SRSLTE_PUCCH_N_SEQ];
+} srslte_pucch_t;
+
+typedef struct SRSLTE_API {
+  srslte_tdd_config_t tdd_config;
+  uint32_t            tti;
+  bool                shortened;
+} srslte_ul_sf_cfg_t;
+
+typedef struct SRSLTE_API {
+  // Input configuration for this subframe
+  uint16_t rnti;
+
+  // UCI configuration
+  srslte_uci_cfg_t uci_cfg;
+
+  // Common configuration
+  uint32_t delta_pucch_shift;
+  uint32_t n_rb_2;
+  uint32_t N_cs;
+  uint32_t N_pucch_1;
+  bool     group_hopping_en; // common pusch config
+
+  // Dedicated PUCCH configuration
+  uint32_t I_sr;
+  bool     sr_configured;
+  uint32_t n_pucch_1[4]; // 4 n_pucch resources specified by RRC
+  uint32_t n_pucch_2;
+  uint32_t n_pucch_sr;
+  bool     simul_cqi_ack;
+  bool     tdd_ack_bundle; // if false, multiplex
+  bool     sps_enabled;
+  uint32_t tpc_for_pucch;
+
+  // Release 10 CA specific
+  srslte_ack_nack_feedback_mode_t ack_nack_feedback_mode;
+  uint32_t                        n1_pucch_an_cs[SRSLTE_PUCCH_SIZE_AN_CS][SRSLTE_PUCCH_NOF_AN_CS];
+  uint32_t                        n3_pucch_an_list[SRSLTE_PUCCH_SIZE_AN_CS];
+
+  // Other configuration
+  float threshold_format1;
+  float threshold_data_valid_format1a;
+  float threshold_data_valid_format2;
+
+  // PUCCH configuration generated during a call to encode/decode
+  srslte_pucch_format_t format;
+  uint32_t              n_pucch;
+  uint8_t               pucch2_drs_bits[SRSLTE_PUCCH2_MAX_DMRS_BITS];
+} srslte_pucch_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_uci_cfg_ack_t ack;
+  srslte_cqi_cfg_t     cqi;
+  bool                 is_scheduling_request_tti;
+} srslte_uci_cfg_t;
+
+typedef struct SRSLTE_API {
+  bool                   scheduling_request;
+  srslte_cqi_value_t     cqi;
+  srslte_uci_value_ack_t ack;
+  uint8_t                ri; // Only 1-bit supported for RI
+} srslte_uci_value_t;
+
+typedef struct SRSLTE_API {
+  srslte_uci_cfg_t   cfg;
+  srslte_uci_value_t value;
+} srslte_uci_data_t;
+
+typedef struct SRSLTE_API {
+  srslte_uci_value_t uci_data;
+  float              correlation;
+  bool               detected;
+} srslte_pucch_res_t; */
+
+// see lib/src/phy/enb/enb_ul.c
+/* int srslte_enb_ul_get_pucch(srslte_enb_ul_t*    q,
+                               srslte_ul_sf_cfg_t* ul_sf,
+                               srslte_pucch_cfg_t* cfg,
+                               srslte_pucch_res_t* res)
 */
 
-int enb_ul_get_pucch(srslte_enb_ul_t * q,
-                     uint16_t rnti, 
-                     srslte_uci_data_t *uci_data)
+int enb_ul_get_pucch(srslte_enb_ul_t*    q,
+                     srslte_ul_sf_cfg_t* ul_sf,
+                     srslte_pucch_cfg_t* cfg,
+                     srslte_pucch_res_t* res)
 {
   pthread_mutex_lock(&ul_mutex_);
 
-  Info("ADPT:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
+  const auto rnti = cfg->rnti;
 
-  for(UE_UL_Messages::iterator ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
+  Info("ADPT:%s check %zu messages rnti %hu\n", __func__, ue_ul_msgs_.size(), rnti);
+
+  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
-     q->pucch.last_corr = 0.0;
+     res->correlation = 0.0;
   
      if(ul_msg->first.has_pucch())
       {
-        const EMANELTE::MHAL::UE_UL_Message_PUCCH & pucch = ul_msg->first.pucch();
+        const auto & pucch = ul_msg->first.pucch();
 
         for(int n = 0; n < pucch.grant_size(); ++n)
          {
@@ -1321,13 +1410,15 @@ int enb_ul_get_pucch(srslte_enb_ul_t * q,
                 {
                   const std::string & uci = grant.uci();
 
-                  memcpy(uci_data, uci.data(), uci.length());
+                  memcpy(&res->uci_data, uci.data(), uci.length());
 
+#if 0
                   q->pucch.last_n_pucch = grant.num_pucch();
 
                   q->pucch.last_n_prb = grant.num_prb();
+#endif
 
-                  q->pucch.last_corr = 1.0;
+                  res->correlation = 1.0;
 
                   Info("ADPT:%s grant %d of %d, found pucch_ul_rnti %hx\n",
                        __func__,
@@ -1354,7 +1445,6 @@ int enb_ul_get_pucch(srslte_enb_ul_t * q,
 
   return SRSLTE_SUCCESS;
 }
-#endif
 
 /*
 

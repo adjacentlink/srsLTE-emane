@@ -674,10 +674,10 @@ int sf_worker::decode_pucch()
       // Check if user needs to receive PUCCH
       if (fill_uci_cfg(rnti, false, &ue_db[rnti]->ul_cfg.pucch.uci_cfg)) {
         // Decode PUCCH
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
         if (srslte_enb_ul_get_pucch(&enb_ul, &ul_sf, &ue_db[rnti]->ul_cfg.pucch, &pucch_res)) {
 #else
-        if (phy_adapter::enb_ul_get_pucch(&enb_ul, rnti, &pucch_res.uci_data)) {
+        if (phy_adapter::enb_ul_get_pucch(&enb_ul, &ul_sf, &ue_db[rnti]->ul_cfg.pucch, &pucch_res)) {
 #endif
           ERROR("Error getting PUCCH\n");
           return SRSLTE_ERROR;

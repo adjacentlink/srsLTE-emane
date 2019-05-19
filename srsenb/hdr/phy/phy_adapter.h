@@ -40,15 +40,15 @@ namespace srsenb {
 
 namespace phy_adapter {
 
-void enb_initialize(srslte::log * log_h, 
-                    uint32_t sf_interval,
-                    uint32_t physical_cell_id,
-                    srslte_cp_t cp,
-                    float ul_freq,
-                    float dl_freq,
-                    int nprb, 
-                    EMANELTE::MHAL::mhal_config_t & mhal_config,
-                    rrc_cfg_t * rrc_cfg);
+void enb_initialize(srslte::log*                   log_h, 
+                    uint32_t                       sf_interval,
+                    uint32_t                       physical_cell_id,
+                    srslte_cp_t                    cp,
+                    float                          ul_freq,
+                    float                          dl_freq,
+                    int                            nprb, 
+                    EMANELTE::MHAL::mhal_config_t& mhal_config,
+                    rrc_cfg_t*                     rrc_cfg);
 
  // state start
  void enb_start();
@@ -57,65 +57,71 @@ void enb_initialize(srslte::log * log_h,
  void enb_stop();
 
  // set base info
- void enb_dl_tx_init(const srslte_enb_dl_t *q,
-                     uint32_t tti,
-                     uint32_t cfi);
+ void enb_dl_tx_init(const srslte_enb_dl_t* q,
+                     uint32_t               tti,
+                     uint32_t               cfi);
 
- // mark end of transmission
- void enb_dl_tx_end();
+ // send to mhal with sot time
+ bool enb_dl_send_signal(time_t sot_sec,
+                         float  frac_sec);
+
+ // get from mhal with sot time
+ bool enb_ul_get_signal(uint32_t            tti,
+                        srslte_timestamp_t* ts);
 
  // set the power scaling on a per rnti basis
- void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db,  float rho_b_db);
+ void enb_dl_set_power_allocation(uint32_t tti, 
+                                  uint16_t rnti,
+                                  float    rho_a_db,
+                                  float    rho_b_db);
 
  // set dl pdcch
- int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
+ int enb_dl_put_pdcch_dl(srslte_enb_dl_t*  q, 
                          srslte_dci_cfg_t* dci_cfg, 
-                         srslte_dci_dl_t* dci_dl,
-                         uint32_t num);
+                         srslte_dci_dl_t*  dci_dl,
+                         uint32_t          num);
 
  // set dl pdsch
- int enb_dl_put_pdsch(srslte_enb_dl_t* q, 
+ int enb_dl_put_pdsch(srslte_enb_dl_t*    q, 
                       srslte_pdsch_cfg_t* pdsch, 
-                      uint8_t* data[SRSLTE_MAX_CODEWORDS],
-                      uint32_t num);
-
+                      uint8_t*            data[SRSLTE_MAX_CODEWORDS],
+                      uint32_t            num);
 
  // set dl mch
- int enb_dl_put_pmch(srslte_enb_dl_t* q,
-                     srslte_pmch_cfg_t* pmch_cfg,
+ int enb_dl_put_pmch(srslte_enb_dl_t*                     q,
+                     srslte_pmch_cfg_t*                   pmch_cfg,
                      mac_interface_phy::dl_sched_grant_t* dl_sched_grant);
 
  //set ul pdcch
- int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q, 
+ int enb_dl_put_pdcch_ul(srslte_enb_dl_t*  q, 
                          srslte_dci_cfg_t* dci_cfg, 
-                         srslte_dci_ul_t* dci_ul,
-                         uint32_t num);
+                         srslte_dci_ul_t*  dci_ul,
+                         uint32_t          num);
 
  // set phich
- int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interface_phy::ul_sched_ack_t * ack);
-
- // send to mhal with sot time
- bool enb_dl_send_signal(time_t sot_sec, float frac_sec);
-
- // get from mhal with sot time
- bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts);
+ int enb_dl_put_phich(srslte_enb_dl_t*                   q, 
+                      srslte_phich_grant_t*              grant,
+                      mac_interface_phy::ul_sched_ack_t* ack);
 
  // get prach
- int enb_ul_get_prach(uint32_t * indicies, float * offsets, float * avgs, uint32_t max_entries, uint32_t & num_detected);
+ int enb_ul_get_prach(uint32_t*  indicies, 
+                      float*     offsets,
+                      float*     avgs,
+                      uint32_t   max_entries,
+                      uint32_t & num_detected);
 
-#if 0
  // get pucch
- int enb_ul_get_pucch(srslte_enb_ul_t * q,
-                      uint16_t rnti, 
-                      srslte_uci_data_t *uci_data);
-#endif
+ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
+                      srslte_ul_sf_cfg_t* ul_sf,
+                      srslte_pucch_cfg_t* cfg,
+                      srslte_pucch_res_t* res);
 
  // get pusch
  int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                       srslte_ul_sf_cfg_t* ul_sf,
                       srslte_pusch_cfg_t* cfg,
                       srslte_pusch_res_t* res,
-                      uint16_t rnti);
+                      uint16_t            rnti);
  } 
 }
 #endif //EMU_SRSENB_PHY_ADAPTER_H
