@@ -1172,7 +1172,6 @@ void ue_ul_put_prach(int index, uint32_t prach_freq_offset)
    pthread_mutex_unlock(&ul_mutex_);
 }
 
-// srslte_ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
 /*
 typedef struct SRSLTE_API {
   srslte_cell_t  cell;
@@ -1207,7 +1206,20 @@ typedef struct SRSLTE_API {
 } srslte_pusch_data_t;
 */
 
-
+// see lib/src/phy/ue/ue_ul.c
+// srslte_ue_ul_encode(srslte_ue_ul_t* q, 
+//                     srslte_ul_sf_cfg_t* sf,
+//                     srslte_ue_ul_cfg_t* cfg,
+//                     srslte_pusch_data_t* data);
+//
+// and 
+//
+// lib/src/phy/phch/pucch.c
+// int srslte_pucch_encode(srslte_pucch_t* q, 
+//                         srslte_ul_sf_cfg_t* sf, 
+//                         srslte_pucch_cfg_t* cfg,
+//                         srslte_uci_value_t* uci_data,
+//                         cf_t* sf_symbols)
 
 bool ue_ul_put_pucch(srslte_ue_ul_t * q,
                      srslte_uci_data_t * uci_data,
@@ -1272,7 +1284,6 @@ bool ue_ul_put_pucch(srslte_ue_ul_t * q,
 
    channel_message->set_rnti(q->current_rnti);
 
-   // from lib/src/phy/phch/pucch.c  pucch_encode_()
    uint16_t n_prb[2] = {0};
 
    for(int n = 0; n < 2; ++n)
@@ -1284,6 +1295,9 @@ bool ue_ul_put_pucch(srslte_ue_ul_t * q,
                                    q->cell.cp, n);
     }
 
+   // srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
+   
+   
    // flag when resource blocks are different on slot 1 and 2 of the subframe
    channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0]));
    channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1]));

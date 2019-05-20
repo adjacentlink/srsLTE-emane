@@ -614,7 +614,7 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
       // Run PUSCH decoder
       ue_db[rnti]->ul_cfg.pusch.softbuffers.rx = grants[i].softbuffer_rx;
       pusch_res.data                           = grants[i].data;
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_ul_get_pusch(&enb_ul, &ul_sf, &ue_db[rnti]->ul_cfg.pusch, &pusch_res)) {
 #else
       if (phy_adapter::enb_ul_get_pusch(&enb_ul, &ul_sf, &ue_db[rnti]->ul_cfg.pusch, &pusch_res, rnti)) {

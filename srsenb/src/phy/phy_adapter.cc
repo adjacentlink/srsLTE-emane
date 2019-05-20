@@ -335,12 +335,10 @@ typedef struct SRSLTE_API {
   float                 rs_power;
   bool                  power_scale;
   bool                  csi_enable;
-
   union {
     srslte_softbuffer_tx_t* tx[SRSLTE_MAX_CODEWORDS];
     srslte_softbuffer_rx_t* rx[SRSLTE_MAX_CODEWORDS];
   } softbuffers;
-
   bool     meas_time_en;
   uint32_t meas_time_value;
 } srslte_pdsch_cfg_t;
@@ -482,12 +480,10 @@ typedef struct SRSLTE_API {
   float                 rs_power;
   bool                  power_scale;
   bool                  csi_enable;
-
   union {
     srslte_softbuffer_tx_t* tx[SRSLTE_MAX_CODEWORDS];
     srslte_softbuffer_rx_t* rx[SRSLTE_MAX_CODEWORDS];
   } softbuffers;
-
   bool     meas_time_en;
   uint32_t meas_time_value;
 } srslte_pdsch_cfg_t;
@@ -1140,7 +1136,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   EMANELTE::MHAL::ENB::set_tti(tti);
 
-  for(UE_UL_Messages::iterator ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
+  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
     {
       ul_msg->second.SINRTester_.release();
     }
@@ -1210,7 +1206,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   std::set<uint32_t> unique;
 
-  for(UE_UL_Messages::iterator ul_msg = ue_ul_msgs_.begin(); 
+  for(auto ul_msg = ue_ul_msgs_.begin(); 
        (ul_msg != ue_ul_msgs_.end()) && (num_entries < max_entries); 
          ++ul_msg)
     {
@@ -1284,11 +1280,10 @@ typedef struct SRSLTE_API {
   srslte_cell_t          cell;
   srslte_modem_table_t   mod;
   srslte_uci_cqi_pucch_t cqi;
-
-  srslte_pucch_user_t** users;
-  srslte_sequence_t     tmp_seq;
-  uint16_t              ue_rnti;
-  bool                  is_ue;
+  srslte_pucch_user_t**  users;
+  srslte_sequence_t      tmp_seq;
+  uint16_t               ue_rnti;
+  bool                   is_ue;
 
   uint8_t  bits_scram[SRSLTE_PUCCH_MAX_BITS];
   cf_t     d[SRSLTE_PUCCH_MAX_BITS / 2];
@@ -1345,6 +1340,22 @@ typedef struct SRSLTE_API {
 } srslte_pucch_cfg_t;
 
 typedef struct SRSLTE_API {
+  uint8_t ack_value[SRSLTE_UCI_MAX_ACK_BITS];
+  bool    valid;
+} srslte_uci_value_ack_t;
+
+typedef struct SRSLTE_API {
+  bool     pending_tb[SRSLTE_MAX_CODEWORDS];
+  uint32_t nof_acks;
+  uint32_t ncce[SRSLTE_UCI_MAX_M];
+  uint32_t N_bundle;
+  uint32_t tdd_ack_M;
+  uint32_t tdd_ack_m;
+  bool     tdd_is_bundling;
+  bool     has_scell_ack;
+} srslte_uci_cfg_ack_t;
+    
+typedef struct SRSLTE_API {
   srslte_uci_cfg_ack_t ack;
   srslte_cqi_cfg_t     cqi;
   bool                 is_scheduling_request_tti;
@@ -1356,12 +1367,7 @@ typedef struct SRSLTE_API {
   srslte_uci_value_ack_t ack;
   uint8_t                ri; // Only 1-bit supported for RI
 } srslte_uci_value_t;
-
-typedef struct SRSLTE_API {
-  srslte_uci_cfg_t   cfg;
-  srslte_uci_value_t value;
-} srslte_uci_data_t;
-
+    
 typedef struct SRSLTE_API {
   srslte_uci_value_t uci_data;
   float              correlation;
@@ -1389,6 +1395,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
      res->correlation = 0.0;
+     res->detected    = false;
   
      if(ul_msg->first.has_pucch())
       {
@@ -1404,7 +1411,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
            if(ul_rnti == 0 || ul_rnti == rnti)
             {
               // check sinr
-              EMANELTE::MHAL::RxControl & rx_control = ul_msg->second;
+              auto & rx_control = ul_msg->second;
 
               if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, ul_rnti))
                 {
@@ -1412,13 +1419,8 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
                   memcpy(&res->uci_data, uci.data(), uci.length());
 
-#if 0
-                  q->pucch.last_n_pucch = grant.num_pucch();
-
-                  q->pucch.last_n_prb = grant.num_prb();
-#endif
-
                   res->correlation = 1.0;
+                  res->detected    = true;
 
                   Info("ADPT:%s grant %d of %d, found pucch_ul_rnti %hx\n",
                        __func__,
@@ -1433,9 +1435,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                   ENBSTATS::getPUCCH(rnti, false);
                 }
 
-              pthread_mutex_unlock(&ul_mutex_);
-
-              return SRSLTE_SUCCESS;
+              break;
             }
          }
       }
@@ -1475,15 +1475,12 @@ typedef struct SRSLTE_API {
   uint32_t                current_tx_nb;
   bool                    csi_enable;
   bool                    enable_64qam;
-
   union {
     srslte_softbuffer_tx_t* tx;
     srslte_softbuffer_rx_t* rx;
   } softbuffers;
-
   bool     meas_time_en;
   uint32_t meas_time_value;
-
 } srslte_pusch_cfg_t;
 
 typedef struct SRSLTE_API {
@@ -1494,69 +1491,54 @@ typedef struct SRSLTE_API {
 } srslte_pusch_res_t;
 */
 
-#if 0
 int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                      srslte_ul_sf_cfg_t* ul_sf,
                      srslte_pusch_cfg_t* cfg,
                      srslte_pusch_res_t* res,
                      uint16_t rnti)
 {
-uint32_t rv_idx; 
-uint32_t current_tx_nb;
-uint8_t *data;
-srslte_cqi_value_t *cqi_value;
-srslte_uci_data_t *uci_data;
-uint32_t tti;
-
   int result = SRSLTE_ERROR;
 
   pthread_mutex_lock(&ul_mutex_);
 
   Info("ADPT:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
 
-  for(UE_UL_Messages::iterator ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
+  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
      if(ul_msg->first.has_pusch())
       {
-        const EMANELTE::MHAL::UE_UL_Message_PUSCH & pusch = ul_msg->first.pusch();
+        const auto & pusch = ul_msg->first.pusch();
 
         for(int n = 0; n < pusch.grant_size(); ++n)
          {
-           const EMANELTE::MHAL::UE_UL_Message_PUSCH_Grant & grant = pusch.grant(n);
+           const auto & grant = pusch.grant(n);
 
            const uint16_t ul_rnti = grant.rnti();
 
            if(ul_rnti == rnti)
             {
               // check sinr
-              EMANELTE::MHAL::RxControl & rx_control = ul_msg->second;
+              auto & rx_control = ul_msg->second;
 
               if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, ul_rnti))
                 {
-                  const std::string & ul_grant = grant.ul_grant();
+                  const auto & ul_grant = grant.ul_grant();
 
-                  const std::string & uci = grant.uci();
+                  const auto & uci = grant.uci();
 
-                  const std::string & payload = grant.payload();
+                  const auto & payload = grant.payload();
 
-                  memcpy(ra_ul_grant, ul_grant.data(), ul_grant.length());
+                  memcpy(&cfg->grant, ul_grant.data(), ul_grant.length());
 
-                  memcpy(uci_data, uci.data(), uci.length());
+                  memcpy(&res->uci, uci.data(), uci.length());
 
-                  memcpy(res.data, payload.data(), payload.length());
+                  memcpy(res->data, payload.data(), payload.length());
 
-                  q->pusch.ul_sch.nof_iterations = 1;
+                  res->avg_iterations_block = 1;
  
-                  q->pucch.last_corr = 1.0;
- 
-                  Info("ADPT:%: grant %d of %d, found pusch_ul_rnti %hx\n",
+                  Info("ADPT:%s grant %d of %d, found pusch_ul_rnti %hx\n",
                        __func__,
                        n+1, pusch.grant_size(), rnti);
-
-                  if(cqi_value)
-                    {
-                      srslte_cqi_value_unpack(uci_data->uci_cqi, cqi_value);
-                    }
 
                   // pass
                   ENBSTATS::getPUSCH(rnti, true);
@@ -1567,14 +1549,9 @@ uint32_t tti;
                 {
                   // PUSCH failed sinr, ignore
                   ENBSTATS::getPUSCH(rnti, false);
-
-                  result = SRSLTE_ERROR;
                 }
 
-              pthread_mutex_unlock(&ul_mutex_);
-
-              // only expect 1 at most
-              return result;
+              break;
             }
            else
             {
@@ -1584,14 +1561,11 @@ uint32_t tti;
       }
    }
 
-  Info("ADPT:%s nothing found for rnti %hx\n", __func__, rnti);
-
   pthread_mutex_unlock(&ul_mutex_);
 
-  return SRSLTE_ERROR;
+  return result;
 }
 
-#endif
 
 } // end namespace phy_adapter
 } // end namespace srsenb
