@@ -26,7 +26,7 @@
 #include "srslte/srslte.h"
 #include "srsue/hdr/phy/phy_common.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
@@ -571,11 +571,10 @@ void phy_common::worker_end(uint32_t           tti,
   for (uint32_t i = 0; i < args->nof_radios; i++) {
     radio_h[i].set_tti(tti);
     if (tx_enable && !srslte_timestamp_iszero(&tx_time[i])) {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
       radio_h[i].tx(buffer[i], nof_samples[i], tx_time[i]);
 #else
       phy_adapter::ue_ul_send_signal(tx_time[i].full_secs, tx_time[i].frac_secs, cell);
-      phy_adapter::ue_ul_tx_end();
 #endif
       is_first_of_burst[i] = false;
     } else {

@@ -273,7 +273,7 @@ bool ue::init(all_args_t *args_) {
     phy.force_freq(args->rf.dl_freq, args->rf.ul_freq);
   }
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   UESTATS::initialize(args->expert.metrics_period_secs);
   phy_adapter::ue_initialize(phy_log[0], 1, args->mhal);
   phy_adapter::ue_start();
@@ -329,7 +329,7 @@ void ue::stop()
        nas_pcap.close();
     }
     started = false;
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
     phy_adapter::ue_stop();
 #endif
   }

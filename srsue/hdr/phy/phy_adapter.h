@@ -39,73 +39,92 @@
 namespace srsue {
 namespace phy_adapter {
 
-#if 0
 void ue_initialize(srslte::log * log_h, 
                    uint32_t sf_interval,
                    EMANELTE::MHAL::mhal_config_t & mhal_config);
 
 void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn);
 
+#if 0
 void ue_set_bandwidth(int n_prb);
+#endif
 
 void ue_set_crnti(uint16_t rnti);
 
 // state start
 void ue_start();
 
- // state stop
+// state stop
 void ue_stop();
 
 // 1 cell cearch
-int ue_dl_cell_search(srslte_ue_cellsearch_t * cs,
-                      srslte_ue_cellsearch_result_t * fc,
-                      int force_nid_2,
-                      uint32_t *max_peak);
+int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
+                          srslte_ue_cellsearch_result_t * fc,
+                          int force_nid_2,
+                          uint32_t *max_peak);
 
+#if 0
 // 2 mib search 
 int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_ue_mib_sync_t * ue_mib_sync,
                      srslte_cell_t * cell);
+#endif
 
+#if 0
 // 3 sfn search 
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * tti);
+#endif
 
+#if 0
 // 4 syncd search
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti);
+#endif
 
 
+#if 0
 // decode signal
 float ue_dl_decode_signal(srslte_chest_dl_t * q,
                           uint32_t cell_id,
                           uint32_t &cfi, 
                           uint32_t tti);
+#endif
 
+#if 0
 // get dl dci
 int ue_dl_find_dl_dci(srslte_ue_dl_t *q, 
                       uint16_t rnti, 
                       srslte_dci_msg_t *dci_msg);
+#endif
 
+#if 0
 // get ul dci
 int ue_dl_find_ul_dci(srslte_ue_dl_t *q, 
                       uint16_t rnti, 
                       srslte_dci_msg_t *dci_msg);
+#endif
 
 
+#if 0
 // convert ota grant to mac action
 void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
                         bool acks[SRSLTE_MAX_CODEWORDS]);
+#endif
 
+#if 0
 // get phich
 bool ue_dl_decode_phich(srslte_ue_dl_t * q,
                         uint32_t sfn,
                         uint16_t rnti,
                         uint32_t n_prb_L,
                         uint32_t n_dmrs);
+#endif
 
+#if 0
 // get pmch
 bool ue_dl_decode_pmch(srslte_ue_dl_t * q, 
                        uint16_t areaid,
                        uint8_t * payload);
+#endif
 
 
 // tx init
@@ -114,17 +133,17 @@ void ue_ul_tx_init();
 // send to mhal with sot
 void ue_ul_send_signal(time_t sot_secs, float frac_sec, const srslte_cell_t & cell);
 
-// mark end of transmission
-void ue_ul_tx_end();
-
+#if 0
 // set prach
 void ue_ul_put_prach(int index, uint32_t prach_freq_offset);
-
 #endif
 
+
+#if 0
 // set pucch, pusch
 // see lib/src/phy/ue/ue_ul.c
 int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
+#endif
 
 /* OLD API
 bool ue_ul_put_pucch(srslte_ue_ul_t * q,

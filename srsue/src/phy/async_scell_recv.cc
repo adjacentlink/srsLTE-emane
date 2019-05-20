@@ -27,7 +27,7 @@
 #include <srslte/phy/ue/ue_sync.h>
 #include <srslte/srslte.h>
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
@@ -186,7 +186,7 @@ double async_scell_recv::set_rx_gain(double gain)
 
 int async_scell_recv::radio_recv_fnc(cf_t* data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   int ret = nsamples;
 #else
   int ret = 0;
@@ -286,7 +286,7 @@ bool async_scell_recv::set_scell_cell(uint32_t carrier_idx, srslte_cell_t* _cell
     ul_dl_factor                = ul_freq / dl_freq;
     current_earfcn[channel_idx] = dl_earfcn;
     reset_ue_sync               = true;
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
     phy_adapter::ue_set_frequencies(ul_freq, dl_freq, dl_earfcn);
 #endif
   }

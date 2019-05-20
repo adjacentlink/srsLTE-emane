@@ -25,7 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
@@ -171,8 +171,8 @@ void sf_worker::set_crnti(uint16_t rnti)
   for (uint32_t cc_idx = 0; cc_idx < cc_workers.size(); cc_idx++) {
     cc_workers[cc_idx]->set_crnti(rnti);
   }
-#ifdef PHY_ADAPTER_ENABLE_PENDING
-  phy_adapter::ue_set_crnti(rnti_value);
+#ifdef PHY_ADAPTER_ENABLE
+  phy_adapter::ue_set_crnti(rnti);
 #endif
 }
 
@@ -242,7 +242,7 @@ void sf_worker::work_imp()
   }
 
   /***** Uplink Generation + Transmission *******/
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   phy_adapter::ue_ul_tx_init();
 #endif
 

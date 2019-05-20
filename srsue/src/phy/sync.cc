@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <unistd.h>
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
@@ -392,7 +392,7 @@ void sync::run_thread()
 
   while (running)
   {
-    Debug("SYNC:  state=%s, tti=%d\n", phy_state.to_string(), tti);
+    Info("SYNC:  state=%s, tti=%d\n", phy_state.to_string(), tti);
 
     // If not camping, clear SFN sync
     if (!phy_state.is_camping()) {
@@ -1033,10 +1033,10 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
     ret = srslte_ue_cellsearch_scan_N_id_2(&cs, force_N_id_2, &found_cells[force_N_id_2]);
     max_peak_cell = force_N_id_2;
   } else {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
     ret = srslte_ue_cellsearch_scan(&cs, found_cells, &max_peak_cell);
 #else
-    ret = phy_adapter::ue_dl_cell_search(&cs, found_cells, force_N_id_2, &max_peak_cell);
+    ret = phy_adapter::ue_dl_cellsearch_scan(&cs, found_cells, force_N_id_2, &max_peak_cell);
 #endif
   }
 

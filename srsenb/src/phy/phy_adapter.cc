@@ -166,7 +166,7 @@ static EMANELTE::MHAL::DCI_FORMAT convert(srslte_dci_format_t format)
         return(EMANELTE::MHAL::DCI_FORMAT_2B);
 
       default:
-       throw("ADPT:convert: invalid dci format");
+       throw("MHAL:convert: invalid dci format");
 
       return (EMANELTE::MHAL::DCI_FORMAT_ERR);
    }
@@ -189,7 +189,7 @@ static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
          return (EMANELTE::MHAL::MOD_64QAM);
 
        default:
-         throw("ADPT:convert: invalid mod type");
+         throw("MHAL:convert: invalid mod type");
 
        return (EMANELTE::MHAL::MOD_ERR);
     }
@@ -568,7 +568,7 @@ void enb_initialize(srslte::log * log_h,
 
   cell_cp_ = cp;
 
-  Info("ADPT:%s sf_interval "
+  Info("MHAL:%s sf_interval "
        "%u msec, "
        "ul_freq %6.4f MHz, "
        "fl_freq %6.4f MHz, "
@@ -602,13 +602,13 @@ void enb_initialize(srslte::log * log_h,
 
 void enb_start()
 {
-  Info("ADPT:%s\n", __func__);
+  Info("MHAL:%s\n", __func__);
 
   pthread_mutexattr_t mattr;
 
   if(pthread_mutexattr_init(&mattr) < 0)
    {
-     Error("ADPT:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
+     Error("MHAL:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
 
      exit(1);
    }
@@ -616,21 +616,21 @@ void enb_start()
    {
      if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
        {
-         Error("ADPT:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
+         Error("MHAL:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
 
      if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
        {
-         Error("ADPT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
+         Error("MHAL:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
 
      if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
        {
-         Error("ADPT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
+         Error("MHAL:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
@@ -652,7 +652,7 @@ void enb_start()
 
 void enb_stop()
 {
-  Info("ADPT:%s\n", __func__);
+  Info("MHAL:%s\n", __func__);
 
   EMANELTE::MHAL::ENB::stop();
 
@@ -681,7 +681,7 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
 
   downlink_control_message_->set_num_resource_blocks(q->cell.nof_prb);
 
-  Info("ADPT:%s: curr_tti %u, tti_tx %u\n", __func__, curr_tti_, tti_tx);
+  Info("MHAL:%s: curr_tti %u, tti_tx %u\n", __func__, curr_tti_, tti_tx);
 
   // subframe index
   const uint32_t sf_idx = (tti_tx % 10);
@@ -795,7 +795,7 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
             break;
 
             default:
-             throw("ADPT:enb_dl_put_base: unhandled cell phich_resources type");
+             throw("MHAL:enb_dl_put_base: unhandled cell phich_resources type");
           }
 
          switch(q->cell.phich_length) 
@@ -809,7 +809,7 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
             break;
 
             default:
-             throw("ADPT:enb_dl_put_base: unhandled cell phich_length type");
+             throw("MHAL:enb_dl_put_base: unhandled cell phich_length type");
           }
 
          pbch->set_num_prb(q->cell.nof_prb);
@@ -842,7 +842,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Info("ADPT:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+      Info("MHAL:%s tx_ctrl:%s\n \t\tmsg:%s\n",
            __func__,
            GetDebugString(tx_control_.DebugString()).c_str(),
            GetDebugString(enb_dl_msg_.DebugString()).c_str());
@@ -851,7 +851,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
     }
   else
     {
-      Error("ADPT:%s SerializeToString ERROR len %zu\n", __func__, data.length());
+      Error("MHAL:%s SerializeToString ERROR len %zu\n", __func__, data.length());
     }
 
   pthread_mutex_unlock(&dl_mutex_);
@@ -868,7 +868,7 @@ void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, fl
 
   rho_a_db_map_[sf_idx].emplace(rnti, rho_a_db);
 
-  Debug("ADPT:%s "
+  Debug("MHAL:%s "
         "sf_idx %d, "
         "rnti %d, "
         "rho_a_db %0.2f\n",
@@ -1160,7 +1160,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const EMANELTE::MHAL::RxControl & rx_control = iter->second;
 
-        Info("ADPT:%s %s, sf_time %ld:%06ld, msg:%s\n",
+        Info("MHAL:%s %s, sf_time %ld:%06ld, msg:%s\n",
               __func__,
               bInStep ? "in-step" : "late",
               rx_control.rxData_.sf_time_.tv_sec,
@@ -1174,7 +1174,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
         // check ul msg src vs our pci
         if(pci != my_pci_)
          {
-           Debug("ADPT:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
+           Debug("MHAL:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
          }
         else
          {
@@ -1183,7 +1183,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       }
     else
       {
-        Error("ADPT:%s enb_ul_get_signal: ParseFromString ERROR\n", __func__);
+        Error("MHAL:%s enb_ul_get_signal: ParseFromString ERROR\n", __func__);
       }
    }
 
@@ -1201,7 +1201,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   pthread_mutex_lock(&ul_mutex_);
 
-  Debug("ADPT:%s check %zu messages of %u max\n", 
+  Debug("MHAL:%s check %zu messages of %u max\n", 
         __func__, ue_ul_msgs_.size(), max_entries);
 
   std::set<uint32_t> unique;
@@ -1235,27 +1235,27 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
              ++num_entries;
 
-             Info("ADPT:%s entry[%u], accept index %d\n",
+             Info("MHAL:%s entry[%u], accept index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
            }
          else
           {
-             Info("ADPT:%s entry[%u], ignore duplicate index %d\n",
+             Info("MHAL:%s entry[%u], ignore duplicate index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
           }
 
          // see srsenb/src/mac/scheduler.cc sched::dl_sched_rar
-         Warning("ADPT:%s XXX only supporting 1 parch/frame\n", __func__);
+         Warning("MHAL:%s XXX only supporting 1 parch/frame\n", __func__);
 
          break;
        }
      else
        {
-         Debug("ADPT:%s no preambles\n", __func__);
+         Debug("MHAL:%s no preambles\n", __func__);
        }
     }
 
@@ -1390,7 +1390,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   const auto rnti = cfg->rnti;
 
-  Info("ADPT:%s check %zu messages rnti %hu\n", __func__, ue_ul_msgs_.size(), rnti);
+  Info("MHAL:%s check %zu messages rnti %hu\n", __func__, ue_ul_msgs_.size(), rnti);
 
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
@@ -1422,7 +1422,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                   res->correlation = 1.0;
                   res->detected    = true;
 
-                  Info("ADPT:%s grant %d of %d, found pucch_ul_rnti %hx\n",
+                  Info("MHAL:%s grant %d of %d, found pucch_ul_rnti %hx\n",
                        __func__,
                        n+1, pucch.grant_size(), rnti);
 
@@ -1457,6 +1457,16 @@ typedef struct SRSLTE_API {
   srslte_pusch_t        pusch;
   srslte_pucch_t        pucch;
 } srslte_enb_ul_t;
+
+typedef struct SRSLTE_API {
+  cf_t*    ce;
+  uint32_t nof_re;
+  float    noise_estimate;
+  float    noise_estimate_dbm;
+  float    snr;
+  float    snr_db;
+  float    cfo;
+} srslte_chest_ul_res_t;
 
 typedef struct SRSLTE_API {
   srslte_tdd_config_t tdd_config;
@@ -1501,7 +1511,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   pthread_mutex_lock(&ul_mutex_);
 
-  Info("ADPT:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
+  Info("MHAL:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
 
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
@@ -1535,10 +1545,17 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   memcpy(res->data, payload.data(), payload.length());
 
                   res->avg_iterations_block = 1;
+
+                  res->crc = true;
+
+                  q->chest_res.snr_db = 111; // XXX TODO
  
-                  Info("ADPT:%s grant %d of %d, found pusch_ul_rnti %hx\n",
+                  Info("MHAL:%s grant %d of %d, found pusch_ul_rnti %hx, snr_db %f\n",
                        __func__,
-                       n+1, pusch.grant_size(), rnti);
+                       n+1, 
+                       pusch.grant_size(), 
+                       rnti,
+                       q->chest_res.snr_db);
 
                   // pass
                   ENBSTATS::getPUSCH(rnti, true);
@@ -1555,7 +1572,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
             }
            else
             {
-              Info("ADPT:%s ignore pusch_ul_rnti %hx\n", __func__, ul_rnti); 
+              Info("MHAL:%s ignore pusch_ul_rnti %hx\n", __func__, ul_rnti); 
             }
          }
       }

@@ -29,7 +29,7 @@
 #include "srsue/hdr/phy/phy.h"
 #include "srslte/interfaces/ue_interfaces.h"
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
 
