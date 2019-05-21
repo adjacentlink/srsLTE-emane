@@ -384,8 +384,7 @@ void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn)
 
 void ue_set_bandwidth(int n_prb)
 {
-  Info("MHAL:ue_set_bandwidth n_prb %d\n", 
-       n_prb);
+  Info("MHAL:ue_set_bandwidth n_prb %d\n", n_prb);
 
   EMANELTE::MHAL::UE::set_num_resource_blocks(n_prb);
 }
@@ -627,7 +626,6 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
   return n_id2s.size();
 }
 
-#if 0
 
 // 2 mib search
 int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
@@ -714,9 +712,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 
   return 0;
 }
-#endif
 
-#if 0
 
 // 3 system frame search
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
@@ -727,30 +723,36 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 
   while(try_num++ < max_tries)
     {
-      const DL_ENB_Signals dl_enb_signals = ue_dl_enb_subframe_search_i(ue_sync, NULL);
+      const auto dl_enb_signals = ue_dl_enb_subframe_search_i(ue_sync, NULL);
 
-      Debug("MHAL:ue_dl_system_frame_search: try %d/%u, %zu signals\n", 
-            try_num, max_tries, dl_enb_signals.size());
+      Debug("MHAL:%s: try %d/%u, %zu signals\n", 
+            __func__,
+            try_num, 
+            max_tries,
+            dl_enb_signals.size());
 
       if(! dl_enb_signals.empty())
         {
-          const EMANELTE::MHAL::ENB_DL_Message enb_dl_msg = dl_enb_signals[0].first;
+          const auto enb_dl_msg = dl_enb_signals[0].first;
 
           if(enb_dl_msg.has_pbch())
             {
-              EMANELTE::MHAL::RxControl rxControl = dl_enb_signals[0].second;
+              auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
               if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PBCH))
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
-                      const EMANELTE::MHAL::ENB_DL_Message_PSS_SSS & pss_sss = enb_dl_msg.pss_sss();
+                      const auto & pss_sss = enb_dl_msg.pss_sss();
 
-                      const EMANELTE::MHAL::ENB_DL_Message_PBCH & pbch = enb_dl_msg.pbch();
+                      const auto & pbch = enb_dl_msg.pbch();
 
                       Info("MHAL:ue_dl_system_frame_search: found pbch %s, try %u/%u\n",
-                           GetDebugString(pbch.DebugString()).c_str(), try_num, max_tries);
+                           __func__,
+                           GetDebugString(pbch.DebugString()).c_str(),
+                           try_num,
+                           max_tries);
 
                       ue_sync->state           = SF_TRACK;
                       ue_sync->pss_stable_cnt  = 1;
@@ -772,9 +774,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 
   return 0;
 }
-#endif
 
-#if 0
 
 // 4 called by emu_srsue/src/phy/phch_recv.cc
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
@@ -784,7 +784,7 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 
    EMANELTE::MHAL::UE::set_tti(tti);
 
-   const DL_ENB_Signals dl_enb_signals = ue_dl_enb_subframe_search_i(ue_sync, &tti);
+   const auto dl_enb_signals = ue_dl_enb_subframe_search_i(ue_sync, &tti);
 
    enb_dl_msg_.Clear();
 
@@ -795,8 +795,11 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
    // single antenna mode expect 1 msg for our cell id
    if(dl_enb_signals.size() != 1)
      {
-       Info("MHAL:ue_dl_sync_search: found %zu signals, cell_id %u, expected 1, tti %u\n", 
-            dl_enb_signals.size(), ue_sync->cell.id, tti);
+       Info("MHAL:%s: found %zu signals, cell_id %u, expected 1, tti %u\n", 
+            __func__,
+            dl_enb_signals.size(),
+            ue_sync->cell.id,
+            tti);
  
        UESTATS::enterSyncSearch(false);
 
@@ -814,7 +817,6 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
        return 1;
      }
 }
-#endif
 
 #if 0
 

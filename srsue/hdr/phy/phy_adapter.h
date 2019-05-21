@@ -45,9 +45,7 @@ void ue_initialize(srslte::log * log_h,
 
 void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn);
 
-#if 0
 void ue_set_bandwidth(int n_prb);
-#endif
 
 void ue_set_crnti(uint16_t rnti);
 
@@ -63,22 +61,16 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                           int force_nid_2,
                           uint32_t *max_peak);
 
-#if 0
 // 2 mib search 
 int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_ue_mib_sync_t * ue_mib_sync,
                      srslte_cell_t * cell);
-#endif
 
-#if 0
 // 3 sfn search 
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * tti);
-#endif
 
-#if 0
 // 4 syncd search
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti);
-#endif
 
 
 #if 0

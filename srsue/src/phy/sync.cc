@@ -441,7 +441,7 @@ void sync::run_thread()
           }
 
           // Primary Cell (PCell) Synchronization
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
           switch (srslte_ue_sync_zerocopy(&ue_sync, buffer[0])) {
 #else
           switch (phy_adapter::ue_dl_sync_search(&ue_sync, tti)) {
@@ -573,7 +573,7 @@ void sync::run_thread()
           if (current_srate > 0) {
             nsamples = current_srate/1000;
           }
-          Debug("Discarting %d samples\n", nsamples);
+          Info("Discarting %d samples\n", nsamples);
           srslte_timestamp_t rx_time;
           if (!radio_h->rx_now(dummy_buffer, nsamples, &rx_time)) {
             log_h->console("SYNC:  Receiving from radio while in IDLE_RX\n");
@@ -858,6 +858,9 @@ bool sync::set_frequency()
       radio_h->set_rx_freq(m->channel_idx + i, set_dl_freq);
       radio_h->set_tx_freq(m->channel_idx + i, set_ul_freq);
     }
+#ifdef PHY_ADAPTER_ENABLE
+    phy_adapter::ue_set_frequencies(set_ul_freq, set_dl_freq, current_earfcn);
+#endif
 
     ul_dl_factor = (float)(radio_h->get_tx_freq() / radio_h->get_rx_freq());
 
@@ -917,6 +920,9 @@ void sync::get_current_cell(srslte_cell_t* cell, uint32_t* earfcn)
 
 int sync::radio_recv_fnc(cf_t* data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
+#ifdef PHY_ADAPTER_ENABLE
+  return nsamples;
+#else
   if (radio_h->rx_now(data, nsamples, rx_time)) {
     int offset = nsamples - current_sflen;
     if (abs(offset) < 10 && offset != 0) {
@@ -931,6 +937,7 @@ int sync::radio_recv_fnc(cf_t* data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte
   } else {
     return -1;
   }
+#endif
 }
 
 double sync::set_rx_gain(double gain)
@@ -1029,16 +1036,16 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
   Info("SYNC:  Searching for cell...\n");
   log_h->console(".");
 
+#ifdef PHY_ADAPTER_ENABLE
+  ret = phy_adapter::ue_dl_cellsearch_scan(&cs, found_cells, force_N_id_2, &max_peak_cell);
+#else
   if (force_N_id_2 >= 0 && force_N_id_2 < 3) {
     ret = srslte_ue_cellsearch_scan_N_id_2(&cs, force_N_id_2, &found_cells[force_N_id_2]);
     max_peak_cell = force_N_id_2;
   } else {
-#ifndef PHY_ADAPTER_ENABLE
     ret = srslte_ue_cellsearch_scan(&cs, found_cells, &max_peak_cell);
-#else
-    ret = phy_adapter::ue_dl_cellsearch_scan(&cs, found_cells, force_N_id_2, &max_peak_cell);
-#endif
   }
+#endif
 
   if (ret < 0) {
     Error("SYNC:  Error decoding MIB: Error searching PSS\n");
@@ -1072,7 +1079,7 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell)
 
   /* Find and decode MIB */
   int sfn_offset;
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   ret = phy_adapter::ue_dl_mib_search(&cs, &ue_mib_sync, cell);
 
   if (ret == 1) {
@@ -1165,7 +1172,7 @@ void sync::sfn_sync::reset()
 
 sync::sfn_sync::ret_code sync::sfn_sync::run_subframe(srslte_cell_t* cell, uint32_t* tti_cnt, bool sfidx_only)
 {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
   int ret = srslte_ue_sync_zerocopy(ue_sync, buffer);
   if (ret < 0) {
     Error("SYNC:  Error calling ue_sync_get_buffer.\n");
