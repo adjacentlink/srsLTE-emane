@@ -148,6 +148,10 @@ bool prach::set_cell(srslte_cell_t cell, srslte_prach_cfg_t prach_cfg)
         }
       }
 
+#ifdef PHY_ADAPTER_ENABLE
+      phy_adapter::ue_set_prach_freq_offset(prach_cfg.freq_offset);
+#endif
+
       len = prach_obj.N_seq + prach_obj.N_cp;
       transmitted_tti = -1;
       cell_initiated = true;
@@ -233,14 +237,14 @@ cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
         f_idx = 0;
       }
     }
-#ifndef PHY_ADAPTER_ENABLE_PENDING // XXX_MEMORY
+#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY
     // Correct CFO before transmission
     srslte_cfo_correct(&cfo_h, buffer[f_idx][preamble_idx], signal_buffer, cfo / srslte_symbol_sz(cell.nof_prb));
 #endif
     // pad guard symbols with zeros
     uint32_t nsf = (len-1)/SRSLTE_SF_LEN_PRB(cell.nof_prb)+1;
-#ifdef PHY_ADAPTER_ENABLE_PENDING
-    phy_adapter::ue_ul_put_prach(preamble_idx, config->prach_cfg_info.prach_freq_offset);
+#ifdef PHY_ADAPTER_ENABLE
+    phy_adapter::ue_ul_put_prach(preamble_idx);
 #else
     bzero(&signal_buffer[len], (nsf*SRSLTE_SF_LEN_PRB(cell.nof_prb)-len)*sizeof(cf_t));
 #endif

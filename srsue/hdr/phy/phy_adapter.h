@@ -43,17 +43,17 @@ void ue_initialize(srslte::log * log_h,
                    uint32_t sf_interval,
                    EMANELTE::MHAL::mhal_config_t & mhal_config);
 
+void ue_start();
+
+void ue_stop();
+
 void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn);
 
 void ue_set_bandwidth(int n_prb);
 
+void ue_set_prach_freq_offset(uint32_t freq_offset);
+
 void ue_set_crnti(uint16_t rnti);
-
-// state start
-void ue_start();
-
-// state stop
-void ue_stop();
 
 // 1 cell cearch
 int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
@@ -125,10 +125,8 @@ void ue_ul_tx_init();
 // send to mhal with sot
 void ue_ul_send_signal(time_t sot_secs, float frac_sec, const srslte_cell_t & cell);
 
-#if 0
 // set prach
-void ue_ul_put_prach(int index, uint32_t prach_freq_offset);
-#endif
+void ue_ul_put_prach(int index);
 
 
 #if 0

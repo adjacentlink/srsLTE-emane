@@ -50,7 +50,7 @@
 namespace {
  EMANELTE::MHAL::UE_UL_Message    ue_ul_msg_;
  EMANELTE::MHAL::TxControlMessage tx_control_;
- EMANELTE::MHAL::UplinkMessage * uplink_control_message_;
+ EMANELTE::MHAL::UplinkMessage*   uplink_control_message_;
 
  // enb dl msg and rx control info
  typedef std::pair<EMANELTE::MHAL::ENB_DL_Message, EMANELTE::MHAL::RxControl> DL_ENB_Signal;
@@ -66,10 +66,11 @@ namespace {
 
  EMANELTE::MHAL::RxControl rx_control_;
 
- uint64_t tx_seqnum_ = 0;
- uint16_t crnti_     = 0;
- uint32_t earfcn_    = 0;
- uint32_t tti_tx_    = 0;
+ uint64_t tx_seqnum_         = 0;
+ uint16_t crnti_             = 0;
+ uint32_t earfcn_            = 0;
+ uint32_t tti_tx_            = 0;
+ uint32_t prach_freq_offset_ = 0;
 
  srslte::log * log_h_ = NULL;
 
@@ -224,7 +225,7 @@ static DL_Signals ue_dl_get_signals_i(srslte_timestamp_t * ts)
      }
    else
      {
-       Error("MHAL:%s ue_dl_get_signals_i:ParseFromString ERROR\n", __func__);
+       Error("MHAL:%s ParseFromString ERROR\n", __func__);
      }
    }
 
@@ -289,7 +290,7 @@ static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
            {
              if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
                {
-                 Info("MHAL:ue_ul_dci_search: found dci for rnti 0x%hx\n", rnti);
+                 Info("MHAL:%s: found dci for rnti 0x%hx\n", __func__, rnti);
 
                  dci_list.push_back(ul_ota_dci);
                }
@@ -317,7 +318,7 @@ static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
            {
              if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
                {
-                 Info("MHAL:ue_dl_dci_search: found dci for rnti 0x%hx\n", rnti);
+                 Info("MHAL:%s: found dci for rnti 0x%hx\n", __func__, rnti);
 
                  dci_list.push_back(dl_dci);
                }
@@ -346,7 +347,7 @@ static PDSCH_DataList ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
 
               if(data.refid() == refid)
                 {
-                  Info("MHAL:ue_dl_get_pdsch_data_list_i: found data for refid %u\n", refid);
+                  Info("MHAL:%s: found data for refid %u\n", __func__, refid);
 
                   dataList.push_back(data);
                 }
@@ -362,7 +363,7 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
 {
   log_h_ = log_h;
 
-  Info("MHAL:ue_initialize sf_interval %u msec\n", sf_interval_msec);
+  Info("MHAL:%s sf_interval %u msec\n", __func__, sf_interval_msec);
 
   EMANELTE::MHAL::UE::initialize(sf_interval_msec, mhal_config);
 }
@@ -370,7 +371,8 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
 
 void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn)
 {
-  Info("MHAL:ue_set_frequencies ul_freq %6.4f MHz, fl_freq %6.4f MHz, earfcn %u -> %u\n",
+  Info("MHAL:%s ul_freq %6.4f MHz, fl_freq %6.4f MHz, earfcn %u -> %u\n",
+       __func__,
        ul_freq/1e6,
        dl_freq/1e6,
        earfcn_,
@@ -384,7 +386,7 @@ void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn)
 
 void ue_set_bandwidth(int n_prb)
 {
-  Info("MHAL:ue_set_bandwidth n_prb %d\n", n_prb);
+  Info("MHAL:%s n_prb %d\n", __func__, n_prb);
 
   EMANELTE::MHAL::UE::set_num_resource_blocks(n_prb);
 }
@@ -392,13 +394,13 @@ void ue_set_bandwidth(int n_prb)
 
 void ue_start()
 {
-  Info("MHAL:ue_start\n");
+  Info("MHAL:%s\n", __func__);
 
   pthread_mutexattr_t mattr;
 
   if(pthread_mutexattr_init(&mattr) < 0)
    {
-     Error("MHAL:ue_start pthread_mutexattr_init error %s, exit\n", strerror(errno));
+     Error("MHAL:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
 
      exit(1);
    }
@@ -406,21 +408,21 @@ void ue_start()
    {
      if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
        {
-         Error("MHAL:ue_start pthread_mutexattr_setprotocol error %s, exit\n", strerror(errno));
+         Error("MHAL:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
 
      if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
        {
-         Error("MHAL:ue_start pthread_mutex_init error %s, exit\n", strerror(errno));
+         Error("MHAL:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
 
      if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
        {
-         Error("MHAL:ue_start pthread_mutex_init error %s, exit\n", strerror(errno));
+         Error("MHAL:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
@@ -442,7 +444,7 @@ void ue_start()
 
 void ue_stop()
 {
-  Info("MHAL:ue_start\n");
+  Info("MHAL:%s\n", __func__);
 
   EMANELTE::MHAL::UE::stop();
 
@@ -454,17 +456,47 @@ void ue_stop()
 
 void ue_set_crnti(uint16_t crnti)
 {
-  Info("MHAL:ue_set_crnti from 0x%hx to 0x%hx\n", crnti_, crnti);
+  Info("MHAL:%s from 0x%hx to 0x%hx\n", __func__, crnti_, crnti);
 
   crnti_ = crnti;
 
   UESTATS::setCrnti(crnti);
 }
 
+void ue_set_prach_freq_offset(uint32_t freq_offset)
+{
+  Info("MHAL:%s %u\n", __func__, freq_offset);
+
+  prach_freq_offset_ = freq_offset;
+}
 
 // 1 initial state cell search
+/*typedef struct SRSLTE_API {
+  uint32_t            cell_id;
+  srslte_cp_t         cp;
+  srslte_frame_type_t frame_type;
+  float               peak; 
+  float               mode; 
+  float               psr;
+  float               cfo; 
+} srslte_ue_cellsearch_result_t;
+
+typedef enum SRSLTE_API { SRSLTE_FDD = 0, 
+                          SRSLTE_TDD = 1 } 
+srslte_frame_type_t;
+
+typedef struct SRSLTE_API {
+  srslte_ue_sync_t ue_sync;
+  cf_t             *sf_buffer[SRSLTE_MAX_PORTS];
+  uint32_t         nof_rx_antennas;
+  uint32_t         max_frames;
+  uint32_t         nof_valid_frames;  // number of 5 ms frames to scan 
+  uint32_t         *mode_ntimes;
+  uint8_t          *mode_counted; 
+  srslte_ue_cellsearch_result_t *candidates; 
+} srslte_ue_cellsearch_t; */
 int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
-                          srslte_ue_cellsearch_result_t * csr,
+                          srslte_ue_cellsearch_result_t * res,
                           int force_nid_2,
                           uint32_t *max_peak)
 {
@@ -473,7 +505,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
   UESTATS::Cells cells;
 
-  // num 5ms frames or 5sf
+  // 40
   const uint32_t max_tries = cs->max_frames * 5;
 
   uint32_t num_pss_sss_found = 0;
@@ -561,13 +593,13 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
               // cell id [0,1,2]
               if(n_id2s.insert(n_id_2).second == true)
                {
-                 csr[n_id_2].cell_id = pci;
-                 csr[n_id_2].cp      = cp;
-                 csr[n_id_2].peak    = peak_avg;
-
-                 csr[n_id_2].mode    = 1.0;
-                 csr[n_id_2].psr     = 0.0;
-                 csr[n_id_2].cfo     = 0.0;
+                 res[n_id_2].cell_id     = pci;
+                 res[n_id_2].cp          = cp;
+                 res[n_id_2].peak        = peak_avg;
+                 res[n_id_2].mode        = 1.0;
+                 res[n_id_2].psr         = 0.0;
+                 res[n_id_2].cfo         = 0.0;
+                 res[n_id_2].frame_type  = SRSLTE_FDD;
 
                  Info("MHAL:%s: new PCI %u, n_id_1 %u, n_id_2 %u, peak_avg %f\n",
                       __func__,
@@ -579,7 +611,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
              else
                {
                 // tie goes to the first entry (numeric lowest id)
-                if(peak_avg > csr[n_id_2].peak)
+                if(peak_avg > res[n_id_2].peak)
                   {
                      Info("MHAL:%s: replace PCI %u, n_id_1 %u, n_id_2 %u, peak_avg %f\n",
                            __func__,
@@ -588,9 +620,9 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                            n_id_2,
                            peak_avg);
 
-                     csr[n_id_2].cell_id = pci;
-                     csr[n_id_2].cp      = cp;
-                     csr[n_id_2].peak    = peak_avg;
+                     res[n_id_2].cell_id = pci;
+                     res[n_id_2].cp      = cp;
+                     res[n_id_2].peak    = peak_avg;
                   }
                }
             }
@@ -606,11 +638,11 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
   // now find the best
   for(auto iter = n_id2s.begin(); iter != n_id2s.end(); ++iter)
     {
-      if(csr[*iter].peak > max_avg)
+      if(res[*iter].peak > max_avg)
         {
           *max_peak = *iter;
 
-          max_avg = csr[*iter].peak;
+          max_avg = res[*iter].peak;
         }
     }
 
@@ -626,39 +658,90 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
   return n_id2s.size();
 }
 
-
 // 2 mib search
+/* typedef struct SRSLTE_API {
+  srslte_ue_sync_t              ue_sync;
+  cf_t                          *sf_buffer[SRSLTE_MAX_PORTS];
+  uint32_t                      nof_rx_antennas;
+  uint32_t                      max_frames;
+  uint32_t                      nof_valid_frames;  // number of 5 ms frames to scan 
+  uint32_t                      *mode_ntimes;
+  uint8_t                       *mode_counted; 
+  srslte_ue_cellsearch_result_t *candidates; 
+} srslte_ue_cellsearch_t;
+
+typedef struct {
+  srslte_ue_mib_t  ue_mib; 
+  srslte_ue_sync_t ue_sync; 
+  cf_t             *sf_buffer[SRSLTE_MAX_PORTS];
+  uint32_t         nof_rx_antennas;
+} srslte_ue_mib_sync_t;
+
+typedef struct SRSLTE_API {
+  srslte_sync_t         sfind;
+  cf_t*                 sf_symbols[SRSLTE_MAX_PORTS];
+  srslte_ofdm_t         fft;
+  srslte_pbch_t         pbch;
+  srslte_chest_dl_t     chest;
+  srslte_chest_dl_res_t chest_res;
+  uint8_t               bch_payload[SRSLTE_BCH_PAYLOAD_LEN];
+  uint32_t              nof_tx_ports; 
+  uint32_t              sfn_offset; 
+  uint32_t              frame_cnt; 
+} srslte_ue_mib_t;
+
+typedef struct SRSLTE_API {
+  cf_t*    ce[SRSLTE_MAX_PORTS][SRSLTE_MAX_PORTS];
+  uint32_t nof_re;
+  float    noise_estimate;
+  float    noise_estimate_dbm;
+  float    snr_db;
+  float    snr_ant_port_db[SRSLTE_MAX_PORTS][SRSLTE_MAX_PORTS];
+  float    rsrp;
+  float    rsrp_dbm;
+  float    rsrp_neigh_dbm;
+  float    rsrp_port_dbm[SRSLTE_MAX_PORTS];
+  float    rsrp_ant_port_dbm[SRSLTE_MAX_PORTS][SRSLTE_MAX_PORTS];
+  float    rsrq;
+  float    rsrq_db;
+  float    rsrq_ant_port_db[SRSLTE_MAX_PORTS][SRSLTE_MAX_PORTS];
+  float    rssi_dbm;
+  float    cfo;
+  float    sync_error;
+} srslte_chest_dl_res_t; */
+
 int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_ue_mib_sync_t * ue_mib_sync,
                      srslte_cell_t * cell)
 {
-  const uint32_t max_tries = 40;
+  // 40
+  const uint32_t max_tries = cs->max_frames * 5;
 
   uint32_t try_num = 0;
 
   while(try_num++ < max_tries)
     {
       // we handle the radio recv call here one at a time
-      const DL_ENB_Signals dl_enb_signals = ue_dl_enb_subframe_search_i(&ue_mib_sync->ue_sync, NULL);
+      const auto dl_enb_signals = ue_dl_enb_subframe_search_i(&ue_mib_sync->ue_sync, NULL);
 
       Debug("MHAL:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
             ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dl_enb_signals.size());
 
       if(! dl_enb_signals.empty())
         {
-          const EMANELTE::MHAL::ENB_DL_Message enb_dl_msg = dl_enb_signals[0].first;
+          const auto enb_dl_msg = dl_enb_signals[0].first;
 
           if(enb_dl_msg.has_pbch())
             {
-              EMANELTE::MHAL::RxControl rxControl = dl_enb_signals[0].second;
+              auto rxControl = dl_enb_signals[0].second;
 
               if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PBCH))
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
-                      const EMANELTE::MHAL::ENB_DL_Message_PSS_SSS & pss_sss = enb_dl_msg.pss_sss();
+                      const auto & pss_sss = enb_dl_msg.pss_sss();
 
-                      const EMANELTE::MHAL::ENB_DL_Message_PBCH & pbch = enb_dl_msg.pbch();
+                      const auto & pbch = enb_dl_msg.pbch();
 
                       Info("MHAL:ue_dl_mib_search: found pbch %s\n", GetDebugString(pbch.DebugString()).c_str());
 
@@ -715,6 +798,48 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 
 
 // 3 system frame search
+/*typedef struct SRSLTE_API {
+  srslte_sync_t s        find;
+  srslte_sync_t          strack;
+  uint32_t               max_prb;
+  srslte_agc_t           agc; 
+  bool                   do_agc; 
+  uint32_t               agc_period; 
+  int                    decimate;
+  srslte_timestamp_t     last_timestamp;
+  uint32_t               nof_rx_antennas; 
+  srslte_ue_sync_state_t state;
+  uint32_t               frame_len; 
+  uint32_t               fft_size;
+  uint32_t               nof_recv_sf;
+  uint32_t               nof_avg_find_frames;
+  uint32_t               frame_find_cnt;
+  uint32_t               sf_len;
+  uint64_t               frame_ok_cnt;
+  uint32_t               frame_no_cnt; 
+  uint32_t               frame_total_cnt; 
+  uint32_t               frame_number; // not used
+  srslte_cell_t          cell; 
+  uint32_t               sf_idx;
+  bool                   cfo_is_copied;
+  bool                   cfo_correct_enable_track;
+  bool                   cfo_correct_enable_find;
+  float                  cfo_current_value;
+  float                  cfo_loop_bw_pss;
+  float                  cfo_loop_bw_ref;
+  float                  cfo_pss_min;
+  float                  cfo_ref_min;
+  float                  cfo_ref_max;
+  uint32_t               pss_stable_cnt;
+  uint32_t               pss_stable_timeout;
+  bool                   pss_is_stable;
+  uint32_t               peak_idx;
+  int                    next_rf_sample_offset;
+  int                    last_sample_offset; 
+  float                  mean_sample_offset; 
+  uint32_t               sample_offset_correct_period;
+  float                  sfo_ema; 
+} srslte_ue_sync_t; */
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 {
   const uint32_t max_tries = 50;
@@ -748,7 +873,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 
                       const auto & pbch = enb_dl_msg.pbch();
 
-                      Info("MHAL:ue_dl_system_frame_search: found pbch %s, try %u/%u\n",
+                      Info("MHAL:%s: found pbch %s, try %u/%u\n",
                            __func__,
                            GetDebugString(pbch.DebugString()).c_str(),
                            try_num,
@@ -1163,13 +1288,12 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
   pthread_mutex_unlock(&ul_mutex_);
 }
 
-#if 0
 
-void ue_ul_put_prach(int index, uint32_t prach_freq_offset)
+void ue_ul_put_prach(int index)
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   EMANELTE::MHAL::ChannelMessage * channel_message = uplink_control_message_->mutable_prach();
+   auto channel_message = uplink_control_message_->mutable_prach();
 
    initUplinkChannelMessage(channel_message,
                             EMANELTE::MHAL::CHAN_PRACH,
@@ -1179,26 +1303,26 @@ void ue_ul_put_prach(int index, uint32_t prach_freq_offset)
    // The upstream PRACH message is not really a slotted message
    // and can span 2 or 3 subframes. Set slot1 and slot2 resource blocks the same.
    // prach spans the 6 resource blocks starting from prach_freq_offset
-   for(int i=0; i<6; ++i)
+   for(int i = 0; i < 6; ++i)
      {
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset + i));
-       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset + i));
+       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
+       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
      }
 
-   EMANELTE::MHAL::UE_UL_Message_PRACH * prach = ue_ul_msg_.mutable_prach();
+   auto prach = ue_ul_msg_.mutable_prach();
 
-   EMANELTE::MHAL::UE_UL_Message_PRACH_Preamble * preamble = prach->mutable_preamble();
+   auto preamble = prach->mutable_preamble();
 
    preamble->set_index(index);
 
-   Info("MHAL:ue_ul_put_prach: index %d, msg:%s\n",
+   Info("MHAL:%s: index %d, msg:%s\n",
+        __func__,
         index,
         GetDebugString(prach->DebugString()).c_str());
 
    pthread_mutex_unlock(&ul_mutex_);
 }
 
-#endif
 
 /*
 typedef struct SRSLTE_API {
