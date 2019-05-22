@@ -1178,6 +1178,11 @@ void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
 } srslte_phich_grant_t;
 
 typedef struct SRSLTE_API {
+  uint32_t ngroup;
+  uint32_t nseq;
+} srslte_phich_resource_t;
+
+typedef struct SRSLTE_API {
   bool  ack_value;
   float distance;
 } srslte_phich_res_t; */
@@ -1203,16 +1208,11 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
      if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PHICH, rnti))
       {
        if(rnti                == phich_message.rnti()        && 
-          grant->n_prb_lowest == phich_message.num_prb_low() && 
+          grant->n_prb_lowest == phich_message.num_prb_low() &&   // XXX TODO local value = 2, msg value = 0
           grant->n_dmrs       == phich_message.num_dmrs())
          {
-           result->ack_value = true;
+           result->ack_value = phich_message.ack();
            result->distance  = 1.0;
-         }
-       else
-         {
-           result->ack_value = false;
-           result->distance  = 0;
          }
 
         Info("MHAL:%s sf_idx=%d, n_prb_l=%d/%d, n_dmrs=%d/%d, I_phich=%d, n_group=%d, n_seq=%d, n_groups=%d, n_sf=%d, rnti %hu/%hu, ack %d, dist %f\n",

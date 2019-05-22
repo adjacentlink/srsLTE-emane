@@ -1090,7 +1090,6 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
 
   phich->set_rnti(ack->rnti);
   phich->set_ack(ack->ack);
-
   phich->set_num_prb_low(grant->n_prb_lowest);
   phich->set_num_dmrs(grant->n_dmrs);
 
