@@ -1404,9 +1404,16 @@ void ue_ul_put_prach(int index)
 }
 
 
+/*typedef struct SRSLTE_API {
+  srslte_cell_t    cell;
+  uint16_t         current_rnti;
+  bool             signals_pregenerated;
+  srslte_pusch_t   pusch;
+  srslte_pucch_t   pucch;
+  srslte_ra_ul_pusch_hopping_t hopping;
+} srslte_ue_ul_t;
 
-#if 0
-/* typedef struct SRSLTE_API {
+ typedef struct SRSLTE_API {
   uint16_t         rnti;
   srslte_uci_cfg_t uci_cfg;
 
@@ -1442,32 +1449,49 @@ void ue_ul_put_prach(int index)
   srslte_pucch_format_t format;
   uint32_t              n_pucch;
   uint8_t               pucch2_drs_bits[SRSLTE_PUCCH2_MAX_DMRS_BITS];
-} srslte_pucch_cfg_t; */
+} srslte_pucch_cfg_t; 
 
+typedef struct SRSLTE_API {
+  // Uplink config (includes common and dedicated variables)
+  srslte_pucch_cfg_t                pucch;
+  srslte_pusch_cfg_t                pusch;
+  srslte_pusch_hopping_cfg_t        hopping;
+  srslte_ue_ul_powerctrl_t          power_ctrl;
+  srslte_refsignal_dmrs_pusch_cfg_t dmrs;
+  srslte_refsignal_srs_cfg_t        srs;
+} srslte_ul_cfg_t;
 
-bool ue_ul_put_pucch(srslte_ue_ul_t * q,
-                     srslte_uci_data_t * uci_data,
-                     uint32_t ncce)
+typedef struct SRSLTE_API {
+  srslte_ul_cfg_t ul_cfg;
+  bool            grant_available;
+  uint32_t        cc_idx;
+  bool            normalize_en;
+  bool            cfo_en;
+  float           cfo_tol;
+  float           cfo_value;
+} srslte_ue_ul_cfg_t; */
+
+int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_uci_value_t* uci_data)
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   EMANELTE::MHAL::UE_UL_Message_PUCCH * pucch = ue_ul_msg_.mutable_pucch();
+   auto pucch_message = ue_ul_msg_.mutable_pucch();
 
-   EMANELTE::MHAL::UE_UL_Message_PUCCH_Grant * grant = pucch->add_grant();
+   auto grant_message = pucch_message->add_grant();
 
-   q->last_pucch_format = srslte_pucch_get_format(uci_data, q->cell.cp);
-   
-   // from lib/src/phy/ue/ue_ul.c srslte_ue_ul_pucch_encode()
-   q->pucch.last_n_pucch = srslte_pucch_get_npucch(ncce, 
-                                                   q->last_pucch_format,
-                                                   uci_data->scheduling_request,
-                                                   &q->pucch_sched);
+   auto pucch_cfg = cfg->ul_cfg.pucch;
+
+   auto rnti = pucch_cfg.rnti;
+
+   // see lib/src/phy/ue/ue_ul.c
+   srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
 
    // default: SRSLTE_PUCCH_FORMAT_1
    EMANELTE::MHAL::MOD_TYPE modType = EMANELTE::MHAL::MOD_BPSK;
+
    uint32_t bits = 0;
 
-   switch(q->last_pucch_format)
+   switch(pucch_cfg.format)
      {
      case SRSLTE_PUCCH_FORMAT_1:   // 1 HARQ ACK
        bits = 0;
@@ -1496,18 +1520,19 @@ bool ue_ul_put_pucch(srslte_ue_ul_t * q,
      case SRSLTE_PUCCH_FORMAT_ERROR:
      default:
        Error("MHAL:ue_ul_put_pucch: unknown pucch format: %d\n",
-             q->last_pucch_format);
+             pucch_cfg.format);
      }
 
-   EMANELTE::MHAL::ChannelMessage * channel_message = uplink_control_message_->add_pucch();
+   auto channel_message = uplink_control_message_->add_pucch();
 
    initUplinkChannelMessage(channel_message,
                             EMANELTE::MHAL::CHAN_PUCCH,
                             modType,
                             bits);
 
-   channel_message->set_rnti(q->current_rnti);
+   channel_message->set_rnti(pucch_cfg.rnti);
 
+#if 0
    uint16_t n_prb[2] = {0};
 
    for(int n = 0; n < 2; ++n)
@@ -1519,33 +1544,27 @@ bool ue_ul_put_pucch(srslte_ue_ul_t * q,
                                    q->cell.cp, n);
     }
 
-   // srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
-   
    
    // flag when resource blocks are different on slot 1 and 2 of the subframe
    channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0]));
    channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1]));
 
-   q->pucch.last_n_prb = n_prb[1];
+   grant_message->set_num_prb(n_prb[1]);
 
-   grant->set_num_pucch(q->pucch.last_n_pucch);
+#endif
 
-   grant->set_num_prb(n_prb[1]);
+   Info("MHAL:%s\n", __func__);
 
-   grant->set_rnti(q->current_rnti);
+   grant_message->set_num_pucch(pucch_cfg.n_pucch);
 
-   grant->set_uci(uci_data, sizeof(srslte_uci_data_t));
+   grant_message->set_rnti(rnti);
 
-   Info("MHAL:ue_ul_put_pucch: ncce %u, format %s, msg: %s\n",
-               ncce,
-               pucch_format_t_to_name(q->last_pucch_format).c_str(),
-               GetDebugString(pucch->DebugString()).c_str());
+   grant_message->set_uci(uci_data, sizeof(srslte_uci_value_t));
 
    pthread_mutex_unlock(&ul_mutex_);
 
    return SRSLTE_SUCCESS;
 }
-#endif
 
 
 
@@ -1610,7 +1629,7 @@ typedef struct SRSLTE_API {
   uint8_t*           ptr;
   srslte_uci_value_t uci;
 } srslte_pusch_data_t; */
-int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
+static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
 {
    pthread_mutex_lock(&ul_mutex_);
 
@@ -1658,8 +1677,7 @@ int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
 }
 
 
-/*
-typedef struct SRSLTE_API {
+/* typedef struct SRSLTE_API {
   srslte_cell_t    cell;
   uint16_t         current_rnti;
   bool             signals_pregenerated;
@@ -1714,27 +1732,48 @@ typedef struct SRSLTE_API {
 //
 int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data)
 {
-
   /* Convert DTX to NACK in channel-selection mode (Release 10 only)*/
-  if (cfg->ul_cfg.pucch.ack_nack_feedback_mode != SRSLTE_PUCCH_ACK_NACK_FEEDBACK_MODE_NORMAL) {
+  if(cfg->ul_cfg.pucch.ack_nack_feedback_mode != SRSLTE_PUCCH_ACK_NACK_FEEDBACK_MODE_NORMAL) {
     uint32_t dtx_count = 0;
-    for (uint32_t a = 0; a < cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks; a++) {
-      if (data->uci.ack.ack_value[a] == 2) {
+    for(uint32_t a = 0; a < cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks; a++) {
+      if(data->uci.ack.ack_value[a] == 2) {
         data->uci.ack.ack_value[a] = 0;
         dtx_count++;
       }
     }
 
     /* If all bits are DTX, do not transmit HARQ */
-    if (dtx_count == cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks) {
+    if(dtx_count == cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks) {
       cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks = 0;
     }
   }
 
-  if(cfg->grant_available)
-   {
-     ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);
-   }
+   // see lib/src/phy/ue/ue_ul.c
+#define uci_pending(cfg) (cfg.ack.nof_acks > 0 || cfg.cqi.data_enable || cfg.cqi.ri_len > 0)
+   if(cfg->grant_available) 
+    {
+
+      return ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);
+    } 
+   else if((uci_pending(cfg->ul_cfg.pucch.uci_cfg) || 
+             data->uci.scheduling_request) && cfg->cc_idx == 0)
+    // Send PUCCH over PCell only
+    {
+      if(!cfg->ul_cfg.pucch.rnti)
+       {
+         if(! (cfg->ul_cfg.pucch.rnti = q->current_rnti))
+          {
+            Error("MHAL:%s Warning PUCCH rnti or current_rnti are not set\n", __func__);
+          }
+       }
+
+      return ue_ul_put_pucch_i(q, sf, cfg, &data->uci);
+    }
+   else
+    {
+       // XXX SRS
+    }
+   
 
   return SRSLTE_SUCCESS;
 }
