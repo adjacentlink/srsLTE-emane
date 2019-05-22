@@ -1170,42 +1170,68 @@ void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
     }
 }
 
-#if 0
 
-bool ue_dl_decode_phich(srslte_ue_dl_t *q, 
-                        uint32_t sfn,
-                        uint16_t rnti,
-                        uint32_t n_prb_L,
-                        uint32_t n_dmrs)
+/*typedef struct SRSLTE_API {
+  uint32_t n_prb_lowest;
+  uint32_t n_dmrs;
+  uint32_t I_phich;
+} srslte_phich_grant_t;
+
+typedef struct SRSLTE_API {
+  bool  ack_value;
+  float distance;
+} srslte_phich_res_t; */
+
+int ue_dl_decode_phich(srslte_ue_dl_t*       q,
+                       srslte_dl_sf_cfg_t*   sf,
+                       srslte_ue_dl_cfg_t*   cfg,
+                       srslte_phich_grant_t* grant,
+                       srslte_phich_res_t*   result,
+                       uint16_t rnti)
 {
-   if(enb_dl_msg_.has_phich())
-     {
-       const EMANELTE::MHAL::ENB_DL_Message_PHICH & phich = enb_dl_msg_.phich();
+  srslte_phich_resource_t n_phich;
 
-       Debug("MHAL:ue_dl_decode_phich: sfn %u, rnti 0x%hx, n_prb_L %u, n_dmrs %u, msg:\n%s\n", 
-                   sfn,
-                   rnti,
-                   n_prb_L,
-                   n_dmrs,
-                   GetDebugString(phich.DebugString()).c_str());
+  uint32_t sf_idx = sf->tti % 10;
 
-         if(rnti    == phich.rnti()        && 
-            n_prb_L == phich.num_prb_low() && 
-            n_dmrs  == phich.num_dmrs())
+  srslte_phich_calc(&q->phich, grant, &n_phich);
+
+  if(enb_dl_msg_.has_phich())
+   {
+     const auto & phich_message = enb_dl_msg_.phich();
+
+     if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PHICH, rnti))
+      {
+       if(rnti                == phich_message.rnti()        && 
+          grant->n_prb_lowest == phich_message.num_prb_low() && 
+          grant->n_dmrs       == phich_message.num_dmrs())
          {
-           if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PHICH, rnti))
-             {
-               // from lib/src/phy/ue/ue_dl.c srslte_ue_dl_decode_phich()
-               q->last_phich_corr = 1.0;
-
-               return true;
-             }
+           result->ack_value = true;
+           result->distance  = 1.0;
          }
-     }
+       else
+         {
+           result->ack_value = false;
+           result->distance  = 0;
+         }
 
-   return false;
+        Info("MHAL:%s Decoding PHICH sf_idx=%d, n_prb_lowest=%d, n_dmrs=%d, I_phich=%d, n_group=%d, n_seq=%d, Ngroups=%d, Nsf=%d, ack %d, distance %f\n",
+             __func__,
+             sf_idx,
+             grant->n_prb_lowest,
+             grant->n_dmrs,
+             grant->I_phich,
+             n_phich.ngroup,
+             n_phich.nseq,
+             srslte_phich_ngroups(&q->phich),
+             srslte_phich_nsf(&q->phich),
+             result->ack_value,
+             result->distance);
+       }
+   }
+
+   return SRSLTE_SUCCESS;
 }
-#endif
+
 
 #if 0
 

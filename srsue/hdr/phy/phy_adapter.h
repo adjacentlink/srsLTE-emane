@@ -95,14 +95,14 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t *q,
 void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
                         bool acks[SRSLTE_MAX_CODEWORDS]);
 
-#if 0
 // get phich
-bool ue_dl_decode_phich(srslte_ue_dl_t * q,
-                        uint32_t sfn,
-                        uint16_t rnti,
-                        uint32_t n_prb_L,
-                        uint32_t n_dmrs);
-#endif
+int ue_dl_decode_phich(srslte_ue_dl_t*       q,
+                       srslte_dl_sf_cfg_t*   sf,
+                       srslte_ue_dl_cfg_t*   cfg,
+                       srslte_phich_grant_t* grant,
+                       srslte_phich_res_t*   result,
+                       uint16_t rnti);
+
 
 #if 0
 // get pmch

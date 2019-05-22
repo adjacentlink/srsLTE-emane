@@ -581,10 +581,10 @@ void cc_worker::decode_phich()
   for (uint32_t I_phich = 0; I_phich < 2; I_phich++) {
     phich_grant.I_phich = I_phich;
     if (phy->get_ul_pending_ack(&sf_cfg_dl, cc_idx, &phich_grant, &dci_ul)) {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
       if (srslte_ue_dl_decode_phich(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, &phich_grant, &phich_res)) {
 #else
-      if (phy_adapter::ue_dl_decode_phich(&ue_dl, tti%10, phy->get_dl_rnti(tti), I_lowest, n_dmrs)) {
+      if (phy_adapter::ue_dl_decode_phich(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, &phich_grant, &phich_res, dci_ul.rnti)) {
 #endif
         Error("Decoding PHICH\n");
       }
