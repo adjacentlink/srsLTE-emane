@@ -82,14 +82,12 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*            q,
                              uint16_t            rnti,
                              srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG]);
 
-#if 0
 // get ul dci
-int ue_dl_find_ul_dci(srslte_ue_dl_t *q, 
-                      uint16_t rnti, 
-                      srslte_dci_msg_t *dci_msg);
-
-#endif
-
+int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
+                      srslte_dl_sf_cfg_t* sf,
+                      srslte_ue_dl_cfg_t* cfg,
+                      uint16_t            rnti,
+                      srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG]);
 
 // convert ota grant to mac action
 void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
@@ -121,23 +119,8 @@ void ue_ul_send_signal(time_t sot_secs, float frac_sec, const srslte_cell_t & ce
 // set prach
 void ue_ul_put_prach(int index);
 
-
-#if 0
 // set pucch, pusch
-// see lib/src/phy/ue/ue_ul.c
 int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
-#endif
-
-/* OLD API
-bool ue_ul_put_pucch(srslte_ue_ul_t * q,
-                     srslte_uci_data_t * uci,
-                     uint32_t ncce);
-
-bool ue_ul_put_pusch(uint16_t rnti,
-                     srslte_ra_ul_grant_t *grant,
-                     srslte_uci_data_t * uci,
-                     uint8_t *payload);
-*/
 
 } // end namespace phy_adapter
 } // end namespace srsue

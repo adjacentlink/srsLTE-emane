@@ -429,11 +429,9 @@ void sf_worker::work_imp()
   dl_sf.non_mbsfn_region = mbsfn_cfg.non_mbsfn_region_length;
 
   // Put base signals (references, PBCH, PCFICH and PSS/SSS) into the resource grid
-#ifndef PHY_ADAPTER_ENABLE
   srslte_enb_dl_put_base(&enb_dl, &dl_sf);
-#else
-  srslte_enb_dl_put_base(&enb_dl, &dl_sf); // XXX TODO REMOVE WHEN FULLY INTEGRATED
 
+#ifdef PHY_ADAPTER_ENABLE
   phy_adapter::enb_dl_tx_init(&enb_dl, tti_tx_dl, dl_grants[t_tx_dl].cfi);
 #endif
 

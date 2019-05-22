@@ -956,7 +956,7 @@ float ue_dl_decode_signal(uint32_t cell_id)
          }
        else
          {
-          rssi = 3.0;
+          rssi = 3.0; // XXX TODO
  
           Info("MHAL:%s: pci %u, rssi %f\n", __func__, pci, rssi);
         }
@@ -1032,7 +1032,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
 
           memcpy(dci_msg[0].payload, dl_dci_message_data.data(), dl_dci_message_data.size());
 
-          Info("MHAL:%s found pdsch for ref id %u, rnti 0x%hx\n", 
+          Info("MHAL:%s found dl_dci ref id %u, rnti 0x%hx\n", 
                 __func__, dci_message.refid(), rnti);
 
           nof_msg = 1;
@@ -1044,12 +1044,14 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
                return SRSLTE_ERROR;
             }
           }
+
+         q->chest_res.snr_db = 111; // XXX TODO
        }
       else
        {
          if(data_message_list.size() > 1)
           {
-            Warning("MHAL:%s found multiple dci_data (%zu) pdcch for rnti 0x%hx\n", 
+            Warning("MHAL:%s found multiple dci_data (%zu) for rnti 0x%hx\n", 
                     __func__, data_message_list.size(), rnti);
           }
          else
@@ -1062,7 +1064,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
     {
       if(dci_message_list.size() > 1)
        {
-         Warning("MHAL:%s found multiple dci (%zu) pdcch for rnti 0x%hx\n", 
+         Warning("MHAL:%s found multiple dl_dci (%zu) for rnti 0x%hx\n", 
                  __func__, dci_message_list.size(), rnti);
        }
       else
@@ -1074,57 +1076,82 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
   return nof_msg;
 }
 
-#if 0
-int ue_dl_find_ul_dci(srslte_ue_dl_t *q, 
-                      uint16_t rnti, 
-                      srslte_dci_msg_t *dci_msg)
+/*
+typedef struct SRSLTE_API {
+  uint32_t L;    // Aggregation level
+  uint32_t ncce; // Position of first CCE of the dci
+} srslte_dci_location_t;
+
+typedef struct SRSLTE_API {
+  uint8_t               payload[SRSLTE_DCI_MAX_BITS];
+  uint32_t              nof_bits;
+  srslte_dci_location_t location;
+  srslte_dci_format_t   format;
+  uint16_t              rnti;
+} srslte_dci_msg_t; */
+
+// see lib/src/phy/ue/ue_dl.c
+int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
+                      srslte_dl_sf_cfg_t* sf,
+                      srslte_ue_dl_cfg_t* cfg,
+                      uint16_t            rnti,
+                      srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG])
 {
-  int result = 0;
+  srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
+  int nof_msg = 0;
 
-  const UL_DCIList dci_list = get_ul_dci_list_i(rnti);
+  if(rnti) 
+   {
+     const auto dci_message_list = get_ul_dci_list_i(rnti);
 
-  // expecting 1 dci/rnti
-  if(dci_list.size() == 1)
-    {
-      const EMANELTE::MHAL::ENB_DL_Message_PDCCH_UL_DCI & ul_ota_dci = dci_list[0];
+     // expecting 1 dci/rnti
+     if(dci_message_list.size() == 1)
+      {
+        const auto & dci_message         = dci_message_list[0];
+        const auto & ul_dci_message      = dci_message.dci_msg();
+        const auto & ul_dci_message_data = ul_dci_message.data();
 
-      const EMANELTE::MHAL::ENB_DL_Message_DCI_MSG & ota_ul_dci_msg = ul_ota_dci.dci_msg();
+        dci_msg[0].nof_bits      = ul_dci_message.num_bits();
+        dci_msg[0].rnti          = rnti;
+        dci_msg[0].format        = get_msg_format(ul_dci_message.format());
+        dci_msg[0].location.L    = ul_dci_message.l_level();
+        dci_msg[0].location.ncce = ul_dci_message.l_ncce();
 
-      dci_msg->nof_bits = ota_ul_dci_msg.num_bits();
+        memcpy(dci_msg[0].payload, ul_dci_message_data.data(), ul_dci_message_data.size());
 
-      dci_msg->format = get_msg_format(ota_ul_dci_msg.format());
+        Info("MHAL:%s found ul_dci rnti 0x%hx\n", __func__, rnti);
 
-      const srslte_dci_location_t dci_location = {ota_ul_dci_msg.l_level(), ota_ul_dci_msg.l_ncce()};
+        nof_msg = 1;
 
-      // from lib/src/phy/ue/ue_dl.c dci_blind_search
-      memcpy(&q->last_location_ul, &dci_location, sizeof(srslte_dci_location_t));
+        // Unpack DCI messages
+        for (int i = 0; i < nof_msg; i++) {
+          if (srslte_dci_msg_unpack_pusch(&q->cell, sf, &cfg->dci_cfg, &dci_msg[i], &dci_ul[i])) {
+            Error("MHAL:%s Unpacking UL DCI\n", __func__);
+            return SRSLTE_ERROR;
+          }
+        }
 
-      memcpy(dci_msg->data, ota_ul_dci_msg.data().data(), ota_ul_dci_msg.data().length());
-
-      Info("MHAL:ue_dl_find_ul_dci found pdsch for rnti 0x%hx\n", rnti);
-
-      result = 1;
-    }
+         q->chest_res.snr_db = 111; // XXX TODO
+      }
    else
     {
-      if(dci_list.size() > 1)
+      if(dci_message_list.size() > 1)
        {
-         Warning("MHAL:ue_dl_find_ul_dci found multiple (%zu) pdcch for rnti 0x%hx\n", 
-                         dci_list.size(), rnti);
+         Warning("MHAL:%s found multiple (%zu) ul_dci for rnti 0x%hx\n", 
+                  __func__, dci_message_list.size(), rnti);
        }
       else
        {
-         Info("MHAL:ue_dl_find_ul_dci no pdcch for rnti 0x%hx\n", rnti);
+         Info("MHAL:%s no ul dci for rnti 0x%hx\n", __func__, rnti);
        }
     }
-
-  return result;
+  }
+ 
+  return nof_msg;
 }
-#endif
 
 
-/*
- typedef struct {
+/* typedef struct {
     bool     enabled;
     uint32_t rv;
     uint8_t* payload;
@@ -1171,7 +1198,7 @@ void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
 }
 
 
-/*typedef struct SRSLTE_API {
+/* typedef struct SRSLTE_API {
   uint32_t n_prb_lowest;
   uint32_t n_dmrs;
   uint32_t I_phich;
@@ -1231,6 +1258,8 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
              phich_message.rnti(),
              result->ack_value,
              result->distance);
+
+         q->chest_res.snr_db = 111; // XXX TODO
        }
    }
 
@@ -1375,56 +1404,47 @@ void ue_ul_put_prach(int index)
 }
 
 
-/*
-typedef struct SRSLTE_API {
-  srslte_cell_t  cell;
-  uint16_t       current_rnti;
-  bool           signals_pregenerated;
-  srslte_pusch_t pusch;
-  srslte_pucch_t pucch;
-  srslte_ra_ul_pusch_hopping_t hopping;
-} srslte_ue_ul_t;
-
-typedef struct SRSLTE_API {
-  srslte_tdd_config_t tdd_config;
-  uint32_t            tti;
-  bool                shortened;
-} srslte_ul_sf_cfg_t;
-
-typedef struct SRSLTE_API {
-
-  srslte_ul_cfg_t ul_cfg;
-  bool     grant_available;
-  uint32_t cc_idx;
-  bool     normalize_en;
-  bool     cfo_en;
-  float    cfo_tol;
-  float    cfo_value;
-
-} srslte_ue_ul_cfg_t;
-
-typedef struct SRSLTE_API {
-  uint8_t*           ptr;
-  srslte_uci_value_t uci;
-} srslte_pusch_data_t;
-*/
-
-// see lib/src/phy/ue/ue_ul.c
-// srslte_ue_ul_encode(srslte_ue_ul_t* q, 
-//                     srslte_ul_sf_cfg_t* sf,
-//                     srslte_ue_ul_cfg_t* cfg,
-//                     srslte_pusch_data_t* data);
-//
-// and 
-//
-// lib/src/phy/phch/pucch.c
-// int srslte_pucch_encode(srslte_pucch_t* q, 
-//                         srslte_ul_sf_cfg_t* sf, 
-//                         srslte_pucch_cfg_t* cfg,
-//                         srslte_uci_value_t* uci_data,
-//                         cf_t* sf_symbols)
 
 #if 0
+/* typedef struct SRSLTE_API {
+  uint16_t         rnti;
+  srslte_uci_cfg_t uci_cfg;
+
+  // Common configuration
+  uint32_t delta_pucch_shift;
+  uint32_t n_rb_2;
+  uint32_t N_cs;
+  uint32_t N_pucch_1;
+  bool     group_hopping_en; // common pusch config
+
+  // Dedicated PUCCH configuration
+  uint32_t I_sr;
+  bool     sr_configured;
+  uint32_t n_pucch_1[4]; // 4 n_pucch resources specified by RRC
+  uint32_t n_pucch_2;
+  uint32_t n_pucch_sr;
+  bool     simul_cqi_ack;
+  bool     tdd_ack_bundle; // if false, multiplex
+  bool     sps_enabled;
+  uint32_t tpc_for_pucch;
+
+  // Release 10 CA specific
+  srslte_ack_nack_feedback_mode_t ack_nack_feedback_mode;
+  uint32_t                        n1_pucch_an_cs[SRSLTE_PUCCH_SIZE_AN_CS][SRSLTE_PUCCH_NOF_AN_CS];
+  uint32_t                        n3_pucch_an_list[SRSLTE_PUCCH_SIZE_AN_CS];
+
+  // Other configuration
+  float threshold_format1;
+  float threshold_data_valid_format1a;
+  float threshold_data_valid_format2;
+
+  // PUCCH configuration generated during a call to encode/decode
+  srslte_pucch_format_t format;
+  uint32_t              n_pucch;
+  uint8_t               pucch2_drs_bits[SRSLTE_PUCCH2_MAX_DMRS_BITS];
+} srslte_pucch_cfg_t; */
+
+
 bool ue_ul_put_pucch(srslte_ue_ul_t * q,
                      srslte_uci_data_t * uci_data,
                      uint32_t ncce)
@@ -1527,43 +1547,108 @@ bool ue_ul_put_pucch(srslte_ue_ul_t * q,
 }
 #endif
 
-#if 0
 
-bool ue_ul_put_pusch(uint16_t rnti,
-                     srslte_ra_ul_grant_t *ul_grant,
-                     srslte_uci_data_t * uci_data,
-                     uint8_t *payload)
+
+/* typedef struct SRSLTE_API {
+  srslte_mod_t mod;
+  int          tbs;
+  int          rv;
+  uint32_t     nof_bits;
+  uint32_t     cw_idx;
+  bool         enabled;
+} srslte_ra_tb_t;
+
+ typedef struct SRSLTE_API {
+  bool           is_from_rar;
+  uint32_t       L_prb;
+  uint32_t       n_prb[2];       // rb_start after frequency hopping
+  uint32_t       n_prb_tilde[2]; // rb_start after frequency hopping per retx
+  uint32_t       freq_hopping;
+  uint32_t       nof_re;
+  uint32_t       nof_symb;
+  srslte_ra_tb_t tb;
+  srslte_ra_tb_t last_tb;
+  uint32_t       n_dmrs;
+} srslte_pusch_grant_t;
+
+typedef struct SRSLTE_API {
+  srslte_uci_cfg_ack_t ack;
+  srslte_cqi_cfg_t     cqi;
+  bool                 is_scheduling_request_tti;
+} srslte_uci_cfg_t;
+
+typedef struct SRSLTE_API {
+  uint16_t                rnti;
+  srslte_uci_cfg_t        uci_cfg;
+  srslte_uci_offset_cfg_t uci_offset;
+  srslte_pusch_grant_t    grant;
+
+  uint32_t max_nof_iterations;
+  uint32_t last_O_cqi;
+  uint32_t K_segm;
+  uint32_t current_tx_nb;
+  bool     csi_enable;
+  bool     enable_64qam;
+
+  union {
+    srslte_softbuffer_tx_t* tx;
+    srslte_softbuffer_rx_t* rx;
+  } softbuffers;
+
+  bool     meas_time_en;
+  uint32_t meas_time_value;
+} srslte_pusch_cfg_t; 
+
+typedef struct SRSLTE_API {
+  bool                   scheduling_request;
+  srslte_cqi_value_t     cqi;
+  srslte_uci_value_ack_t ack;
+  uint8_t                ri; // Only 1-bit supported for RI
+} srslte_uci_value_t;
+
+typedef struct SRSLTE_API {
+  uint8_t*           ptr;
+  srslte_uci_value_t uci;
+} srslte_pusch_data_t; */
+int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   EMANELTE::MHAL::ChannelMessage * channel_message = uplink_control_message_->add_pusch();
+   auto channel_message = uplink_control_message_->add_pusch();
+
+   const auto grant = &cfg->grant;
+ 
+   const auto rnti = cfg->rnti;
 
    initUplinkChannelMessage(channel_message,
                             EMANELTE::MHAL::CHAN_PUSCH,
-                            convert(ul_grant->mcs.mod),
-                            ul_grant->mcs.tbs);
+                            convert(grant->tb.mod),
+                            grant->tb.tbs);
 
    channel_message->set_rnti(rnti);
 
-   for (size_t i=0; i<ul_grant->L_prb; ++i)
+   for (size_t i = 0; i < grant->L_prb; ++i)
      {
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(ul_grant->n_prb[0] + i));
-       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(ul_grant->n_prb[1] + i));
+       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i));
+       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i));
      }
 
-   EMANELTE::MHAL::UE_UL_Message_PUSCH * pusch = ue_ul_msg_.mutable_pusch();
+   auto pusch_message = ue_ul_msg_.mutable_pusch();
 
-   EMANELTE::MHAL::UE_UL_Message_PUSCH_Grant * grant = pusch->add_grant();
+   auto grant_message = pusch_message->add_grant();
 
-   grant->set_rnti(rnti);
+   grant_message->set_rnti(rnti);
 
-   grant->set_ul_grant(ul_grant, sizeof(srslte_ra_ul_grant_t));
+   // srslte_pusch_grant_t
+   grant_message->set_ul_grant(grant, sizeof(srslte_pusch_grant_t));
 
-   grant->set_uci(uci_data, sizeof(srslte_uci_data_t));
+   // srslte_uci_value_t
+   grant_message->set_uci(&data->uci, sizeof(srslte_uci_value_t));
 
-   grant->set_payload(payload, ul_grant->mcs.tbs/8);
+   // payload
+   grant_message->set_payload(data->ptr, grant->tb.tbs/8);
 
-   Info("MHAL:ue_ul_put_pusch: %s\n", GetDebugString(pusch->DebugString()).c_str());
+   Info("MHAL:%s: rnti %hu\n", __func__, rnti);
 
    UESTATS::putULGrant(rnti);
 
@@ -1572,7 +1657,87 @@ bool ue_ul_put_pusch(uint16_t rnti,
    return SRSLTE_SUCCESS;
 }
 
-#endif
+
+/*
+typedef struct SRSLTE_API {
+  srslte_cell_t    cell;
+  uint16_t         current_rnti;
+  bool             signals_pregenerated;
+  srslte_pusch_t   pusch;
+  srslte_pucch_t   pucch;
+  srslte_ra_ul_pusch_hopping_t hopping;
+} srslte_ue_ul_t;
+
+typedef struct SRSLTE_API {
+  srslte_tdd_config_t tdd_config;
+  uint32_t            tti;
+  bool                shortened;
+} srslte_ul_sf_cfg_t;
+
+typedef struct SRSLTE_API {
+  // Uplink config (includes common and dedicated variables)
+  srslte_pucch_cfg_t                pucch;
+  srslte_pusch_cfg_t                pusch;
+  srslte_pusch_hopping_cfg_t        hopping;
+  srslte_ue_ul_powerctrl_t          power_ctrl;
+  srslte_refsignal_dmrs_pusch_cfg_t dmrs;
+  srslte_refsignal_srs_cfg_t        srs;
+} srslte_ul_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_ul_cfg_t ul_cfg;
+  bool            grant_available;
+  uint32_t        cc_idx;
+  bool            normalize_en;
+  bool            cfo_en;
+  float           cfo_tol;
+  float           cfo_value;
+} srslte_ue_ul_cfg_t;
+
+typedef struct SRSLTE_API {
+  bool                   scheduling_request;
+  srslte_cqi_value_t     cqi;
+  srslte_uci_value_ack_t ack;
+  uint8_t                ri; // Only 1-bit supported for RI
+} srslte_uci_value_t;
+
+typedef struct SRSLTE_API {
+  uint8_t*           ptr;
+  srslte_uci_value_t uci;
+} srslte_pusch_data_t; */
+
+// see lib/src/phy/ue/ue_ul.c
+// srslte_ue_ul_encode(srslte_ue_ul_t* q, 
+//                     srslte_ul_sf_cfg_t* sf,
+//                     srslte_ue_ul_cfg_t* cfg,
+//                     srslte_pusch_data_t* data);
+//
+int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data)
+{
+
+  /* Convert DTX to NACK in channel-selection mode (Release 10 only)*/
+  if (cfg->ul_cfg.pucch.ack_nack_feedback_mode != SRSLTE_PUCCH_ACK_NACK_FEEDBACK_MODE_NORMAL) {
+    uint32_t dtx_count = 0;
+    for (uint32_t a = 0; a < cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks; a++) {
+      if (data->uci.ack.ack_value[a] == 2) {
+        data->uci.ack.ack_value[a] = 0;
+        dtx_count++;
+      }
+    }
+
+    /* If all bits are DTX, do not transmit HARQ */
+    if (dtx_count == cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks) {
+      cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks = 0;
+    }
+  }
+
+  if(cfg->grant_available)
+   {
+     ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);
+   }
+
+  return SRSLTE_SUCCESS;
+}
 
 } // end namespace phy_adapter
 } // end namepsace srsue

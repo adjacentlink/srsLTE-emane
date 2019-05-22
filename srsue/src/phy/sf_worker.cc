@@ -328,7 +328,7 @@ void sf_worker::update_measurements()
   if (get_id() == 0) {
 
     // Average RSSI over all symbols in antenna port 0 (make sure SF length is non-zero)
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
     float rssi_dbm =
         SRSLTE_SF_LEN_PRB(cell.nof_prb) > 0
             ? (10 * log10(srslte_vec_avg_power_cf(cc_workers[0]->get_rx_buffer(0), SRSLTE_SF_LEN_PRB(cell.nof_prb))) +

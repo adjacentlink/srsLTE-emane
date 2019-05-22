@@ -813,10 +813,10 @@ int cc_worker::decode_pdcch_ul()
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
 #else
-      nof_grants = phy_adapter::ue_dl_find_ul_dci(&ue_dl, ul_rnti, &dci_msg);
+      nof_grants = phy_adapter::ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
 #endif
       if (nof_grants < 0) {
         Error("Looking for UL grants\n");
@@ -874,7 +874,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   ue_ul_cfg.ul_cfg.pucch.rnti = phy->mac->get_ul_sched_rnti(CURRENT_TTI_TX);
 
   // Encode signal
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
   int ret = srslte_ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
 #else
   int ret = phy_adapter::ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);

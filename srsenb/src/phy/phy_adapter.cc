@@ -247,14 +247,11 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                               rnti,
                               dci_msg->nof_bits);
 
-   const srslte_pdcch_t * ppdcch = &q->pdcch;
-   const srslte_regs_t  * h = ppdcch->regs;
-
    const uint32_t start_reg = dci_msg->location.ncce * 9;
    const uint32_t nof_regs  = (1<<dci_msg->location.L)*9;
 
-   for (uint32_t i = start_reg; i < start_reg+nof_regs; ++i) {
-     srslte_regs_reg_t *reg = h->pdcch[q->dl_sf.cfi-1].regs[i];
+   for (uint32_t i = start_reg; i < start_reg + nof_regs; ++i) {
+     srslte_regs_reg_t *reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
 
      const uint32_t k0 = reg->k0;
      const uint32_t l  = reg->l;
@@ -1514,13 +1511,13 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
    {
      if(ul_msg->first.has_pusch())
       {
-        const auto & pusch = ul_msg->first.pusch();
+        const auto & pusch_message = ul_msg->first.pusch();
 
-        for(int n = 0; n < pusch.grant_size(); ++n)
+        for(int n = 0; n < pusch_message.grant_size(); ++n)
          {
-           const auto & grant = pusch.grant(n);
+           const auto & grant_message = pusch_message.grant(n);
 
-           const uint16_t ul_rnti = grant.rnti();
+           const uint16_t ul_rnti = grant_message.rnti();
 
            if(ul_rnti == rnti)
             {
@@ -1529,16 +1526,17 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
               if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, ul_rnti))
                 {
-                  const auto & ul_grant = grant.ul_grant();
+                  const auto & ul_grant_message = grant_message.ul_grant();
+                  const auto & uci_message      = grant_message.uci();
+                  const auto & payload          = grant_message.payload();
 
-                  const auto & uci = grant.uci();
+                  // srslte_pusch_grant_t  
+                  memcpy(&cfg->grant, ul_grant_message.data(), ul_grant_message.length());
 
-                  const auto & payload = grant.payload();
+                  // srslte_uci_value_t
+                  memcpy(&res->uci, uci_message.data(), uci_message.length());
 
-                  memcpy(&cfg->grant, ul_grant.data(), ul_grant.length());
-
-                  memcpy(&res->uci, uci.data(), uci.length());
-
+                  // payload
                   memcpy(res->data, payload.data(), payload.length());
 
                   res->avg_iterations_block = 1;
@@ -1550,7 +1548,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   Info("MHAL:%s grant %d of %d, found pusch_ul_rnti %hx, snr_db %f\n",
                        __func__,
                        n+1, 
-                       pusch.grant_size(), 
+                       pusch_message.grant_size(), 
                        rnti,
                        q->chest_res.snr_db);
 
