@@ -1182,6 +1182,7 @@ typedef struct SRSLTE_API {
   float distance;
 } srslte_phich_res_t; */
 
+// see lib/src/phy/ue/ue_dl.c
 int ue_dl_decode_phich(srslte_ue_dl_t*       q,
                        srslte_dl_sf_cfg_t*   sf,
                        srslte_ue_dl_cfg_t*   cfg,
@@ -1191,7 +1192,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 {
   srslte_phich_resource_t n_phich;
 
-  uint32_t sf_idx = sf->tti % 10;
+  const uint32_t sf_idx = sf->tti % 10;
 
   srslte_phich_calc(&q->phich, grant, &n_phich);
 
@@ -1214,16 +1215,20 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
            result->distance  = 0;
          }
 
-        Info("MHAL:%s Decoding PHICH sf_idx=%d, n_prb_lowest=%d, n_dmrs=%d, I_phich=%d, n_group=%d, n_seq=%d, Ngroups=%d, Nsf=%d, ack %d, distance %f\n",
+        Info("MHAL:%s sf_idx=%d, n_prb_l=%d/%d, n_dmrs=%d/%d, I_phich=%d, n_group=%d, n_seq=%d, n_groups=%d, n_sf=%d, rnti %hu/%hu, ack %d, dist %f\n",
              __func__,
              sf_idx,
              grant->n_prb_lowest,
+             phich_message.num_prb_low(),
              grant->n_dmrs,
+             phich_message.num_dmrs(),
              grant->I_phich,
              n_phich.ngroup,
              n_phich.nseq,
              srslte_phich_ngroups(&q->phich),
              srslte_phich_nsf(&q->phich),
+             rnti,
+             phich_message.rnti(),
              result->ack_value,
              result->distance);
        }
