@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <unistd.h>
 
-static bool log_stdout = true;
+static bool log_stdout = false;
 
 #define LOG_FMT "%02d:%02d:%02d.%06ld [DMY] [%c] %s "
 

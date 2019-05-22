@@ -72,35 +72,28 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * tti);
 // 4 syncd search
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti);
 
-
-#if 0
 // decode signal
-float ue_dl_decode_signal(srslte_chest_dl_t * q,
-                          uint32_t cell_id,
-                          uint32_t &cfi, 
-                          uint32_t tti);
-#endif
+float ue_dl_decode_signal(uint32_t cell_id);
 
-#if 0
 // get dl dci
-int ue_dl_find_dl_dci(srslte_ue_dl_t *q, 
-                      uint16_t rnti, 
-                      srslte_dci_msg_t *dci_msg);
-#endif
+int ue_dl_find_dl_dci(srslte_ue_dl_t*            q,
+                             srslte_dl_sf_cfg_t* sf,
+                             srslte_ue_dl_cfg_t* cfg,
+                             uint16_t            rnti,
+                             srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG]);
 
 #if 0
 // get ul dci
 int ue_dl_find_ul_dci(srslte_ue_dl_t *q, 
                       uint16_t rnti, 
                       srslte_dci_msg_t *dci_msg);
+
 #endif
 
 
-#if 0
 // convert ota grant to mac action
 void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
                         bool acks[SRSLTE_MAX_CODEWORDS]);
-#endif
 
 #if 0
 // get phich

@@ -335,7 +335,7 @@ void sf_worker::update_measurements()
                30)
             : 0;
 #else
-    float rssi_dbm = phy_adapter::ue_dl_decode_signal(&ue_dl.chest, cell.id, cfi, tti);
+    float rssi_dbm = phy_adapter::ue_dl_decode_signal(cell.id);
 #endif
     if (std::isnormal(rssi_dbm)) {
       phy->avg_rssi_dbm = SRSLTE_VEC_EMA(rssi_dbm, phy->avg_rssi_dbm, phy->args->snr_ema_coeff);
@@ -367,7 +367,7 @@ void sf_worker::update_measurements()
 
   // Check in-sync / out-sync conditions
   if (phy->avg_rsrp_dbm[0] > -130.0 && phy->avg_snr_db_cqi[0] > -6.0) {
-    log_h->debug("SNR=%.1f dB, RSRP=%.1f dBm sync=in-sync from channel estimator\n",
+    log_h->info("SNR=%.1f dB, RSRP=%.1f dBm sync=in-sync from channel estimator\n",
                  phy->avg_snr_db_cqi[0],
                  phy->avg_rsrp_dbm[0]);
     chest_loop->in_sync();

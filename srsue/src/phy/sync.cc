@@ -920,6 +920,8 @@ void sync::get_current_cell(srslte_cell_t* cell, uint32_t* earfcn)
 
 int sync::radio_recv_fnc(cf_t* data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
+ fprintf(stderr, "XXX ue sync radio_recv_fnc \n");
+
 #ifdef PHY_ADAPTER_ENABLE
   return nsamples;
 #else

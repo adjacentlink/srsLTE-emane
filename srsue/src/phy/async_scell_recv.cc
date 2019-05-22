@@ -186,6 +186,8 @@ double async_scell_recv::set_rx_gain(double gain)
 
 int async_scell_recv::radio_recv_fnc(cf_t* data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
+ fprintf(stderr, "XXX ue async radio_recv_fnc \n");
+
 #ifdef PHY_ADAPTER_ENABLE
   int ret = nsamples;
 #else

@@ -345,7 +345,7 @@ bool cc_worker::work_dl_regular()
 
     // Send grant to MAC and get action for this TB, then call tb_decoded to unlock MAC
     phy->mac->new_grant_dl(cc_idx, mac_grant, &dl_action);
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
     decode_pdsch(ack_resource, &dl_action, dl_ack);
 #else
     phy_adapter::ue_dl_decode_pdsch(&dl_action, dl_ack);
@@ -438,10 +438,10 @@ int cc_worker::decode_pdcch_dl()
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
       Debug("PDCCH looking for rnti=0x%x\n", dl_rnti);
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #else
-      nof_grants = phy_adapter::ue_dl_find_dl_dci(&ue_dl, dl_rnti, &dci_msg);
+      nof_grants = phy_adapter::ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #endif
       if (nof_grants < 0) {
         Error("Looking for DL grants\n");

@@ -99,8 +99,6 @@ namespace {
 
   inline std::string GetDebugString(const std::string & str)
    {
-#define ENABLE_DEBUG_STRING
-
 #ifdef ENABLE_DEBUG_STRING
        return str;
 #else
