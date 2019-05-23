@@ -392,7 +392,7 @@ void sync::run_thread()
 
   while (running)
   {
-    Info("SYNC:  state=%s, tti=%d\n", phy_state.to_string(), tti);
+    Debug("SYNC:  state=%s, tti=%d\n", phy_state.to_string(), tti);
 
     // If not camping, clear SFN sync
     if (!phy_state.is_camping()) {
