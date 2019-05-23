@@ -1242,7 +1242,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
            result->distance  = 1.0;
          }
 
-        Info("MHAL:%s sf_idx=%d, n_prb_l=%d/%d, n_dmrs=%d/%d, I_phich=%d, n_group=%d, n_seq=%d, n_groups=%d, n_sf=%d, rnti %hu/%hu, ack %d, dist %f\n",
+        Warning("MHAL:%s sf_idx=%d, n_prb_l=%d/%d, n_dmrs=%d/%d, I_phich=%d, n_group=%d, n_seq=%d, n_groups=%d, n_sf=%d, rnti %hu/%hu, ack %d, dist %f\n",
              __func__,
              sf_idx,
              grant->n_prb_lowest,
@@ -1267,7 +1267,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 }
 
 
-#if 0
+#if 0 // XXX TODO
 
 bool ue_dl_decode_pmch(srslte_ue_dl_t * q, 
                        uint16_t area_id,
@@ -1395,10 +1395,7 @@ void ue_ul_put_prach(int index)
 
    preamble->set_index(index);
 
-   Info("MHAL:%s: index %d, msg:%s\n",
-        __func__,
-        index,
-        GetDebugString(prach->DebugString()).c_str());
+   Warning("MHAL:%s: index %d\n", __func__, index);
 
    pthread_mutex_unlock(&ul_mutex_);
 }
@@ -1481,7 +1478,7 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cf
 
    auto pucch_cfg = cfg->ul_cfg.pucch;
 
-   auto rnti = pucch_cfg.rnti;
+   const auto rnti = pucch_cfg.rnti;
 
    // see lib/src/phy/ue/ue_ul.c
    srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
@@ -1532,34 +1529,39 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cf
 
    channel_message->set_rnti(pucch_cfg.rnti);
 
-#if 0
+   // see lib/src/phy/phch/pucch.c 
+   // pucch_cp(srslte_pucch_t* q, 
+   //          srslte_ul_sf_cfg_t* sf, 
+   //          srslte_pucch_cfg_t* cfg, 
+   //          cf_t* source, cf_t* dest,
+   //          bool source_is_grid)
+   // Determine n_prb
    uint16_t n_prb[2] = {0};
 
-   for(int n = 0; n < 2; ++n)
-    {
-     n_prb[n] = srslte_pucch_n_prb(&q->pucch.pucch_cfg, 
-                                   q->last_pucch_format, 
-                                   q->pucch.last_n_pucch,
-                                   q->cell.nof_prb,
-                                   q->cell.cp, n);
-    }
+   for(int ns = 0; ns < 2; ++ns)
+     {
+       if(! ((n_prb[ns] = srslte_pucch_n_prb(&q->cell, &pucch_cfg, ns)) < q->cell.nof_prb))
+         {
+           Error("MHAL:%s ns %d, n_prb=%d > cell_nof_prb %d\n", 
+                 __func__, ns, n_prb[ns], q->cell.nof_prb);
 
-   
+           return SRSLTE_ERROR;
+         }
+     }
+
    // flag when resource blocks are different on slot 1 and 2 of the subframe
    channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0]));
    channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1]));
 
    grant_message->set_num_prb(n_prb[1]);
 
-#endif
-
-   Info("MHAL:%s\n", __func__);
-
    grant_message->set_num_pucch(pucch_cfg.n_pucch);
 
    grant_message->set_rnti(rnti);
 
    grant_message->set_uci(uci_data, sizeof(srslte_uci_value_t));
+
+   Warning("MHAL:%s: rnti %hu\n", __func__, rnti);
 
    pthread_mutex_unlock(&ul_mutex_);
 
@@ -1667,9 +1669,9 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
    // payload
    grant_message->set_payload(data->ptr, grant->tb.tbs/8);
 
-   Info("MHAL:%s: rnti %hu\n", __func__, rnti);
-
    UESTATS::putULGrant(rnti);
+
+   Warning("MHAL:%s: rnti %hu\n", __func__, rnti);
 
    pthread_mutex_unlock(&ul_mutex_);
 
@@ -1752,7 +1754,6 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
 #define uci_pending(cfg) (cfg.ack.nof_acks > 0 || cfg.cqi.data_enable || cfg.cqi.ri_len > 0)
    if(cfg->grant_available) 
     {
-
       return ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);
     } 
    else if((uci_pending(cfg->ul_cfg.pucch.uci_cfg) || 
@@ -1773,7 +1774,6 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
     {
        // XXX SRS
     }
-   
 
   return SRSLTE_SUCCESS;
 }
