@@ -1229,7 +1229,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
              ++num_entries;
 
-             Info("MHAL:%s entry[%u], accept index %d\n",
+             Warning("MHAL:%s entry[%u], accept index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
@@ -1241,11 +1241,6 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
                   num_entries, 
                   preamble.index());
           }
-
-         // see srsenb/src/mac/scheduler.cc sched::dl_sched_rar
-         Warning("MHAL:%s XXX only supporting 1 parch/frame\n", __func__);
-
-         break;
        }
      else
        {
