@@ -141,6 +141,10 @@ namespace {
 
     channel_message->set_tx_power_scale_db(txPowerScaledB);
   }
+
+  inline int bits_to_bytes(int bits)
+    {  return ceil(bits/8.0); }
+
 }
 
 namespace srsue {
@@ -290,7 +294,7 @@ static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
            {
              if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
                {
-                 Info("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
+                 Warning("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
 
                  dci_message_list.emplace_back(dci_message);
                }
@@ -318,7 +322,7 @@ static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
            {
              if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
                {
-                 Info("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
+                 Warning("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
 
                  dci_message_list.emplace_back(dci_message);
                }
@@ -643,7 +647,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
         }
     }
 
-  Warning("RX:%s: sf_idx %u, done, num_cells %zu, max_peak id %u, max_avg %f\n",
+  Info("RX:%s: sf_idx %u, done, num_cells %zu, max_peak id %u, max_avg %f\n",
           __func__,
           cs->ue_sync.sf_idx,
           n_id2s.size(),
@@ -1035,7 +1039,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           Info("RX:%s found dl_dci ref id %u, rnti 0x%hx\n", 
                 __func__, dci_message.refid(), rnti);
 
-          nof_msg = 1;
+          ++nof_msg;
 
           // Unpack DCI messages see lib/src/phy/phch/dci.c
           for (int i = 0; i < nof_msg; i++) {
@@ -1117,7 +1121,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
 
         Info("RX:%s found ul_dci rnti 0x%hx\n", __func__, rnti);
 
-        nof_msg = 1;
+        ++nof_msg;
 
         // Unpack DCI messages
         for (int i = 0; i < nof_msg; i++) {
@@ -1127,7 +1131,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
           }
         }
 
-         q->chest_res.snr_db = 111; // XXX TODO
+        q->chest_res.snr_db = 111; // XXX TODO
       }
    else
     {
@@ -1330,7 +1334,7 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Debug("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+      Info("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
            __func__,
            GetDebugString(tx_control_.DebugString()).c_str(),
            GetDebugString(ue_ul_msg_.DebugString()).c_str());
@@ -1653,7 +1657,7 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
    grant_message->set_uci(&data->uci, sizeof(srslte_uci_value_t));
 
    // payload
-   grant_message->set_payload(data->ptr, grant->tb.tbs/8);
+   grant_message->set_payload(data->ptr, bits_to_bytes(grant->tb.tbs));
 
    UESTATS::putULGrant(rnti);
 

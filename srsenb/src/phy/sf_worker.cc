@@ -839,7 +839,7 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
         for (uint32_t tb_idx = 0; tb_idx < SRSLTE_MAX_TB; tb_idx++) {
           /* If TB enabled, set pending ACK */
           if (ue_db[rnti]->dl_cfg.pdsch.grant.tb[tb_idx].enabled) {
-            Debug("ACK: set pending tti=%d, mod=%d\n", tti_tx_ul, TTIMOD(tti_tx_ul));
+            Warning("ACK: set pending tti=%d, mod=%d, ncce %d\n", tti_tx_ul, TTIMOD(tti_tx_ul), grants[i].dci.location.ncce);
             phy->ue_db_set_ack_pending(tti_tx_ul, rnti, tb_idx, grants[i].dci.location.ncce);
           }
         }

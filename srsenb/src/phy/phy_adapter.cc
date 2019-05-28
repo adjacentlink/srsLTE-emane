@@ -70,6 +70,9 @@ namespace {
   uint32_t curr_tti_  = 0;
   uint32_t tti_tx_    = 0;
 
+  uint32_t pdcch_ref  = 0;
+  uint32_t pdsch_ref  = 0;
+
   // referenceSignalPower as set by sib.conf sib2.rr_config_common_sib.pdsch_cnfg.rs_power
   float pdsch_rs_power_milliwatt_ = 0.0;
 
@@ -126,6 +129,9 @@ namespace {
     if(rnti)
       channel_message->set_rnti(rnti);
   }
+
+  inline int bits_to_bytes(int bits)
+    {  return ceil(bits/8.0); }
 }
 
 
@@ -275,7 +281,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
 
    dl_dci_message->set_rnti(dci_msg->rnti);
 
-   dl_dci_message->set_refid(num);
+   dl_dci_message->set_refid(pdcch_ref++);
 
    // dci msg
    auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
@@ -289,6 +295,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
 
    dl_dci_msg->set_format(convert(dci_msg->format));
+
+   Warning("PDCCH:%s rnti=%hu, refid %d, bits %d\n",
+           __func__, rnti, pdcch_ref-1, dci_msg->nof_bits);
 
    return SRSLTE_SUCCESS;
 }
@@ -429,27 +438,25 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    // pdsch data
    auto data_message = pdsch_message->add_data();
 
-   // data len is in transfer blocks (bits)
-   const uint32_t len = grant.tb[tb].tbs/8;
-
-   data_message->set_refid(num);
+   data_message->set_refid(pdsch_ref++);
 
    data_message->set_tb(tb);
 
-   data_message->set_tbs(len);
+   data_message->set_tbs(bits_to_bytes(grant.tb[tb].tbs));
 
    if(data[tb])
      {
-       data_message->set_data(data[tb], len);
+       data_message->set_data(data[tb], bits_to_bytes(grant.tb[tb].tbs));
      }
    else
      {
-       Error("len %d, tb %d, data %p\n", len, tb, data[tb]);
-
-       data_message->set_data(zeros_, len);
+       data_message->set_data(zeros_, bits_to_bytes(grant.tb[tb].tbs));
      }
 
    ENBSTATS::putDLGrant(rnti);
+
+   Warning("PDSCH:%s rnti=%hu, refid %d, bits %d\n",
+           __func__, rnti, pdsch_ref-1, grant.tb[tb].tbs);
 
    return SRSLTE_SUCCESS;
 }
@@ -521,15 +528,13 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    // ppmch
    auto pmch_message = enb_dl_msg_.mutable_pmch();
 
-   const uint32_t len = grant.tb[tb].tbs/8;
-
    pmch_message->set_area_id(pmch_cfg->area_id);
 
-   pmch_message->set_tbs(len);
+   pmch_message->set_tbs(bits_to_bytes(grant.tb[tb].tbs));
 
    pmch_message->set_rnti(rnti);
 
-   pmch_message->set_data(data ? data : zeros_, len);
+   pmch_message->set_data(data ? data : zeros_, bits_to_bytes(grant.tb[tb].tbs));
 
    auto channel_message = downlink_control_message_->mutable_pmch();
 
@@ -851,7 +856,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Debug("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+      Info("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
            __func__,
            GetDebugString(tx_control_.DebugString()).c_str(),
            GetDebugString(enb_dl_msg_.DebugString()).c_str());
@@ -1175,7 +1180,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const EMANELTE::MHAL::RxControl & rx_control = iter->second;
 
-        Debug("RX:%s %s, sf_time %ld:%06ld, msg:%s\n",
+        Info("RX:%s %s, sf_time %ld:%06ld msg:%s\n",
               __func__,
               bInStep ? "in-step" : "late",
               rx_control.rxData_.sf_time_.tv_sec,
@@ -1512,7 +1517,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                      srslte_pusch_res_t* res,
                      uint16_t rnti)
 {
-  int result = SRSLTE_ERROR;
+  int result = SRSLTE_SUCCESS;
 
   pthread_mutex_lock(&ul_mutex_);
 
@@ -1563,8 +1568,6 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
                   // pass
                   ENBSTATS::getPUSCH(rnti, true);
-
-                  result = SRSLTE_SUCCESS;
                 }
               else
                 {
