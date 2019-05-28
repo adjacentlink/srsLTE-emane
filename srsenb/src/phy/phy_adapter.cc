@@ -259,7 +259,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
 
      const uint32_t rb = k0 / 12;
 
-     Debug("PDCCH DL DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
+     Debug("PDCCH DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
            "(l=%u, "
            "k0=%u, "
            "k[0]=%u "
@@ -374,6 +374,8 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
 
    const auto rnti  = pdsch->rnti;
 
+   const uint32_t tb = 0;
+
    if(grant.nof_tb != 1)
     {
       Error("PDSCH:%s rnti %hu, num %u, nof_tb %u, expected 1\n", __func__, rnti, num, grant.nof_tb);
@@ -381,7 +383,12 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
       return SRSLTE_ERROR;
     }
 
-   const uint32_t tb = 0;
+   if(! grant.tb[tb].enabled)
+    {
+      Error("PDSCH:%s rnti %hu, expected tb 0 enabled\n", __func__, rnti);
+
+      return SRSLTE_ERROR;
+    }
 
    const uint32_t sf_idx = (tti_tx_ % 10);
 
@@ -431,7 +438,16 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
 
    data_message->set_tbs(len);
 
-   data_message->set_data(data[tb], len);
+   if(data[tb])
+     {
+       data_message->set_data(data[tb], len);
+     }
+   else
+     {
+       Error("len %d, tb %d, data %p\n", len, tb, data[tb]);
+
+       data_message->set_data(zeros_, len);
+     }
 
    ENBSTATS::putDLGrant(rnti);
 
@@ -563,7 +579,7 @@ void enb_initialize(srslte::log * log_h,
 
   cell_cp_ = cp;
 
-  Info("MHAL:%s sf_interval "
+  Info("INIT:%s sf_interval "
        "%u msec, "
        "ul_freq %6.4f MHz, "
        "fl_freq %6.4f MHz, "
@@ -597,13 +613,13 @@ void enb_initialize(srslte::log * log_h,
 
 void enb_start()
 {
-  Info("MHAL:%s\n", __func__);
+  Info("INIT:%s\n", __func__);
 
   pthread_mutexattr_t mattr;
 
   if(pthread_mutexattr_init(&mattr) < 0)
    {
-     Error("MHAL:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
+     Error("INIT:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
 
      exit(1);
    }
@@ -611,21 +627,21 @@ void enb_start()
    {
      if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
        {
-         Error("MHAL:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
+         Error("INIT:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
 
      if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
        {
-         Error("MHAL:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
+         Error("INIT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
 
      if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
        {
-         Error("MHAL:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
+         Error("INIT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
 
          exit(1);
        }
@@ -647,7 +663,7 @@ void enb_start()
 
 void enb_stop()
 {
-  Info("MHAL:%s\n", __func__);
+  Info("STOP:%s\n", __func__);
 
   EMANELTE::MHAL::ENB::stop();
 
@@ -675,8 +691,6 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
   downlink_control_message_->Clear();
 
   downlink_control_message_->set_num_resource_blocks(q->cell.nof_prb);
-
-  Info("MHAL:%s: curr_tti %u, tti_tx %u\n", __func__, curr_tti_, tti_tx);
 
   // subframe index
   const uint32_t sf_idx = (tti_tx % 10);
@@ -724,13 +738,13 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
 
       //srslte_regs_ch_t * pcfich = &((q->pcfich.regs)->pcfich);
       uint32_t rb = k0 / 12;
-      Debug("PCFICH group i=%d on this subframe placed at resource starting at "
+      Debug("TX:%s PCFICH group i=%d on this subframe placed at resource starting at "
             "(l=%u, "
             "k0=%u, "
             "k[0]=%u "
             "k[1]=%u "
             "k[2]=%u "
-            "k[3]=%u) in resource block=%u\n", i, l, k0, k[0], k[1], k[2], k[3], rb);
+            "k[3]=%u) in resource block=%u\n", __func__, i, l, k0, k[0], k[1], k[2], k[3], rb);
 
       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
     }
@@ -837,7 +851,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Info("MHAL:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+      Debug("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
            __func__,
            GetDebugString(tx_control_.DebugString()).c_str(),
            GetDebugString(enb_dl_msg_.DebugString()).c_str());
@@ -846,7 +860,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
     }
   else
     {
-      Error("MHAL:%s SerializeToString ERROR len %zu\n", __func__, data.length());
+      Error("TX:%s SerializeToString ERROR len %zu\n", __func__, data.length());
     }
 
   pthread_mutex_unlock(&dl_mutex_);
@@ -944,7 +958,7 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
     }
   else
     {
-      Error("PDCCH_DL:%s error calling srslte_dci_msg_pack_pdsch(), num %u\n", __func__, num);
+      Error("PDCCH:%s error calling srslte_dci_msg_pack_pdsch(), num %u\n", __func__, num);
 
       return SRSLTE_ERROR;
     }
@@ -995,7 +1009,7 @@ int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q,
     }
   else
     {
-      Error("PDCCH_UL:%s error calling srslte_dci_msg_pack_pdcch(), num %u\n", __func__, num);
+      Error("PDCCH:%s error calling srslte_dci_msg_pack_pdcch(), num %u\n", __func__, num);
 
       return SRSLTE_ERROR;
     }
@@ -1116,6 +1130,13 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
+   Info("PHICH:%s rnti %hu, ack %d, n_prb_L %d, n_dmrs %d\n", 
+        __func__,
+        ack->rnti,
+        ack->ack,
+        grant->n_prb_lowest,
+        grant->n_dmrs);
+
    return SRSLTE_SUCCESS;
 }
 
@@ -1154,7 +1175,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const EMANELTE::MHAL::RxControl & rx_control = iter->second;
 
-        Info("MHAL:%s %s, sf_time %ld:%06ld, msg:%s\n",
+        Debug("RX:%s %s, sf_time %ld:%06ld, msg:%s\n",
               __func__,
               bInStep ? "in-step" : "late",
               rx_control.rxData_.sf_time_.tv_sec,
@@ -1168,7 +1189,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
         // check ul msg src vs our pci
         if(pci != my_pci_)
          {
-           Debug("MHAL:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
+           Debug("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
          }
         else
          {
@@ -1177,7 +1198,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       }
     else
       {
-        Error("MHAL:%s enb_ul_get_signal: ParseFromString ERROR\n", __func__);
+        Error("RX:%s ParseFromString ERROR\n", __func__);
       }
    }
 
@@ -1194,9 +1215,6 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
   num_entries = 0;
 
   pthread_mutex_lock(&ul_mutex_);
-
-  Debug("MHAL:%s check %zu messages of %u max\n", 
-        __func__, ue_ul_msgs_.size(), max_entries);
 
   std::set<uint32_t> unique;
 
@@ -1229,14 +1247,14 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
              ++num_entries;
 
-             Warning("MHAL:%s entry[%u], accept index %d\n",
+             Warning("PRACH:%s entry[%u], accept index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
            }
          else
           {
-             Info("MHAL:%s entry[%u], ignore duplicate index %d\n",
+             Info("PRACH:%s entry[%u], ignore duplicate index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
@@ -1244,7 +1262,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
        }
      else
        {
-         Debug("MHAL:%s no preambles\n", __func__);
+         Debug("PRACH:%s no preambles\n", __func__);
        }
     }
 
@@ -1379,8 +1397,6 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   const auto rnti = cfg->rnti;
 
-  Info("MHAL:%s check %zu messages rnti %hu\n", __func__, ue_ul_msgs_.size(), rnti);
-
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
      res->correlation = 0.0;
@@ -1411,7 +1427,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                   res->correlation = 1.0;
                   res->detected    = true;
 
-                  Info("MHAL:%s grant %d of %d, found pucch_ul_rnti %hx\n",
+                  Info("PUCCH:%s grant %d of %d, found pucch_ul_rnti %hx\n",
                        __func__,
                        n+1, pucch.grant_size(), rnti);
 
@@ -1500,8 +1516,6 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   pthread_mutex_lock(&ul_mutex_);
 
-  Info("MHAL:%s check %zu messages for rnti %hx\n", __func__, ue_ul_msgs_.size(), rnti);
-
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
      if(ul_msg->first.has_pusch())
@@ -1540,7 +1554,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
                   q->chest_res.snr_db = 111; // XXX TODO
  
-                  Info("MHAL:%s grant %d of %d, found pusch_ul_rnti %hx, snr_db %f\n",
+                  Info("PUSCH:%s grant %d of %d, found pusch_ul_rnti %hx, snr_db %f\n",
                        __func__,
                        n+1, 
                        pusch_message.grant_size(), 
@@ -1562,7 +1576,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
             }
            else
             {
-              Info("MHAL:%s ignore pusch_ul_rnti %hx\n", __func__, ul_rnti); 
+              Info("PUSCH:%s ignore pusch_ul_rnti %hx\n", __func__, ul_rnti); 
             }
          }
       }
