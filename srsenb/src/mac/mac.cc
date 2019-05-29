@@ -849,10 +849,6 @@ int mac::get_ul_sched(uint32_t tti, ul_sched_t *ul_sched_res)
         ul_sched_res->nof_grants++;
         n++;
 
-        if(! ul_sched_res->pusch[n].data)
-          {
-            Error("could not get pusch data for rnti %u\n", rnti);
-          }
       } else {
         Warning("Invalid DL scheduling result. User 0x%x does not exist\n", rnti);
       }

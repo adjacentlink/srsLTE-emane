@@ -39,12 +39,12 @@
 #include <map>
 #include <set>
 
-#define Error(fmt, ...)   if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...) if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)    if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)   if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
-#define Console(fmt, ...) if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
-#define InfoHex(p,l,fmt, ...) if (log_h_) log_h_->info_hex  (p,l, fmt, ##__VA_ARGS__)
+#define Error(fmt, ...)       if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
+#define Warning(fmt, ...)     if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
+#define Info(fmt, ...)        if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
+#define Debug(fmt, ...)       if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
+#define Console(fmt, ...)     if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
+#define InfoHex(p,l,fmt, ...) if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -142,8 +142,7 @@ namespace {
     channel_message->set_tx_power_scale_db(txPowerScaledB);
   }
 
-  inline int bits_to_bytes(int bits)
-    {  return ceil(bits/8.0); }
+  inline int bits_to_bytes(int bits) { return bits/8; }
 
 }
 
@@ -294,7 +293,7 @@ static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
            {
              if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
                {
-                 Warning("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
+                 Info("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
 
                  dci_message_list.emplace_back(dci_message);
                }
@@ -322,7 +321,7 @@ static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
            {
              if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
                {
-                 Warning("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
+                 Info("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
 
                  dci_message_list.emplace_back(dci_message);
                }
@@ -351,7 +350,7 @@ static PDSCH_DataList ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
 
               if(data_message.refid() == refid)
                 {
-                  Info("RX:%s: found data for refid %u\n", __func__, refid);
+                  Info("RX:%s: found data for rnti 0x%hx, refid %u\n", __func__, rnti, refid);
 
                   data_message_list.emplace_back(data_message);
                 }
@@ -1036,8 +1035,9 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
 
           memcpy(dci_msg[0].payload, dl_dci_message_data.data(), dl_dci_message_data.size());
 
-          Info("RX:%s found dl_dci ref id %u, rnti 0x%hx\n", 
-                __func__, dci_message.refid(), rnti);
+          InfoHex(dl_dci_message_data.data(), dl_dci_message_data.size(),
+                  "RX:%s found dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
+                  __func__, dci_message.refid(), rnti, dl_dci_message_data.size());
 
           ++nof_msg;
 
@@ -1060,7 +1060,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           }
          else
           {
-            Warning("RX:%s no data for rnti 0x%hx\n", __func__, rnti);
+            Error("RX:%s no data for rnti 0x%hx, refid %u\n", __func__, rnti, dci_message.refid());
           }
        }
     }
@@ -1177,7 +1177,7 @@ void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
 
           memcpy(dl_action->tb[tb].payload, grant_data.data(), grant_data.size());
 
-          Info("PDSCH:%s: tb[%d], payload len %zu\n",
+          Info("PDSCH:%s: tb[%d], payload %zu bytes\n",
                __func__,
                tb, 
                grant_data.size());
@@ -1238,7 +1238,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
            result->distance  = 1.0;
          }
 
-        Info("PHICH:%s sf_idx=%d, n_prb_l=%d, n_dmrs=%d, I_phich=%d, rnti %hu, ack %d, dist %f\n",
+        Info("PHICH:%s sf_idx=%d, n_prb_l=%d, n_dmrs=%d, I_phich=%d, rnti 0x%hx, ack %d, dist %f\n",
              __func__,
              sf_idx,
              grant->n_prb_lowest,
@@ -1360,33 +1360,33 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
 
 void ue_ul_put_prach(int index)
 {
-   pthread_mutex_lock(&ul_mutex_);
+  pthread_mutex_lock(&ul_mutex_);
 
-   auto channel_message = uplink_control_message_->mutable_prach();
+  auto channel_message = uplink_control_message_->mutable_prach();
 
-   initUplinkChannelMessage(channel_message,
-                            EMANELTE::MHAL::CHAN_PRACH,
-                            EMANELTE::MHAL::MOD_BPSK,   // modtype
-                            839);                       // PRACH sequence is 839 for formats 0-3 (all allowed by FDD) 
+  initUplinkChannelMessage(channel_message,
+                           EMANELTE::MHAL::CHAN_PRACH,
+                           EMANELTE::MHAL::MOD_BPSK,   // modtype
+                           839);                       // PRACH sequence is 839 for formats 0-3 (all allowed by FDD) 
 
-   // The upstream PRACH message is not really a slotted message
-   // and can span 2 or 3 subframes. Set slot1 and slot2 resource blocks the same.
-   // prach spans the 6 resource blocks starting from prach_freq_offset
-   for(int i = 0; i < 6; ++i)
-     {
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
-       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
-     }
+  // The upstream PRACH message is not really a slotted message
+  // and can span 2 or 3 subframes. Set slot1 and slot2 resource blocks the same.
+  // prach spans the 6 resource blocks starting from prach_freq_offset
+  for(int i = 0; i < 6; ++i)
+    {
+      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
+      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
+    }
 
-   auto prach = ue_ul_msg_.mutable_prach();
+  auto prach = ue_ul_msg_.mutable_prach();
 
-   auto preamble = prach->mutable_preamble();
+  auto preamble = prach->mutable_preamble();
 
-   preamble->set_index(index);
+  preamble->set_index(index);
 
-   Info("PRACH:%s: index %d\n", __func__, index);
+  Info("PRACH:%s: index %d\n", __func__, index);
 
-   pthread_mutex_unlock(&ul_mutex_);
+  pthread_mutex_unlock(&ul_mutex_);
 }
 
 
@@ -1550,7 +1550,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cf
 
    grant_message->set_uci(uci_data, sizeof(srslte_uci_value_t));
 
-   Info("PUCCH:%s: rnti %hu\n", __func__, rnti);
+   InfoHex(uci_data, sizeof(srslte_uci_value_t), 
+           "PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
 
    pthread_mutex_unlock(&ul_mutex_);
 
@@ -1638,7 +1639,7 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
 
    channel_message->set_rnti(rnti);
 
-   for (size_t i = 0; i < grant->L_prb; ++i)
+   for(size_t i = 0; i < grant->L_prb; ++i)
      {
        channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i));
        channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i));
@@ -1658,6 +1659,9 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
 
    // payload
    grant_message->set_payload(data->ptr, bits_to_bytes(grant->tb.tbs));
+
+   InfoHex(data->ptr, bits_to_bytes(grant->tb.tbs), 
+           "PUSCH:%s: rnti 0x%hx\n", __func__, rnti);
 
    UESTATS::putULGrant(rnti);
 
@@ -1746,17 +1750,9 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
       return ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);
     } 
    else if((uci_pending(cfg->ul_cfg.pucch.uci_cfg) || 
-             data->uci.scheduling_request) && cfg->cc_idx == 0)
+            data->uci.scheduling_request) && cfg->cc_idx == 0)
     // Send PUCCH over PCell only
     {
-      if(!cfg->ul_cfg.pucch.rnti)
-       {
-         if(! (cfg->ul_cfg.pucch.rnti = q->current_rnti))
-          {
-            Error("TX:%s Warning PUCCH rnti or current_rnti are not set\n", __func__);
-          }
-       }
-
       return ue_ul_put_pucch_i(q, sf, cfg, &data->uci);
     }
    else

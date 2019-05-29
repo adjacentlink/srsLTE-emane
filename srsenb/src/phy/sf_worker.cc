@@ -585,6 +585,7 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
   srslte_pusch_res_t pusch_res;
 
   for (uint32_t i = 0; i < nof_pusch; i++) {
+    ZERO_OBJECT(pusch_res);
     uint16_t rnti = grants[i].dci.rnti;
     if (rnti) {
       // mark this tti as having an ul dci to avoid pucch
@@ -754,7 +755,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdcch_dl(&enb_dl, &grants[i].dci_cfg, &grants[i].dci)) {
 #else
-      if (phy_adapter::enb_dl_put_pdcch_dl(&enb_dl, &grants[i].dci_cfg, &grants[i].dci, i)) {
+      if (phy_adapter::enb_dl_put_pdcch_dl(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants, i)) {
 #endif
         ERROR("Error putting PDCCH %d\n", i);
         return SRSLTE_ERROR;
@@ -824,11 +825,7 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
       }
 
       // Encode PDSCH
-#ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdsch(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants[i].data)) {
-#else
-      if (phy_adapter::enb_dl_put_pdsch(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants[i].data, i)) {
-#endif
         Error("Error putting PDSCH %d\n", i);
         return SRSLTE_ERROR;
       }

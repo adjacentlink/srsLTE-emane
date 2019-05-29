@@ -318,12 +318,12 @@ static void set_mi_value(srslte_ue_dl_t* q, srslte_dl_sf_cfg_t* sf, srslte_ue_dl
   uint32_t sf_idx = sf->tti % 10;
   // Set mi value in pdcch region
   if (q->mi_auto) {
-    INFO("Setting PHICH mi value auto. sf_idx=%d, mi=%d, idx=%d\n", sf_idx, MI_VALUE(sf_idx), MI_IDX(sf_idx));
+    DEBUG("Setting PHICH mi value auto. sf_idx=%d, mi=%d, idx=%d\n", sf_idx, MI_VALUE(sf_idx), MI_IDX(sf_idx));
     srslte_phich_set_regs(&q->phich, &q->regs[MI_IDX(sf_idx)]);
     srslte_pdcch_set_regs(&q->pdcch, &q->regs[MI_IDX(sf_idx)]);
   } else {
     // No subframe 1 or 6 so no need to consider it
-    INFO("Setting PHICH mi value manual. sf_idx=%d, mi=%d, idx=%d\n",
+    DEBUG("Setting PHICH mi value manual. sf_idx=%d, mi=%d, idx=%d\n",
          sf_idx,
          q->mi_manual_index,
          mi_reg_idx_inv[q->mi_manual_index]);
@@ -359,7 +359,7 @@ static int estimate_pdcch_pcfich(srslte_ue_dl_t* q, srslte_dl_sf_cfg_t* sf, srsl
       return false;
     }
 
-    INFO("Decoded CFI=%d with correlation %.2f, sf_idx=%d\n", sf->cfi, cfi_corr, sf->tti % 10);
+    DEBUG("Decoded CFI=%d with correlation %.2f, sf_idx=%d\n", sf->cfi, cfi_corr, sf->tti % 10);
 
     return SRSLTE_SUCCESS;
   } else {
