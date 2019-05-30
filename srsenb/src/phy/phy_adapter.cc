@@ -28,12 +28,13 @@
 
 #ifdef PHY_ADAPTER_ENABLE
 
-#define Error(fmt, ...)       if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...)     if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)        if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)       if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
-#define Console(fmt, ...)     if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
-#define InfoHex(p,l,fmt, ...) if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#define Error(fmt, ...)          if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
+#define Warning(fmt, ...)        if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
+#define Info(fmt, ...)           if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
+#define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
+#define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
+
+#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->warning_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
 
 extern "C" {
 #include "srslte/phy/phch/ra.h"
@@ -236,12 +237,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                                  const srslte_dci_msg_t * dci_msg,
                                  uint32_t ref)
  {
-   const uint32_t sf_idx = (tti_tx_ % 10);
-
    const auto rnti = dci_msg->rnti;
 
-   auto pdcch_message = enb_dl_msg_.add_pdcch();
-
+   auto pdcch_message   = enb_dl_msg_.add_pdcch();
    auto channel_message = downlink_control_message_->add_pdcch();
 
    initDownlinkChannelMessage(channel_message,
@@ -256,8 +254,8 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    for (uint32_t i = start_reg; i < start_reg + nof_regs; ++i) {
      srslte_regs_reg_t *reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
 
-     const uint32_t k0 = reg->k0;
-     const uint32_t l  = reg->l;
+     const uint32_t k0  = reg->k0;
+     const uint32_t l   = reg->l;
      const uint32_t * k = &reg->k[0];
 
      const uint32_t rb = k0 / 12;
@@ -268,7 +266,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
            "k[0]=%u "
            "k[1]=%u "
            "k[2]=%u "
-           "k[3]=%u) in rb=%u\n", sf_idx, i, rnti, l, k0, k[0], k[1], k[2], k[3], rb);
+           "k[3]=%u) in rb=%u\n", tti_tx_ % 10, i, rnti, l, k0, k[0], k[1], k[2], k[3], rb);
 
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
@@ -277,23 +275,19 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    auto dl_dci_message = pdcch_message->mutable_dl_dci();
 
    dl_dci_message->set_rnti(dci_msg->rnti);
-
    dl_dci_message->set_refid(ref);
 
    // dci msg
    auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
 
    dl_dci_msg->set_num_bits(dci_msg->nof_bits);
-
    dl_dci_msg->set_l_level(dci_msg->location.L);
-
    dl_dci_msg->set_l_ncce(dci_msg->location.ncce);
-
    dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
-
    dl_dci_msg->set_format(convert(dci_msg->format));
 
-   Info("PDCCH:%s rnti=%hu, refid %d, nof_bits %d\n",
+   InfoHex(dci_msg->payload, dci_msg->nof_bits,
+           "PDCCH:%s rnti=%hu, refid %d, nof_bits %d\n",
            __func__, rnti, ref, dci_msg->nof_bits);
 
    return SRSLTE_SUCCESS;
@@ -418,11 +412,8 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    auto data_message = pdsch_message->add_data();
 
    data_message->set_refid(ref);
-
    data_message->set_tb(tb);
-
    data_message->set_tbs(grant.tb[tb].tbs);
-
    data_message->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
    
    ENBSTATS::putDLGrant(rnti);
@@ -502,11 +493,8 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    auto pmch_message = enb_dl_msg_.mutable_pmch();
 
    pmch_message->set_area_id(pmch_cfg->area_id);
-
    pmch_message->set_tbs(bits_to_bytes(grant.tb[tb].tbs));
-
    pmch_message->set_rnti(rnti);
-
    pmch_message->set_data(data ? data : zeros_, bits_to_bytes(grant.tb[tb].tbs));
 
    auto channel_message = downlink_control_message_->mutable_pmch();
@@ -606,21 +594,18 @@ void enb_start()
      if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
        {
          Error("INIT:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
-
          exit(1);
        }
 
      if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
        {
          Error("INIT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-
          exit(1);
        }
 
      if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
        {
          Error("INIT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-
          exit(1);
        }
 
@@ -646,7 +631,6 @@ void enb_stop()
   EMANELTE::MHAL::ENB::stop();
 
   pthread_mutex_destroy(&dl_mutex_);
-
   pthread_mutex_destroy(&ul_mutex_);
 }
 
@@ -667,7 +651,6 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
   downlink_control_message_ = tx_control_.mutable_downlink();
 
   downlink_control_message_->Clear();
-
   downlink_control_message_->set_num_resource_blocks(q->cell.nof_prb);
 
   // subframe index
@@ -705,10 +688,10 @@ void enb_dl_tx_init(const srslte_enb_dl_t *q,
 
   for(int i=0; i<3; ++i)
     {
-      const srslte_pcfich_t   * p1 = &q->pcfich;
-      const srslte_regs_t     * p2 = p1->regs;
-      const srslte_regs_ch_t  *rch = &p2->pcfich;
-      const srslte_regs_reg_t *reg = rch->regs[i];
+      const srslte_pcfich_t*   p1  = &q->pcfich;
+      const srslte_regs_t*     p2  = p1->regs;
+      const srslte_regs_ch_t*  rch = &p2->pcfich;
+      const srslte_regs_reg_t* reg = rch->regs[i];
 
       uint32_t k0 = reg->k0;
       uint32_t l  = reg->l;
@@ -829,10 +812,12 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
+#if 0
       Debug("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
            __func__,
            GetDebugString(tx_control_.DebugString()).c_str(),
            GetDebugString(enb_dl_msg_.DebugString()).c_str());
+#endif
 
       EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
     }
@@ -1177,7 +1162,7 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
-   Info("PHICH:%s rnti %hu, ack %d, n_prb_L %d, n_dmrs %d\n", 
+   Warning("PHICH:%s rnti %hu, ack %d, n_prb_L %d, n_dmrs %d\n", 
         __func__,
         ack->rnti,
         ack->ack,
@@ -1214,13 +1199,13 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
   ts->frac_secs = tv_sor.tv_usec/1e6;
 
   // for each msg rx ota
-  for(EMANELTE::MHAL::RxMessages::const_iterator iter = messages.begin(); iter != messages.end(); ++iter)
+  for(auto iter = messages.begin(); iter != messages.end(); ++iter)
    {
      EMANELTE::MHAL::UE_UL_Message ue_ul_msg;
 
      if(ue_ul_msg.ParseFromString(iter->first))
       {
-        const EMANELTE::MHAL::RxControl & rx_control = iter->second;
+        const auto & rx_control = iter->second;
 
         Info("RX:%s %s, sf_time %ld:%06ld msg:%s\n",
               __func__,
@@ -1231,8 +1216,6 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
         const uint32_t & pci = ue_ul_msg.transmitter().phy_cell_id();
 
-        // plenty of noise checking todo here
-        
         // check ul msg src vs our pci
         if(pci != my_pci_)
          {
@@ -1271,16 +1254,15 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
     {
       if(ul_msg->first.has_prach())
        {
-         EMANELTE::MHAL::RxControl & rx_control = ul_msg->second;
+         auto & rx_control = ul_msg->second;
 
          if(!rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
            {
              continue;
            }
 
-         const EMANELTE::MHAL::UE_UL_Message_PRACH & prach = ul_msg->first.prach();
-
-         const EMANELTE::MHAL::UE_UL_Message_PRACH_Preamble & preamble = prach.preamble();
+         const auto & prach    = ul_msg->first.prach();
+         const auto & preamble = prach.preamble();
 
          if(unique.count(preamble.index()) == 0) // unique
            {
@@ -1294,7 +1276,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
              ++num_entries;
 
-             Info("PRACH:%s entry[%u], accept index %d\n",
+             Warning("PRACH:%s entry[%u], accept index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
@@ -1444,10 +1426,11 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   const auto rnti = cfg->rnti;
 
+  Warning("PUCCH:%s search rnti %hx,\n", __func__, rnti);
+
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
-     res->correlation = 1.0;
-     res->detected    = false;
+     res->detected = false;
   
      if(ul_msg->first.has_pucch())
       {
@@ -1455,9 +1438,12 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
         for(int n = 0; n < pucch.grant_size(); ++n)
          {
-           const EMANELTE::MHAL::UE_UL_Message_PUCCH_Grant & grant = pucch.grant(n);
+           const auto & grant = pucch.grant(n);
 
            const uint16_t ul_rnti = grant.rnti();
+
+           Warning("PUCCH:%s ul_rnti 0x%hx, rnti 0x%hx, %d of num_grants %d\n", 
+                __func__, ul_rnti, rnti, n, pucch.grant_size());
 
            // XXX ue crnti might not be set when CR pdu is sent so allow ul_rnti 0
            if(ul_rnti == 0 || ul_rnti == rnti)
@@ -1467,26 +1453,28 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
               if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, ul_rnti))
                 {
-                  const std::string & uci = grant.uci();
+                  const auto & uci = grant.uci();
 
                   memcpy(&res->uci_data, uci.data(), uci.length());
 
                   res->detected = true;
 
                   InfoHex(uci.data(), uci.length(),
-                          "PUCCH:%s grant %d of %d, found pucch_ul_rnti %hx\n",
-                          __func__, n+1, pucch.grant_size(), rnti);
+                          "PUCCH:%s found pucch ul_rnti %hx\n",
+                          __func__, ul_rnti);
 
                   // pass
                   ENBSTATS::getPUCCH(rnti, true);
+
+                  break;
                 }
               else
                 {
+                  Warning("PUCCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+
                   // PUCCH failed sinr, ignore
                   ENBSTATS::getPUCCH(rnti, false);
                 }
-
-              break;
             }
          }
       }
@@ -1545,6 +1533,13 @@ typedef struct SRSLTE_API {
 } srslte_pusch_cfg_t;
 
 typedef struct SRSLTE_API {
+  bool                   scheduling_request;
+  srslte_cqi_value_t     cqi;
+  srslte_uci_value_ack_t ack;
+  uint8_t                ri; // Only 1-bit supported for RI
+} srslte_uci_value_t;
+ 
+typedef struct SRSLTE_API {
   uint8_t*           data;
   srslte_uci_value_t uci;
   bool               crc;
@@ -1562,7 +1557,11 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   pthread_mutex_lock(&ul_mutex_);
 
-  Info("PUSCH:%s search rnti %hx,\n", __func__, rnti);
+  res->crc = false;
+
+  res->uci.ack.valid = false;
+
+  Warning("PUSCH:%s search rnti %hx,\n", __func__, rnti);
 
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
@@ -1575,6 +1574,9 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
            const auto & grant_message = pusch_message.grant(n);
 
            const uint16_t ul_rnti = grant_message.rnti();
+
+           Warning("PUSCH:%s ul_rnti 0x%hx, rnti 0x%hx, %d of num_grants %d\n",
+                   __func__, ul_rnti, rnti, n, pusch_message.grant_size());
 
            if(ul_rnti == rnti)
             {
@@ -1597,8 +1599,8 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   memcpy(res->data, payload.data(), payload.length());
 
                   res->avg_iterations_block = 1;
-
                   res->crc = true;
+                  res->uci.ack.valid = true;
 
                   q->chest_res.snr_db = 111; // XXX TODO
  
@@ -1608,19 +1610,16 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
                   // pass
                   ENBSTATS::getPUSCH(rnti, true);
+
+                  break;
                 }
               else
                 {
-                  Info("PUSCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+                  Warning("PUSCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+
                   // PUSCH failed sinr, ignore
                   ENBSTATS::getPUSCH(rnti, false);
                 }
-
-              break;
-            }
-           else
-            {
-              Info("PUSCH:%s ignore pusch_ul_rnti %hx\n", __func__, ul_rnti); 
             }
          }
       }

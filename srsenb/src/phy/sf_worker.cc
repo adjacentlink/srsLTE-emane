@@ -583,9 +583,9 @@ void sf_worker::send_uci_data(uint16_t rnti, srslte_uci_cfg_t* uci_cfg, srslte_u
 int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_t nof_pusch)
 {
   srslte_pusch_res_t pusch_res;
+  ZERO_OBJECT(pusch_res);
 
   for (uint32_t i = 0; i < nof_pusch; i++) {
-    ZERO_OBJECT(pusch_res);
     uint16_t rnti = grants[i].dci.rnti;
     if (rnti) {
       // mark this tti as having an ul dci to avoid pucch
@@ -741,7 +741,7 @@ int sf_worker::encode_pdcch_ul(mac_interface_phy::ul_sched_grant_t* grants, uint
       // Logging
       char str[512];
       srslte_dci_ul_info(&grants[i].dci, str, 512);
-      Info("PDCCH_UL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+      Warning("PDCCH_UL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
     }
   }
   return SRSLTE_SUCCESS;
@@ -765,7 +765,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
         // Logging
         char str[512];
         srslte_dci_dl_info(&grants[i].dci, str, 512);
-        Info("PDCCH_DL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+        Warning("PDCCH_DL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
       }
     }
   }

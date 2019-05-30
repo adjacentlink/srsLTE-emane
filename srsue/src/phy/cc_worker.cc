@@ -317,6 +317,7 @@ bool cc_worker::work_dl_regular()
 
   // If found a dci for this carrier, generate a grant, pass it to MAC and decode the associated PDSCH
   if (has_dl_grant) {
+    Warning("XXX Has DL Grant\n");
 
     // Read last TB from last retx for this pid
     for (uint32_t i = 0; i < SRSLTE_MAX_CODEWORDS; i++) {
@@ -345,11 +346,9 @@ bool cc_worker::work_dl_regular()
 
     // Send grant to MAC and get action for this TB, then call tb_decoded to unlock MAC
     phy->mac->new_grant_dl(cc_idx, mac_grant, &dl_action);
-#ifndef PHY_ADAPTER_ENABLE
+
     decode_pdsch(ack_resource, &dl_action, dl_ack);
-#else
-    phy_adapter::ue_dl_decode_pdsch(&dl_action, dl_ack);
-#endif
+
     phy->mac->tb_decoded(cc_idx, mac_grant, dl_ack);
   }
 
@@ -361,6 +360,8 @@ bool cc_worker::work_dl_regular()
 
 bool cc_worker::work_dl_mbsfn(srslte_mbsfn_cfg_t mbsfn_cfg)
 {
+  Error("%s TODO\n", __func__);
+
   mac_interface_phy::tb_action_dl_t dl_action;
 
   // Configure MBSFN settings
@@ -437,7 +438,7 @@ int cc_worker::decode_pdcch_dl()
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
-      Debug("PDCCH looking for rnti=0x%x\n", dl_rnti);
+      Warning("PDCCH_DL looking for rnti=0x%x\n", dl_rnti);
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #else
@@ -461,7 +462,7 @@ int cc_worker::decode_pdcch_dl()
       // Logging
       char str[512];
       srslte_dci_dl_info(&dci[k], str, 512);
-      Info("PDCCH: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
+      Warning("PDCCH_DL: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
     }
   }
   return nof_grants;
@@ -494,7 +495,11 @@ int cc_worker::decode_pdsch(srslte_pdsch_ack_resource_t        ack_resource,
 
   // Run PDSCH decoder
   if (decode_enable) {
+#ifndef PHY_ADAPTER_ENABLE
     if (srslte_ue_dl_decode_pdsch(&ue_dl, &sf_cfg_dl, &ue_dl_cfg.cfg.pdsch, pdsch_dec)) {
+#else
+    if (phy_adapter::ue_dl_decode_pdsch(&ue_dl, &sf_cfg_dl, &ue_dl_cfg.cfg.pdsch, pdsch_dec)) {
+#endif
       Error("ERROR: Decoding PDSCH\n");
     }
   }
@@ -522,7 +527,7 @@ int cc_worker::decode_pdsch(srslte_pdsch_ack_resource_t        ack_resource,
     // Logging
     char str[512];
     srslte_pdsch_rx_info(&ue_dl_cfg.cfg.pdsch, pdsch_dec, str, 512);
-    Info("PDSCH: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
+    Warning("PDSCH: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
   }
 
   return SRSLTE_SUCCESS;
@@ -552,7 +557,7 @@ int cc_worker::decode_pmch(mac_interface_phy::tb_action_dl_t* action, srslte_mbs
     // Store metrics
     dl_metrics.mcs = pmch_cfg.pdsch_cfg.grant.tb[0].mcs_idx;
 
-    Info("PMCH: l_crb=%2d, tbs=%d, mcs=%d, crc=%s, snr=%.1f dB, n_iter=%.1f\n",
+    Warning("PMCH: l_crb=%2d, tbs=%d, mcs=%d, crc=%s, snr=%.1f dB, n_iter=%.1f\n",
          pmch_cfg.pdsch_cfg.grant.nof_prb,
          pmch_cfg.pdsch_cfg.grant.tb[0].tbs / 8,
          pmch_cfg.pdsch_cfg.grant.tb[0].mcs_idx,
@@ -589,7 +594,7 @@ void cc_worker::decode_phich()
         Error("Decoding PHICH\n");
       }
       phy->set_ul_received_ack(&sf_cfg_dl, cc_idx, phich_res.ack_value, I_phich, &dci_ul);
-      Info("PHICH: hi=%d, corr=%.1f, I_lowest=%d, n_dmrs=%d, I_phich=%d\n",
+      Warning("PHICH: hi=%d, corr=%.1f, I_lowest=%d, n_dmrs=%d, I_phich=%d\n",
            phich_res.ack_value,
            phich_res.distance,
            phich_grant.n_prb_lowest,
@@ -812,6 +817,7 @@ int cc_worker::decode_pdcch_ul()
   if (ul_rnti) {
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
+      Warning("PDCCH_UL looking for rnti=0x%x\n", ul_rnti);
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
@@ -836,7 +842,7 @@ int cc_worker::decode_pdcch_ul()
       // Logging
       char str[512];
       srslte_dci_ul_info(&dci[k], str, 512);
-      Info("PDCCH: cc=%d, %s, snr=%.1f dB\n", cc_idx_grant, str, ue_dl.chest_res.snr_db);
+      Warning("PDCCH_UL: cc=%d, %s, snr=%.1f dB\n", cc_idx_grant, str, ue_dl.chest_res.snr_db);
     }
   }
 
@@ -880,7 +886,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   int ret = phy_adapter::ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
 #endif
   if (ret < 0) {
-    Error("Encoding UL cc=%d\n", cc_idx);
+    Error("Error Encoding UL cc=%d\n", cc_idx);
   }
 
   // Store metrics
@@ -891,7 +897,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   // Logging
   char str[512];
   if (srslte_ue_ul_info(&ue_ul_cfg, &sf_cfg_ul, &data.uci, str, 512)) {
-    Info("%s\n", str);
+    Warning("XXX ret=%d, %s\n", ret, str);
   }
 
   return ret > 0;

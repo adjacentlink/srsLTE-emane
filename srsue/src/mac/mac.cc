@@ -176,7 +176,7 @@ void mac::run_thread()
     /* Warning: Here order of invocation of procedures is important!! */
 
     // Step all procedures
-    Debug("Running MAC tti=%d\n", tti);
+    //Debug("Running MAC tti=%d\n", tti);
     bsr_procedure.step(tti);
     phr_procedure.step(tti);
 

@@ -610,7 +610,7 @@ void rrc::new_phy_meas(float rsrp, float rsrq, uint32_t tti, int earfcn_i, int p
   }
   phy_meas_t new_meas = {rsrp, rsrq, tti, earfcn, pci};
   phy_meas_q.push(new_meas);
-  rrc_log->info("MEAS:  New measurement pci=%d, rsrp=%.1f dBm.\n", pci, rsrp);
+  rrc_log->debug("MEAS:  New measurement pci=%d, rsrp=%.1f dBm.\n", pci, rsrp);
 }
 
 /* Processes all pending PHY measurements in queue. Must be called from a mutexed function
@@ -3200,7 +3200,7 @@ void rrc::rrc_meas::generate_report(uint32_t meas_id)
   report->meas_result_pcell.rsrp_result = value_to_range(RSRP, pcell_measurement.ms[RSRP]);
   report->meas_result_pcell.rsrq_result = value_to_range(RSRQ, pcell_measurement.ms[RSRQ]);
 
-  log_h->info("MEAS:  Generate report MeasId=%d, nof_reports_send=%d, Pcell rsrp=%f rsrq=%f\n",
+  log_h->debug("MEAS:  Generate report MeasId=%d, nof_reports_send=%d, Pcell rsrp=%f rsrq=%f\n",
               report->meas_id, m->nof_reports_sent, pcell_measurement.ms[RSRP], pcell_measurement.ms[RSRQ]);
 
   meas_result_list_eutra_l& neigh_list = report->meas_result_neigh_cells.set_meas_result_list_eutra();
@@ -3402,7 +3402,7 @@ void rrc::rrc_meas::calculate_triggers(uint32_t tti)
       }
     }
     if (gen_report) {
-      log_h->info("Generate report MeasId=%d, from event\n", m->first);
+      log_h->debug("Generate report MeasId=%d, from event\n", m->first);
       generate_report(m->first);
     }
   }
@@ -3432,7 +3432,7 @@ void rrc::rrc_meas::ho_finish() {
 bool rrc::rrc_meas::timer_expired(uint32_t timer_id) {
   for (std::map<uint32_t, meas_t>::iterator iter = active.begin(); iter != active.end(); ++iter) {
     if (iter->second.periodic_timer == timer_id) {
-      log_h->info("Generate report MeasId=%d, from timerId=%d\n", iter->first, timer_id);
+      log_h->debug("Generate report MeasId=%d, from timerId=%d\n", iter->first, timer_id);
       generate_report(iter->first);
       return true;
     }

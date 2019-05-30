@@ -39,12 +39,13 @@
 #include <map>
 #include <set>
 
-#define Error(fmt, ...)       if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...)     if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)        if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)       if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
-#define Console(fmt, ...)     if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
-#define InfoHex(p,l,fmt, ...) if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#define Error(fmt, ...)          if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
+#define Warning(fmt, ...)        if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
+#define Info(fmt, ...)           if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
+#define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
+#define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
+
+#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->warning_hex ((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -61,8 +62,10 @@ namespace {
  // map of dl signals to enb(pci)
  typedef std::map<uint16_t, DL_ENB_Signals> DL_Signals;
 
- EMANELTE::MHAL::ENB_DL_Message            enb_dl_msg_;
- EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data enb_dl_grant_;
+ EMANELTE::MHAL::ENB_DL_Message enb_dl_msg_;
+
+ // pdsch rnti/messages loaded by 
+ std::map<uint16_t, EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data> enb_dl_pdsch_messages_;
 
  EMANELTE::MHAL::RxControl rx_control_;
 
@@ -134,11 +137,8 @@ namespace {
                                 float txPowerScaledB=0.0)
   {
     channel_message->set_channel_type(ctype);
-
     channel_message->set_modulation_type(modType);
-
     channel_message->set_number_of_bits(infoBits);
-
     channel_message->set_tx_power_scale_db(txPowerScaledB);
   }
 
@@ -277,57 +277,67 @@ static DL_ENB_Signals ue_dl_enb_subframe_search_i(srslte_ue_sync_t * ue_sync, co
 }
 
 
-static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
+static UL_DCIList get_ul_dci_list_i(uint16_t ul_rnti)
 {
   UL_DCIList dci_message_list;
 
-  if(enb_dl_msg_.pdcch_size() > 0)
-    {
-      for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
+  for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
+   {
+     const auto & pdcch_message = enb_dl_msg_.pdcch(n);
+     const auto & dci_message   = pdcch_message.ul_dci();
+
+     if(dci_message.rnti() == ul_rnti)
        {
-         const auto & pdcch_message = enb_dl_msg_.pdcch(n);
-
-         const auto & dci_message = pdcch_message.ul_dci();
-
-         if(dci_message.rnti() == rnti)
+         if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, ul_rnti))
            {
-             if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
-               {
-                 Info("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
+             Warning("PUCCH:%s: found dci for ul_rnti 0x%hx\n", __func__, ul_rnti);
 
-                 dci_message_list.emplace_back(dci_message);
-               }
+             dci_message_list.emplace_back(dci_message);
+           }
+         else
+           {
+             Warning("PUCCH:%s: fail snr dci for ul_rnti 0x%hx\n", __func__, ul_rnti);
            }
        }
-    }
+     else
+       {
+         Warning("PUCCH:%s: ul_rnti 0x%hx != dci_rnti 0x%hx, skip\n", 
+                __func__, ul_rnti, dci_message.rnti());
+       }
+   }
 
   return dci_message_list;
 }
 
 
-static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
+static DL_DCIList get_dl_dci_list_i(uint16_t dl_rnti)
 {
   DL_DCIList dci_message_list;
 
-  if(enb_dl_msg_.pdcch_size() > 0)
-    {
-      for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
+  for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
+   {
+     const auto & pdcch_message = enb_dl_msg_.pdcch(n);
+     const auto & dci_message   = pdcch_message.dl_dci();
+
+     if(dci_message.rnti() == dl_rnti)
        {
-         const auto & pdcch_message = enb_dl_msg_.pdcch(n);
-
-         const auto & dci_message = pdcch_message.dl_dci();
-
-         if(dci_message.rnti() == rnti)
+         if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, dl_rnti))
            {
-             if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
-               {
-                 Info("RX:%s: found dci for rnti 0x%hx\n", __func__, rnti);
+             Warning("PDSCH:%s: found dci for dl_rnti 0x%hx\n", __func__, dl_rnti);
 
-                 dci_message_list.emplace_back(dci_message);
-               }
+             dci_message_list.emplace_back(dci_message);
+           }
+         else
+           {
+             Warning("PDSCH:%s: fail snr dci for dl_rnti 0x%hx\n", __func__, dl_rnti);
            }
        }
-    }
+     else
+       {
+         Warning("PDSCH:%s: dl_rnti 0x%hx != dci_rnti 0x%hx, skip\n", 
+                __func__, dl_rnti, dci_message.rnti());
+       }
+   }
 
   return dci_message_list;
 }
@@ -350,8 +360,6 @@ static PDSCH_DataList ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
 
               if(data_message.refid() == refid)
                 {
-                  Info("RX:%s: found data for rnti 0x%hx, refid %u\n", __func__, rnti, refid);
-
                   data_message_list.emplace_back(data_message);
                 }
             }
@@ -914,7 +922,7 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 
    rx_control_.SINRTester_.release();
 
-   enb_dl_grant_.Clear();
+   enb_dl_pdsch_messages_.clear();
 
    // single antenna mode expect 1 msg for our cell id
    if(dl_enb_signals.size() != 1)
@@ -999,6 +1007,8 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
                       srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
 
 {
+  Warning("PDCCH:%s searching rnti 0x%hx\n", __func__, rnti);
+
   srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
 
   int nof_msg = 0;
@@ -1021,8 +1031,8 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           // XXX TODO pass/fail
           UESTATS::getPDSCH(rnti, true);
 
-          // save the dci grant for get_pdsch
-          enb_dl_grant_ = data_message_list[0];
+          // save the grant for pdsch_decode
+          enb_dl_pdsch_messages_[rnti] = data_message_list[0];
 
           const auto & dl_dci_message      = dci_message.dci_msg();
           const auto & dl_dci_message_data = dl_dci_message.data();
@@ -1036,31 +1046,31 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           memcpy(dci_msg[0].payload, dl_dci_message_data.data(), dl_dci_message_data.size());
 
           InfoHex(dl_dci_message_data.data(), dl_dci_message_data.size(),
-                  "RX:%s found dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
+                  "PDCCH:%s dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
                   __func__, dci_message.refid(), rnti, dl_dci_message_data.size());
 
           ++nof_msg;
 
+          q->chest_res.snr_db = 111; // XXX TODO
+
           // Unpack DCI messages see lib/src/phy/phch/dci.c
           for (int i = 0; i < nof_msg; i++) {
             if (srslte_dci_msg_unpack_pdsch(&q->cell, sf, &cfg->dci_cfg, &dci_msg[i], &dci_dl[i])) {
-               Error("RX:%s Unpacking DL DCI\n", __func__);
+               Error("PDCCH:%s Unpacking DL DCI\n", __func__);
                return SRSLTE_ERROR;
             }
           }
-
-         q->chest_res.snr_db = 111; // XXX TODO
        }
       else
        {
          if(data_message_list.size() > 1)
           {
-            Warning("RX:%s found multiple dci_data (%zu) for rnti 0x%hx\n", 
+            Warning("PDCCH:%s found multiple dci_data (%zu) for rnti 0x%hx\n", 
                     __func__, data_message_list.size(), rnti);
           }
          else
           {
-            Error("RX:%s no data for rnti 0x%hx, refid %u\n", __func__, rnti, dci_message.refid());
+            Error("PDCCH:%s no data for rnti 0x%hx, refid %u\n", __func__, rnti, dci_message.refid());
           }
        }
     }
@@ -1068,7 +1078,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
     {
       if(dci_message_list.size() > 1)
        {
-         Warning("RX:%s found multiple dl_dci (%zu) for rnti 0x%hx\n", 
+         Warning("PDCCH:%s found multiple dl_dci (%zu) for rnti 0x%hx\n", 
                  __func__, dci_message_list.size(), rnti);
        }
     }
@@ -1097,7 +1107,10 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
                       uint16_t            rnti,
                       srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG])
 {
+  Warning("PUCCH:%s searching rnti 0x%hx\n", __func__, rnti);
+
   srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
+
   int nof_msg = 0;
 
   if(rnti) 
@@ -1119,14 +1132,14 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
 
         memcpy(dci_msg[0].payload, ul_dci_message_data.data(), ul_dci_message_data.size());
 
-        Info("RX:%s found ul_dci rnti 0x%hx\n", __func__, rnti);
+        Info("PUCCH:%s found ul_dci rnti 0x%hx\n", __func__, rnti);
 
         ++nof_msg;
 
         // Unpack DCI messages
         for (int i = 0; i < nof_msg; i++) {
           if (srslte_dci_msg_unpack_pusch(&q->cell, sf, &cfg->dci_cfg, &dci_msg[i], &dci_ul[i])) {
-            Error("RX:%s Unpacking UL DCI\n", __func__);
+            Error("PUCCH:%s Unpacking UL DCI\n", __func__);
             return SRSLTE_ERROR;
           }
         }
@@ -1137,7 +1150,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
     {
       if(dci_message_list.size() > 1)
        {
-         Warning("RX:%s found multiple (%zu) ul_dci for rnti 0x%hx\n", 
+         Warning("PUCCH:%s found multiple (%zu) ul_dci for rnti 0x%hx\n", 
                   __func__, dci_message_list.size(), rnti);
        }
     }
@@ -1146,51 +1159,98 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
   return nof_msg;
 }
 
+/* typedef struct SRSLTE_API {
+  srslte_cell_t cell;
+  uint32_t      nof_rx_antennas;
+  uint16_t      current_mbsfn_area_id;
+  uint16_t      pregen_rnti;
+   
+  srslte_pcfich_t pcfich;
+  srslte_pdcch_t  pdcch;
+  srslte_pdsch_t  pdsch;
+  srslte_pmch_t   pmch;
+  srslte_phich_t  phich;
 
-/* typedef struct {
-    bool     enabled;
-    uint32_t rv;
-    uint8_t* payload;
-    union {
-      srslte_softbuffer_rx_t* rx;
-      srslte_softbuffer_tx_t* tx;
-    } softbuffer;
- } tb_action_t;
+  srslte_regs_t regs[MI_MAX_REGS];
+  uint32_t      mi_manual_index; 
+  bool          mi_auto;
 
- typedef struct {
-   tb_action_t tb[SRSLTE_MAX_TB];
+  srslte_chest_dl_t     chest;
+  srslte_chest_dl_res_t chest_res;
+  srslte_ofdm_t         fft[SRSLTE_MAX_PORTS];
+  srslte_ofdm_t         fft_mbsfn;
 
-   bool generate_ack;
- } tb_action_dl_t; */
-void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
-                        bool acks[SRSLTE_MAX_CODEWORDS])
+  // Variables for blind DCI search
+  dci_blind_search_t current_ss_ue[MI_MAX_REGS][3][10];
+  dci_blind_search_t current_ss_common[MI_MAX_REGS][3]; 
+  srslte_dci_msg_t   pending_ul_dci_msg[SRSLTE_MAX_DCI_MSG];
+  uint32_t           pending_ul_dci_count;
+} srslte_ue_dl_t;
+
+typedef struct SRSLTE_API {
+  srslte_tdd_config_t tdd_config;
+  uint32_t            tti;
+  uint32_t            cfi;
+  srslte_sf_t         sf_type;
+  uint32_t            non_mbsfn_region;
+} srslte_dl_sf_cfg_t;
+
+typedef struct SRSLTE_API {
+  srslte_pdsch_grant_t  grant;
+  uint16_t              rnti;
+  uint32_t              max_nof_iterations;
+  srslte_mimo_decoder_t decoder_type;
+  float                 p_a;
+  uint32_t              p_b;
+  float                 rs_power;
+  bool                  power_scale;
+  bool                  csi_enable;
+} srslte_pdsch_cfg_t;
+
+typedef struct {
+  uint8_t* payload;
+  bool     crc;
+  float    avg_iterations_block;
+} srslte_pdsch_res_t; */
+
+// see lib/src/phy/phch/pdsch.c srslte_pdsch_decode()
+int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
+                       srslte_dl_sf_cfg_t* sf,
+                       srslte_pdsch_cfg_t* cfg,
+                       srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS])
 {
-   const int tb = enb_dl_grant_.tb();
+   const auto rnti = cfg->rnti;
 
-   if(dl_action->tb[tb].enabled)
+   Warning("PDSCH:%s searching rnti 0x%hx\n", __func__, rnti);
+
+   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
-      if(dl_action->tb[tb].payload)
-        {
-          acks[tb] = true;
+     if(cfg->grant.tb[tb].enabled && !data[tb].crc)
+       {
+         if(enb_dl_pdsch_messages_.count(rnti))
+           {
+             const auto & pdsch_message = enb_dl_pdsch_messages_[rnti];
+             const auto & pdsch_data    = pdsch_message.data();
 
-          const auto & grant_data = enb_dl_grant_.data();
+             memcpy(data[tb].payload, pdsch_data.data(), pdsch_data.size());
 
-          memcpy(dl_action->tb[tb].payload, grant_data.data(), grant_data.size());
+             data[tb].avg_iterations_block = 1;
+             data[tb].crc = true;
 
-          Info("PDSCH:%s: tb[%d], payload %zu bytes\n",
-               __func__,
-               tb, 
-               grant_data.size());
-        }
-      else
-        {
-          Error("PDSCH:%s: tb[%d], no payload_ptr\n", __func__, tb);
-        } 
+             q->chest_res.snr_db = 111; // XXX TODO
+
+             InfoHex(pdsch_data.data(), pdsch_data.size(),
+                     "PDSCH:%s: rnti 0x%hx, refid %d, tb[%d], payload %zu bytes, snr %f\n",
+                     __func__, rnti, pdsch_message.refid(), tb, pdsch_data.size(), q->chest_res.snr_db);
+           }
+         else
+           {
+             Error("PDSCH:%s: rnti %0xhx, no data\n", __func__, rnti);
+           }
+       }
     }
-   else
-    {
-      Error("PDSCH:%s: tb[%d], decode not enabled\n", __func__, tb);
-    }
+
+  return SRSLTE_SUCCESS;
 }
 
 
@@ -1218,9 +1278,9 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
                        srslte_phich_res_t*   result,
                        uint16_t rnti)
 {
-  srslte_phich_resource_t n_phich;
+  Warning("PHICH:%s searching rnti 0x%hx\n", __func__, rnti);
 
-  const uint32_t sf_idx = sf->tti % 10;
+  srslte_phich_resource_t n_phich;
 
   srslte_phich_calc(&q->phich, grant, &n_phich);
 
@@ -1240,7 +1300,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 
         Info("PHICH:%s sf_idx=%d, n_prb_l=%d, n_dmrs=%d, I_phich=%d, rnti 0x%hx, ack %d, dist %f\n",
              __func__,
-             sf_idx,
+             sf->tti % 10,
              grant->n_prb_lowest,
              grant->n_dmrs,
              grant->I_phich,
@@ -1378,8 +1438,7 @@ void ue_ul_put_prach(int index)
       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
     }
 
-  auto prach = ue_ul_msg_.mutable_prach();
-
+  auto prach    = ue_ul_msg_.mutable_prach();
   auto preamble = prach->mutable_preamble();
 
   preamble->set_index(index);
@@ -1457,17 +1516,17 @@ typedef struct SRSLTE_API {
   float           cfo_value;
 } srslte_ue_ul_cfg_t; */
 
-int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_uci_value_t* uci_data)
+int ue_ul_put_pucch_i(srslte_ue_ul_t* q, 
+                      srslte_ul_sf_cfg_t* sf,
+                      srslte_ue_ul_cfg_t* cfg,
+                      srslte_uci_value_t* uci_data)
 {
    pthread_mutex_lock(&ul_mutex_);
 
    auto pucch_message = ue_ul_msg_.mutable_pucch();
-
    auto grant_message = pucch_message->add_grant();
-
-   auto pucch_cfg = cfg->ul_cfg.pucch;
-
-   const auto rnti = pucch_cfg.rnti;
+   auto pucch_cfg     = cfg->ul_cfg.pucch;
+   const auto rnti    = pucch_cfg.rnti;
 
    // see lib/src/phy/ue/ue_ul.c
    srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
@@ -1524,6 +1583,7 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cf
    //          srslte_pucch_cfg_t* cfg, 
    //          cf_t* source, cf_t* dest,
    //          bool source_is_grid)
+ 
    // Determine n_prb
    uint16_t n_prb[2] = {0};
 
@@ -1543,11 +1603,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cf
    channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1]));
 
    grant_message->set_num_prb(n_prb[1]);
-
    grant_message->set_num_pucch(pucch_cfg.n_pucch);
-
    grant_message->set_rnti(rnti);
-
    grant_message->set_uci(uci_data, sizeof(srslte_uci_value_t));
 
    InfoHex(uci_data, sizeof(srslte_uci_value_t), 
@@ -1629,8 +1686,7 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
    auto channel_message = uplink_control_message_->add_pusch();
 
    const auto grant = &cfg->grant;
- 
-   const auto rnti = cfg->rnti;
+   const auto rnti  = cfg->rnti;
 
    initUplinkChannelMessage(channel_message,
                             EMANELTE::MHAL::CHAN_PUSCH,
@@ -1646,7 +1702,6 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
      }
 
    auto pusch_message = ue_ul_msg_.mutable_pusch();
-
    auto grant_message = pusch_message->add_grant();
 
    grant_message->set_rnti(rnti);
@@ -1757,11 +1812,8 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
     }
    else
     {
-       // XXX SRS
+      return 0;
     }
-
-  // nothing pending
-  return 0;
 }
 
 } // end namespace phy_adapter

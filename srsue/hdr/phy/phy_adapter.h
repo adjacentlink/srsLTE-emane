@@ -89,9 +89,11 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
                       uint16_t            rnti,
                       srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG]);
 
-// convert ota grant to mac action
-void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
-                        bool acks[SRSLTE_MAX_CODEWORDS]);
+// decode pdsch
+int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
+                       srslte_dl_sf_cfg_t* sf,
+                       srslte_pdsch_cfg_t* pdsch_cfg,
+                       srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS]);
 
 // get phich
 int ue_dl_decode_phich(srslte_ue_dl_t*       q,
