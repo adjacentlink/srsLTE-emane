@@ -755,9 +755,9 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdcch_dl(&enb_dl, &grants[i].dci_cfg, &grants[i].dci)) {
 #else
-      if (phy_adapter::enb_dl_put_pdcch_dl(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants, i)) {
+      if (phy_adapter::enb_dl_put_pdcch_dl(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, &grants[i], i)) {
 #endif
-        ERROR("Error putting PDCCH %d\n", i);
+        ERROR("Error putting PDCCH\n");
         return SRSLTE_ERROR;
       }
 
@@ -765,7 +765,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
         // Logging
         char str[512];
         srslte_dci_dl_info(&grants[i].dci, str, 512);
-        Warning("PDCCH_DL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+        Warning("PDCCH: rnti 0x%hx, %s, tti_tx_dl=%d\n", rnti, str, tti_tx_dl);
       }
     }
   }
@@ -825,7 +825,11 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
       }
 
       // Encode PDSCH
+#ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdsch(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, grants[i].data)) {
+#else
+      if (phy_adapter::enb_dl_put_pdsch_dl(&enb_dl, &ue_db[rnti]->dl_cfg.pdsch, &grants[i],i)) {
+#endif
         Error("Error putting PDSCH %d\n", i);
         return SRSLTE_ERROR;
       }
@@ -846,7 +850,7 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
         // Logging
         char str[512];
         srslte_pdsch_tx_info(&ue_db[rnti]->dl_cfg.pdsch, str, 512);
-        Info("PDSCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+        Warning("PDSCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
       }
 
       // Save metrics stats

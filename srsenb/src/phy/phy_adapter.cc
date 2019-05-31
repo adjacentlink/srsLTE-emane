@@ -70,7 +70,9 @@ namespace {
   uint8_t  my_pci_    = 0;
   uint32_t curr_tti_  = 0;
   uint32_t tti_tx_    = 0;
-  uint32_t refid_     = 0;
+
+  uint32_t pdcch_ref_ = 0;
+  uint32_t pdsch_ref_ = 0;
 
   // referenceSignalPower as set by sib.conf sib2.rr_config_common_sib.pdsch_cnfg.rs_power
   float pdsch_rs_power_milliwatt_ = 0.0;
@@ -80,7 +82,7 @@ namespace {
 
   // scaling between reference signal res and pdsch res in symbols without reference signals, by tti and rnti
   typedef std::map<uint16_t, float> rho_a_db_map_t; // map of rnti to rho_a
-  rho_a_db_map_t rho_a_db_map_[10];                  // vector of rho_a maps by subframe number
+  rho_a_db_map_t rho_a_db_map_[10];                 // vector of rho_a maps by subframe number
 
   // cyclic prefix normal or extended for this cell
   srslte_cp_t cell_cp_ = SRSLTE_CP_NORM;
@@ -235,7 +237,8 @@ typedef struct SRSLTE_API {
 // srslte_pdcch_encode(&q->pdcch, &q->dl_sf, &dci_msg, q->sf_symbols)
 static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                                  const srslte_dci_msg_t * dci_msg,
-                                 uint32_t ref)
+                                 uint32_t ref,
+                                 int type)
  {
    const auto rnti = dci_msg->rnti;
 
@@ -254,9 +257,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    for (uint32_t i = start_reg; i < start_reg + nof_regs; ++i) {
      srslte_regs_reg_t *reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
 
-     const uint32_t k0  = reg->k0;
-     const uint32_t l   = reg->l;
-     const uint32_t * k = &reg->k[0];
+     const uint32_t  k0 = reg->k0;
+     const uint32_t  l  = reg->l;
+     const uint32_t* k  = &reg->k[0];
 
      const uint32_t rb = k0 / 12;
 
@@ -271,24 +274,47 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
-   // dci
-   auto dl_dci_message = pdcch_message->mutable_dl_dci();
+   if(type == 0)
+    {
+     // dl dci
+     auto dl_dci_message = pdcch_message->mutable_dl_dci();
 
-   dl_dci_message->set_rnti(dci_msg->rnti);
-   dl_dci_message->set_refid(ref);
+     dl_dci_message->set_rnti(dci_msg->rnti);
+     dl_dci_message->set_refid(pdcch_ref_++);
 
-   // dci msg
-   auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
+     // dci msg
+     auto dl_dci_msg = dl_dci_message->mutable_dci_msg();
 
-   dl_dci_msg->set_num_bits(dci_msg->nof_bits);
-   dl_dci_msg->set_l_level(dci_msg->location.L);
-   dl_dci_msg->set_l_ncce(dci_msg->location.ncce);
-   dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
-   dl_dci_msg->set_format(convert(dci_msg->format));
+     dl_dci_msg->set_num_bits(dci_msg->nof_bits);
+     dl_dci_msg->set_l_level(dci_msg->location.L);
+     dl_dci_msg->set_l_ncce(dci_msg->location.ncce);
+     dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
+     dl_dci_msg->set_format(convert(dci_msg->format));
 
-   InfoHex(dci_msg->payload, dci_msg->nof_bits,
-           "PDCCH:%s rnti=%hu, refid %d, nof_bits %d\n",
-           __func__, rnti, ref, dci_msg->nof_bits);
+     InfoHex(dci_msg->payload, dci_msg->nof_bits,
+             "PDCCH_DL:%s rnti=0x%hx, refid %d, nof_bits %d\n",
+             __func__, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
+   }
+  else
+   {
+     // ul dci
+     auto dl_dci_message = pdcch_message->mutable_ul_dci();
+
+     dl_dci_message->set_rnti(dci_msg->rnti);
+
+     // dci msg
+     auto ul_dci_msg = dl_dci_message->mutable_dci_msg();
+
+     ul_dci_msg->set_num_bits(dci_msg->nof_bits);
+     ul_dci_msg->set_l_level(dci_msg->location.L);
+     ul_dci_msg->set_l_ncce(dci_msg->location.ncce);
+     ul_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
+     ul_dci_msg->set_format(convert(dci_msg->format));
+
+     InfoHex(dci_msg->payload, dci_msg->nof_bits,
+             "PDCCH_UL:%s rnti=0x%hx, nof_bits %d\n",
+             __func__, rnti, dci_msg->nof_bits);
+   }
 
    return SRSLTE_SUCCESS;
 }
@@ -411,7 +437,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    // pdsch data
    auto data_message = pdsch_message->add_data();
 
-   data_message->set_refid(ref);
+   data_message->set_refid(pdsch_ref_++);
    data_message->set_tb(tb);
    data_message->set_tbs(grant.tb[tb].tbs);
    data_message->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
@@ -419,8 +445,8 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    ENBSTATS::putDLGrant(rnti);
 
    InfoHex(data, bits_to_bytes(grant.tb[tb].tbs),
-           "PDSCH:%s rnti=%hu, refid %d, tbs %d\n",
-           __func__, rnti, ref, grant.tb[tb].tbs);
+           "PDSCH:%s rnti=0x%hx, refid %d, tbs %d\n",
+           __func__, rnti, pdsch_ref_ - 1, grant.tb[tb].tbs);
 
    return SRSLTE_SUCCESS;
 }
@@ -468,8 +494,7 @@ typedef struct SRSLTE_API {
   } softbuffers;
   bool     meas_time_en;
   uint32_t meas_time_value;
-} srslte_pdsch_cfg_t;
-*/
+} srslte_pdsch_cfg_t; */
 
 static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
                             srslte_pmch_cfg_t* pmch_cfg,
@@ -482,7 +507,7 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 
    if(grant.nof_tb != 1)
     {
-      Error("PMCH:%s rnti %hu, nof_tb %u, expected 1\n", __func__, rnti, grant.nof_tb);
+      Error("PMCH:%s rnti 0x%hx, nof_tb %u, expected 1\n", __func__, rnti, grant.nof_tb);
 
       return SRSLTE_ERROR;
     }
@@ -842,7 +867,7 @@ void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, fl
 
   Debug("MHAL:%s "
         "sf_idx %d, "
-        "rnti %d, "
+        "rnti 0x%hx, "
         "rho_a_db %0.2f\n",
         __func__,
         sf_idx,
@@ -918,7 +943,7 @@ int enb_dl_put_pdcch_dl_i(srslte_enb_dl_t* q,
 
   if(srslte_dci_msg_pack_pdsch(&q->cell, &q->dl_sf, dci_cfg, dci_dl, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref);
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 0);
     }
   else
     {
@@ -966,39 +991,82 @@ int enb_dl_put_pdcch_dl_i(srslte_enb_dl_t* q,
  } dl_sched_grant_t; */
 int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                         srslte_pdsch_cfg_t* pdsch, 
-                        mac_interface_phy::dl_sched_grant_t* grants,
-                        uint32_t idx)
+                        mac_interface_phy::dl_sched_grant_t* grant,
+                        uint32_t ref)
 {
-  for(uint32_t tb = 0; tb < pdsch->grant.nof_tb; ++tb)
+  for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
       // check if data is ready
-      if(grants[idx].data[tb])
+      if(grant->data[tb])
        {
-         if(pdsch->grant.tb[tb].enabled)
-          {
-            if((enb_dl_put_pdcch_dl_i(q, 
-                                     &grants[idx].dci_cfg,
-                                     &grants[idx].dci,
-                                     refid_) == SRSLTE_SUCCESS) &&
-               enb_dl_put_dl_pdsch_i(q,
-                                     pdsch, 
-                                     grants[idx].data[tb],
-                                     refid_,
-                                     tb) == SRSLTE_SUCCESS)
-               {
-                 ++refid_;
-               }
-             else
-              {
-                Error("PDCCH:%s Error rnti 0x%hx, idx %d\n", __func__, grants[idx].dci.rnti, idx);
+         Warning("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
-                return SRSLTE_ERROR;
-              }
+         if(enb_dl_put_pdcch_dl_i(q, &grant->dci_cfg, &grant->dci, ref))
+          {
+             Error("PDCCH:%s Error ref %u, tb %u, rnti 0x%hx\n", 
+                   __func__, ref, tb, grant->dci.rnti);
           }
-      }
-     else
-      {
-        Info("PDCCH:%s XXX no data for rnti 0x%hx, idx %d\n", __func__, grants[idx].dci.rnti, idx);
+       }
+   }
+
+   return SRSLTE_SUCCESS;
+}
+
+
+/*typedef struct SRSLTE_API {
+  srslte_cell_t      cell;
+  srslte_dl_sf_cfg_t dl_sf;
+  srslte_pbch_t      pbch;
+  srslte_pcfich_t    pcfich;
+  srslte_regs_t      regs;
+  srslte_pdcch_t     pdcch;
+  srslte_pdsch_t     pdsch;
+  srslte_pmch_t      pmch;
+  srslte_phich_t     phich;
+} srslte_enb_dl_t; 
+
+ typedef struct SRSLTE_API {
+  srslte_pdsch_grant_t  grant;
+  uint16_t              rnti;
+  uint32_t              max_nof_iterations;
+  srslte_mimo_decoder_t decoder_type;
+  float                 p_a;
+  uint32_t              p_b;
+  float                 rs_power;
+  bool                  power_scale;
+  bool                  csi_enable;
+  union {
+    srslte_softbuffer_tx_t* tx[SRSLTE_MAX_CODEWORDS];
+    srslte_softbuffer_rx_t* rx[SRSLTE_MAX_CODEWORDS];
+  } softbuffers;
+  bool     meas_time_en;
+  uint32_t meas_time_value;
+} srslte_pdsch_cfg_t;
+
+ typedef struct {
+   srslte_dci_dl_t         dci;
+   srslte_dci_cfg_t        dci_cfg;
+   uint8_t*                data[SRSLTE_MAX_TB];
+   srslte_softbuffer_tx_t* softbuffer_tx[SRSLTE_MAX_TB];
+ } dl_sched_grant_t; */
+
+int enb_dl_put_pdsch_dl(srslte_enb_dl_t* q, 
+                        srslte_pdsch_cfg_t* pdsch, 
+                        mac_interface_phy::dl_sched_grant_t* grant,
+                        uint32_t ref)
+{
+  for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
+    {
+      // check if data is ready
+      if(grant->data[tb])
+       {
+         Warning("PDSCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
+
+         if(enb_dl_put_dl_pdsch_i(q, pdsch, grant->data[tb], ref, tb) != SRSLTE_SUCCESS)
+           {
+             Error("PDSCH:%s Error ref %u, tb %u, rnti 0x%hx\n", 
+                   __func__, ref, tb, grant->dci.rnti);
+          }
       }
    }
 
@@ -1037,7 +1105,7 @@ int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q,
 
   if(srslte_dci_msg_pack_pusch(&q->cell, &q->dl_sf, dci_cfg, dci_ul, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref);
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 1);
     }
   else
     {
@@ -1162,7 +1230,7 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
-   Warning("PHICH:%s rnti %hu, ack %d, n_prb_L %d, n_dmrs %d\n", 
+   Warning("PHICH:%s rnti 0x%hx, ack %d, n_prb_L %d, n_dmrs %d\n", 
         __func__,
         ack->rnti,
         ack->ack,
@@ -1426,8 +1494,6 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   const auto rnti = cfg->rnti;
 
-  Warning("PUCCH:%s search rnti %hx,\n", __func__, rnti);
-
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
      res->detected = false;
@@ -1442,7 +1508,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
            const uint16_t ul_rnti = grant.rnti();
 
-           Warning("PUCCH:%s ul_rnti 0x%hx, rnti 0x%hx, %d of num_grants %d\n", 
+           Warning("PUCCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of num_grants %d\n", 
                 __func__, ul_rnti, rnti, n, pucch.grant_size());
 
            // XXX ue crnti might not be set when CR pdu is sent so allow ul_rnti 0
@@ -1561,8 +1627,6 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   res->uci.ack.valid = false;
 
-  Warning("PUSCH:%s search rnti %hx,\n", __func__, rnti);
-
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
      if(ul_msg->first.has_pusch())
@@ -1575,7 +1639,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
            const uint16_t ul_rnti = grant_message.rnti();
 
-           Warning("PUSCH:%s ul_rnti 0x%hx, rnti 0x%hx, %d of num_grants %d\n",
+           Warning("PUSCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of num_grants %d\n",
                    __func__, ul_rnti, rnti, n, pusch_message.grant_size());
 
            if(ul_rnti == rnti)

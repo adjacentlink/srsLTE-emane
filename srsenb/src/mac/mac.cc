@@ -591,6 +591,9 @@ int mac::get_dl_sched(uint32_t tti, dl_sched_t *dl_sched_res)
           /* TB not enabled OR no data to send: set pointers to NULL  */
           dl_sched_res->pdsch[n].data[tb] = NULL;
         }
+
+        Info("SCHED DATA tb %u, 0x%x data %p, tbs %d\n", 
+                tb, dl_sched_res->pdsch[n].dci.rnti, dl_sched_res->pdsch[n].data[tb], sched_result.data[i].tbs[tb]);
       }
       n++;
     } else {
@@ -620,6 +623,8 @@ int mac::get_dl_sched(uint32_t tti, dl_sched_t *dl_sched_res)
            dl_sched_res->pdsch[n].dci.rnti, sched_result.rar[i].tbs, tti);
     }
 
+    Info("SCHED RAR 0x%x data %p, tbs %d\n", 
+            dl_sched_res->pdsch[n].dci.rnti, dl_sched_res->pdsch[n].data[0], sched_result.rar[i].tbs);
     n++;
   }
 
@@ -651,6 +656,8 @@ int mac::get_dl_sched(uint32_t tti, dl_sched_t *dl_sched_res)
       }
     }
 
+    Info("SCHED SI, data %p, tbs %d\n", 
+            dl_sched_res->pdsch[n].data[0], sched_result.bc[i].tbs);
     n++;
   }
 

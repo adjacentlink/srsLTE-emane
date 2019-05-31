@@ -438,7 +438,6 @@ int cc_worker::decode_pdcch_dl()
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
-      Warning("PDCCH_DL looking for rnti=0x%x\n", dl_rnti);
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #else
@@ -817,7 +816,6 @@ int cc_worker::decode_pdcch_ul()
   if (ul_rnti) {
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (phy->cif_enabled ? 2 : 1) && !nof_grants; i++) {
-      Warning("PDCCH_UL looking for rnti=0x%x\n", ul_rnti);
       fill_dci_cfg(&ue_dl_cfg.dci_cfg, i > 0);
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);

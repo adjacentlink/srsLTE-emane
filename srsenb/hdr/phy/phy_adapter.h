@@ -75,11 +75,17 @@ void enb_initialize(srslte::log*                   log_h,
                                   float    rho_a_db,
                                   float    rho_b_db);
 
-// set dl pdcch
+ // set dl pdcch
  int enb_dl_put_pdcch_dl(srslte_enb_dl_t*                     q, 
                          srslte_pdsch_cfg_t*                  pdsch, 
-                         mac_interface_phy::dl_sched_grant_t* grants,
-                         uint32_t                             idx);
+                         mac_interface_phy::dl_sched_grant_t* grant,
+                         uint32_t ref);
+ // set dl pdsch
+ int enb_dl_put_pdsch_dl(srslte_enb_dl_t*                     q, 
+                         srslte_pdsch_cfg_t*                  pdsch, 
+                         mac_interface_phy::dl_sched_grant_t* grant,
+                         uint32_t ref);
+
 
  // set dl pdsch
  int enb_dl_put_pdsch(srslte_enb_dl_t*    q, 

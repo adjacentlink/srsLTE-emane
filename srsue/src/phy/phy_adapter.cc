@@ -323,7 +323,8 @@ static DL_DCIList get_dl_dci_list_i(uint16_t dl_rnti)
        {
          if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, dl_rnti))
            {
-             Warning("PDSCH:%s: found dci for dl_rnti 0x%hx\n", __func__, dl_rnti);
+             Warning("PDSCH:%s: found dci for dl_rnti 0x%hx, refid %u\n", 
+                    __func__, dl_rnti, dci_message.refid());
 
              dci_message_list.emplace_back(dci_message);
            }
@@ -334,8 +335,8 @@ static DL_DCIList get_dl_dci_list_i(uint16_t dl_rnti)
        }
      else
        {
-         Warning("PDSCH:%s: dl_rnti 0x%hx != dci_rnti 0x%hx, skip\n", 
-                __func__, dl_rnti, dci_message.rnti());
+         Warning("PDSCH:%s: dl_rnti 0x%hx != dci_rnti 0x%hx, refid %u, skip\n", 
+                __func__, dl_rnti, dci_message.rnti(), dci_message.refid());
        }
    }
 
@@ -569,7 +570,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
              {
                const auto & enb_dl_msg = iter->second[n].first;
 
-               // looking for pss/sss
+               // search for pss/sss
                if(enb_dl_msg.has_pss_sss())
                 {
                   const auto & pss_sss = enb_dl_msg.pss_sss();
@@ -1007,8 +1008,6 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
                       srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
 
 {
-  Warning("PDCCH:%s searching rnti 0x%hx\n", __func__, rnti);
-
   srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
 
   int nof_msg = 0;
@@ -1070,7 +1069,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           }
          else
           {
-            Error("PDCCH:%s no data for rnti 0x%hx, refid %u\n", __func__, rnti, dci_message.refid());
+            Error("PDCCH:%s XXX no data for rnti 0x%hx, refid %u\n", __func__, rnti, dci_message.refid());
           }
        }
     }
@@ -1107,8 +1106,6 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
                       uint16_t            rnti,
                       srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG])
 {
-  Warning("PUCCH:%s searching rnti 0x%hx\n", __func__, rnti);
-
   srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
 
   int nof_msg = 0;
@@ -1367,7 +1364,7 @@ void ue_ul_tx_init()
 // send to mhal
 void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cell)
 {
-  // end of tx sequence, tx_end will release to lock
+  // end of tx sequence, tx_end will release lock
   pthread_mutex_lock(&ul_mutex_);
 
   auto txinfo = ue_ul_msg_.mutable_transmitter();
