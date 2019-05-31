@@ -317,8 +317,6 @@ bool cc_worker::work_dl_regular()
 
   // If found a dci for this carrier, generate a grant, pass it to MAC and decode the associated PDSCH
   if (has_dl_grant) {
-    Warning("XXX Has DL Grant\n");
-
     // Read last TB from last retx for this pid
     for (uint32_t i = 0; i < SRSLTE_MAX_CODEWORDS; i++) {
       ue_dl_cfg.cfg.pdsch.grant.last_tbs[i] = phy->last_dl_tbs[dci_dl.pid][cc_idx][i];
@@ -461,7 +459,7 @@ int cc_worker::decode_pdcch_dl()
       // Logging
       char str[512];
       srslte_dci_dl_info(&dci[k], str, 512);
-      Warning("PDCCH_DL: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
+      Info("PDCCH_DL: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
     }
   }
   return nof_grants;
@@ -526,7 +524,7 @@ int cc_worker::decode_pdsch(srslte_pdsch_ack_resource_t        ack_resource,
     // Logging
     char str[512];
     srslte_pdsch_rx_info(&ue_dl_cfg.cfg.pdsch, pdsch_dec, str, 512);
-    Warning("PDSCH: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
+    Info("PDSCH: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
   }
 
   return SRSLTE_SUCCESS;
@@ -593,7 +591,7 @@ void cc_worker::decode_phich()
         Error("Decoding PHICH\n");
       }
       phy->set_ul_received_ack(&sf_cfg_dl, cc_idx, phich_res.ack_value, I_phich, &dci_ul);
-      Warning("PHICH: hi=%d, corr=%.1f, I_lowest=%d, n_dmrs=%d, I_phich=%d\n",
+      Info("PHICH: hi=%d, corr=%.1f, I_lowest=%d, n_dmrs=%d, I_phich=%d\n",
            phich_res.ack_value,
            phich_res.distance,
            phich_grant.n_prb_lowest,
@@ -840,7 +838,7 @@ int cc_worker::decode_pdcch_ul()
       // Logging
       char str[512];
       srslte_dci_ul_info(&dci[k], str, 512);
-      Warning("PDCCH_UL: cc=%d, %s, snr=%.1f dB\n", cc_idx_grant, str, ue_dl.chest_res.snr_db);
+      Info("PDCCH_UL: cc=%d, %s, snr=%.1f dB\n", cc_idx_grant, str, ue_dl.chest_res.snr_db);
     }
   }
 
@@ -895,7 +893,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   // Logging
   char str[512];
   if (srslte_ue_ul_info(&ue_ul_cfg, &sf_cfg_ul, &data.uci, str, 512)) {
-    Warning("XXX ret=%d, %s\n", ret, str);
+    Info("UL %s\n", str);
   }
 
   return ret > 0;

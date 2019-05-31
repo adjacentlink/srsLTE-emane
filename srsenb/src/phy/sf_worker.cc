@@ -634,7 +634,7 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
 
         if (grants[i].dci.tb.rv == 0) {
           if (!pusch_res.crc) {
-            Debug("PUSCH: Radio-Link failure snr=%.1f dB\n", snr_db);
+            Warning("PUSCH: Radio-Link failure snr=%.1f dB\n", snr_db);
             phy->mac->rl_failure(rnti);
           } else {
             phy->mac->rl_ok(rnti);
@@ -685,7 +685,7 @@ int sf_worker::decode_pucch()
         // Notify MAC of RL status (skip SR subframes)
         if (!ue_db[rnti]->ul_cfg.pucch.uci_cfg.is_scheduling_request_tti) {
           if (pucch_res.correlation < PUCCH_RL_CORR_TH) {
-            Debug("PUCCH: Radio-Link failure corr=%.1f\n", pucch_res.correlation);
+            Warning("PUCCH: Radio-Link failure corr=%.1f\n", pucch_res.correlation);
             phy->mac->rl_failure(rnti);
           } else {
             phy->mac->rl_ok(rnti);
@@ -741,7 +741,7 @@ int sf_worker::encode_pdcch_ul(mac_interface_phy::ul_sched_grant_t* grants, uint
       // Logging
       char str[512];
       srslte_dci_ul_info(&grants[i].dci, str, 512);
-      Warning("PDCCH_UL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+      Info("PDCCH_UL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
     }
   }
   return SRSLTE_SUCCESS;
@@ -765,7 +765,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
         // Logging
         char str[512];
         srslte_dci_dl_info(&grants[i].dci, str, 512);
-        Warning("PDCCH: rnti 0x%hx, %s, tti_tx_dl=%d\n", rnti, str, tti_tx_dl);
+        Info("PDCCH_DL: rnti 0x%hx, %s, tti_tx_dl=%d\n", rnti, str, tti_tx_dl);
       }
     }
   }
@@ -840,7 +840,7 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
         for (uint32_t tb_idx = 0; tb_idx < SRSLTE_MAX_TB; tb_idx++) {
           /* If TB enabled, set pending ACK */
           if (ue_db[rnti]->dl_cfg.pdsch.grant.tb[tb_idx].enabled) {
-            Warning("ACK: set pending tti=%d, mod=%d, ncce %d\n", tti_tx_ul, TTIMOD(tti_tx_ul), grants[i].dci.location.ncce);
+            Info("ACK: set pending tti=%d, mod=%d, ncce %d\n", tti_tx_ul, TTIMOD(tti_tx_ul), grants[i].dci.location.ncce);
             phy->ue_db_set_ack_pending(tti_tx_ul, rnti, tb_idx, grants[i].dci.location.ncce);
           }
         }
@@ -850,7 +850,7 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
         // Logging
         char str[512];
         srslte_pdsch_tx_info(&ue_db[rnti]->dl_cfg.pdsch, str, 512);
-        Warning("PDSCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+        Info("PDSCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
       }
 
       // Save metrics stats

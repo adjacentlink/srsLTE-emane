@@ -999,7 +999,7 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
       // check if data is ready
       if(grant->data[tb])
        {
-         Warning("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
+         Info("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
          if(enb_dl_put_pdcch_dl_i(q, &grant->dci_cfg, &grant->dci, ref))
           {
@@ -1060,7 +1060,7 @@ int enb_dl_put_pdsch_dl(srslte_enb_dl_t* q,
       // check if data is ready
       if(grant->data[tb])
        {
-         Warning("PDSCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
+         Info("PDSCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
          if(enb_dl_put_dl_pdsch_i(q, pdsch, grant->data[tb], ref, tb) != SRSLTE_SUCCESS)
            {
@@ -1230,7 +1230,7 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
    }
 
-   Warning("PHICH:%s rnti 0x%hx, ack %d, n_prb_L %d, n_dmrs %d\n", 
+   Info("PHICH:%s rnti 0x%hx, ack %d, n_prb_L %d, n_dmrs %d\n", 
         __func__,
         ack->rnti,
         ack->ack,
@@ -1344,7 +1344,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
              ++num_entries;
 
-             Warning("PRACH:%s entry[%u], accept index %d\n",
+             Info("PRACH:%s entry[%u], accept index %d\n",
                   __func__,
                   num_entries, 
                   preamble.index());
@@ -1496,7 +1496,8 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
    {
-     res->detected = false;
+     res->detected    = false;
+     res->correlation = 0;
   
      if(ul_msg->first.has_pucch())
       {
@@ -1508,8 +1509,8 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
            const uint16_t ul_rnti = grant.rnti();
 
-           Warning("PUCCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of num_grants %d\n", 
-                __func__, ul_rnti, rnti, n, pucch.grant_size());
+           Info("PUCCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
+                __func__, ul_rnti, rnti, n+1, pucch.grant_size());
 
            // XXX ue crnti might not be set when CR pdu is sent so allow ul_rnti 0
            if(ul_rnti == 0 || ul_rnti == rnti)
@@ -1523,11 +1524,12 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
                   memcpy(&res->uci_data, uci.data(), uci.length());
 
-                  res->detected = true;
+                  res->detected    = true;
+                  res->correlation = 1.0;
 
                   InfoHex(uci.data(), uci.length(),
-                          "PUCCH:%s found pucch ul_rnti %hx\n",
-                          __func__, ul_rnti);
+                          "PUCCH:%s found pucch ul_rnti %hx, corr %f\n",
+                          __func__, ul_rnti, res->correlation);
 
                   // pass
                   ENBSTATS::getPUCCH(rnti, true);
@@ -1536,7 +1538,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                 }
               else
                 {
-                  Warning("PUCCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+                  Info("PUCCH:%s fail sinr rnti %hx,\n", __func__, rnti);
 
                   // PUCCH failed sinr, ignore
                   ENBSTATS::getPUCCH(rnti, false);
@@ -1639,8 +1641,8 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
            const uint16_t ul_rnti = grant_message.rnti();
 
-           Warning("PUSCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of num_grants %d\n",
-                   __func__, ul_rnti, rnti, n, pusch_message.grant_size());
+           Info("PUSCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n",
+                   __func__, ul_rnti, rnti, n+1, pusch_message.grant_size());
 
            if(ul_rnti == rnti)
             {
@@ -1679,7 +1681,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                 }
               else
                 {
-                  Warning("PUSCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+                  Info("PUSCH:%s fail sinr rnti %hx,\n", __func__, rnti);
 
                   // PUSCH failed sinr, ignore
                   ENBSTATS::getPUSCH(rnti, false);

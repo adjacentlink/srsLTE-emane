@@ -78,7 +78,6 @@ namespace {
  srslte::log * log_h_ = NULL;
 
  pthread_mutex_t ul_mutex_;
- pthread_mutex_t dl_mutex_;
 
  bool is_valid_n_id_2(int n_id_2)
   {
@@ -277,70 +276,82 @@ static DL_ENB_Signals ue_dl_enb_subframe_search_i(srslte_ue_sync_t * ue_sync, co
 }
 
 
-static UL_DCIList get_ul_dci_list_i(uint16_t ul_rnti)
+static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
 {
-  UL_DCIList dci_message_list;
+  UL_DCIList ul_dci_message_list;
 
   for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
    {
      const auto & pdcch_message = enb_dl_msg_.pdcch(n);
-     const auto & dci_message   = pdcch_message.ul_dci();
 
-     if(dci_message.rnti() == ul_rnti)
-       {
-         if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, ul_rnti))
+     if(pdcch_message.has_ul_dci())
+      {
+         const auto & ul_dci_message = pdcch_message.ul_dci();
+
+         if(ul_dci_message.rnti() == rnti)
            {
-             Warning("PUCCH:%s: found dci for ul_rnti 0x%hx\n", __func__, ul_rnti);
+             if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
+               {
+                 Info("PUCCH:%s: found dci rnti 0x%hx\n", __func__, rnti);
 
-             dci_message_list.emplace_back(dci_message);
+                 ul_dci_message_list.emplace_back(ul_dci_message);
+
+                 break; // XXX expect 1 and only 1 match
+               }
+             else
+               {
+                 Info("PUCCH:%s: fail snr dci rnti 0x%hx\n", __func__, rnti);
+               }
            }
          else
            {
-             Warning("PUCCH:%s: fail snr dci for ul_rnti 0x%hx\n", __func__, ul_rnti);
+             Info("PUCCH:%s: rnti 0x%hx != ul_dci_rnti 0x%hx, skip\n", 
+                    __func__, rnti, ul_dci_message.rnti());
            }
-       }
-     else
-       {
-         Warning("PUCCH:%s: ul_rnti 0x%hx != dci_rnti 0x%hx, skip\n", 
-                __func__, ul_rnti, dci_message.rnti());
        }
    }
 
-  return dci_message_list;
+  return ul_dci_message_list;
 }
 
 
-static DL_DCIList get_dl_dci_list_i(uint16_t dl_rnti)
+static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
 {
-  DL_DCIList dci_message_list;
+  DL_DCIList dl_dci_message_list;
 
   for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
    {
      const auto & pdcch_message = enb_dl_msg_.pdcch(n);
-     const auto & dci_message   = pdcch_message.dl_dci();
 
-     if(dci_message.rnti() == dl_rnti)
+     if(pdcch_message.has_dl_dci())
        {
-         if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, dl_rnti))
-           {
-             Warning("PDSCH:%s: found dci for dl_rnti 0x%hx, refid %u\n", 
-                    __func__, dl_rnti, dci_message.refid());
+         const auto & dl_dci_message = pdcch_message.dl_dci();
 
-             dci_message_list.emplace_back(dci_message);
+         if(dl_dci_message.rnti() == rnti)
+           {
+             if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
+               {
+                 Info("PDSCH:%s: found dci rnti 0x%hx, refid %u\n", 
+                        __func__, rnti, dl_dci_message.refid());
+
+                 dl_dci_message_list.emplace_back(dl_dci_message);
+
+                 break; // XXX expect 1 and only 1 match
+               }
+             else
+               {
+                 Info("PDSCH:%s: fail snr dci for rnti 0x%hx\n", __func__, rnti);
+               }
            }
          else
            {
-             Warning("PDSCH:%s: fail snr dci for dl_rnti 0x%hx\n", __func__, dl_rnti);
+             Info("PDSCH:%s: rnti 0x%hx != dl_dci_rnti 0x%hx, refid %u, skip\n", 
+                    __func__, rnti, dl_dci_message.rnti(), dl_dci_message.refid());
            }
-       }
-     else
-       {
-         Warning("PDSCH:%s: dl_rnti 0x%hx != dci_rnti 0x%hx, refid %u, skip\n", 
-                __func__, dl_rnti, dci_message.rnti(), dci_message.refid());
        }
    }
 
-  return dci_message_list;
+  return dl_dci_message_list;
 }
 
 
@@ -413,7 +424,6 @@ void ue_start()
   if(pthread_mutexattr_init(&mattr) < 0)
    {
      Error("START:%s pthread_mutexattr_init error %s, exit\n", __func__, strerror(errno));
-
      exit(1);
    }
   else
@@ -421,21 +431,12 @@ void ue_start()
      if(pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT) < 0)
        {
          Error("START:%s pthread_mutexattr_setprotocol error %s, exit\n", __func__, strerror(errno));
-
-         exit(1);
-       }
-
-     if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
-       {
-         Error("START:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-
          exit(1);
        }
 
      if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
        {
          Error("START:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-
          exit(1);
        }
 
@@ -459,8 +460,6 @@ void ue_stop()
   Info("STOP:%s\n", __func__);
 
   EMANELTE::MHAL::UE::stop();
-
-  pthread_mutex_destroy(&dl_mutex_);
 
   pthread_mutex_destroy(&ul_mutex_);
 }
@@ -1008,7 +1007,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
                       srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
 
 {
-  srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
+  srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {{}};
 
   int nof_msg = 0;
 
@@ -1064,12 +1063,13 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
        {
          if(data_message_list.size() > 1)
           {
-            Warning("PDCCH:%s found multiple dci_data (%zu) for rnti 0x%hx\n", 
+            Info("PDCCH:%s found %zu dl_dci for rnti 0x%hx\n", 
                     __func__, data_message_list.size(), rnti);
           }
          else
           {
-            Error("PDCCH:%s XXX no data for rnti 0x%hx, refid %u\n", __func__, rnti, dci_message.refid());
+            Error("PDCCH:%s no pdsch data for rnti 0x%hx, refid %u\n",
+                  __func__, rnti, dci_message.refid());
           }
        }
     }
@@ -1077,7 +1077,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
     {
       if(dci_message_list.size() > 1)
        {
-         Warning("PDCCH:%s found multiple dl_dci (%zu) for rnti 0x%hx\n", 
+         Warning("PDCCH:%s found %zu dl_dci for rnti 0x%hx\n", 
                  __func__, dci_message_list.size(), rnti);
        }
     }
@@ -1106,7 +1106,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
                       uint16_t            rnti,
                       srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG])
 {
-  srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {};
+  srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {{}};
 
   int nof_msg = 0;
 
@@ -1147,7 +1147,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
     {
       if(dci_message_list.size() > 1)
        {
-         Warning("PUCCH:%s found multiple (%zu) ul_dci for rnti 0x%hx\n", 
+         Warning("PUCCH:%s found %zu ul_dci for rnti 0x%hx\n", 
                   __func__, dci_message_list.size(), rnti);
        }
     }
@@ -1218,8 +1218,6 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
 {
    const auto rnti = cfg->rnti;
 
-   Warning("PDSCH:%s searching rnti 0x%hx\n", __func__, rnti);
-
    for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
      if(cfg->grant.tb[tb].enabled && !data[tb].crc)
@@ -1242,7 +1240,7 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
            }
          else
            {
-             Error("PDSCH:%s: rnti %0xhx, no data\n", __func__, rnti);
+             Error("PDSCH:%s: rnti %0xhx, no pdsch data\n", __func__, rnti);
            }
        }
     }
@@ -1275,8 +1273,6 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
                        srslte_phich_res_t*   result,
                        uint16_t rnti)
 {
-  Warning("PHICH:%s searching rnti 0x%hx\n", __func__, rnti);
-
   srslte_phich_resource_t n_phich;
 
   srslte_phich_calc(&q->phich, grant, &n_phich);
