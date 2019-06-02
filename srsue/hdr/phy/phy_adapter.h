@@ -104,12 +104,11 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
                        uint16_t rnti);
 
 
-#if 0
 // get pmch
-bool ue_dl_decode_pmch(srslte_ue_dl_t * q, 
-                       uint16_t areaid,
-                       uint8_t * payload);
-#endif
+int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
+                      srslte_dl_sf_cfg_t* sf,
+                      srslte_pmch_cfg_t*  pmch_cfg,
+                      srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS]);
 
 
 // tx init

@@ -542,10 +542,10 @@ int cc_worker::decode_pmch(mac_interface_phy::tb_action_dl_t* action, srslte_mbs
 
     srslte_softbuffer_rx_reset_tbs(pmch_cfg.pdsch_cfg.softbuffers.rx[0], pmch_cfg.pdsch_cfg.grant.tb[0].tbs);
 
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
     if (srslte_ue_dl_decode_pmch(&ue_dl, &sf_cfg_dl, &pmch_cfg, &pmch_dec)) {
 #else
-    if (phy_adapter::ue_dl_decode_pmch(&ue_dl, mbsfn_area_id, payload)) {
+    if (phy_adapter::ue_dl_decode_pmch(&ue_dl, &sf_cfg_dl, &pmch_cfg, &pmch_dec)) {
 #endif
       Error("Decoding PMCH\n");
       return -1;

@@ -1309,6 +1309,56 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 }
 
 
+/* typedef struct SRSLTE_API {
+  srslte_cell_t cell;
+  uint32_t      nof_rx_antennas;
+  uint16_t      current_mbsfn_area_id;
+  uint16_t      pregen_rnti;
+   
+  srslte_pcfich_t pcfich;
+  srslte_pdcch_t  pdcch;
+  srslte_pdsch_t  pdsch;
+  srslte_pmch_t   pmch;
+  srslte_phich_t  phich;
+
+  srslte_regs_t regs[MI_MAX_REGS];
+  uint32_t      mi_manual_index; 
+  bool          mi_auto;
+
+  srslte_chest_dl_t     chest;
+  srslte_chest_dl_res_t chest_res;
+  srslte_ofdm_t         fft[SRSLTE_MAX_PORTS];
+  srslte_ofdm_t         fft_mbsfn;
+
+  // Variables for blind DCI search
+  dci_blind_search_t current_ss_ue[MI_MAX_REGS][3][10];
+  dci_blind_search_t current_ss_common[MI_MAX_REGS][3]; 
+  srslte_dci_msg_t   pending_ul_dci_msg[SRSLTE_MAX_DCI_MSG];
+  uint32_t           pending_ul_dci_count;
+} srslte_ue_dl_t;
+
+typedef struct SRSLTE_API {
+  srslte_pdsch_cfg_t pdsch_cfg;
+  uint16_t           area_id;
+} srslte_pmch_cfg_t;
+
+typedef struct {
+  uint8_t* payload;
+  bool     crc;
+  float    avg_iterations_block;
+} srslte_pdsch_res_t; */
+
+int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
+                      srslte_dl_sf_cfg_t* sf,
+                      srslte_pmch_cfg_t*  pmch_cfg,
+                      srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS])
+{
+  // XXX TODO
+
+  return SRSLTE_SUCCESS;
+}
+
+
 #if 0 // XXX TODO
 
 bool ue_dl_decode_pmch(srslte_ue_dl_t * q, 
