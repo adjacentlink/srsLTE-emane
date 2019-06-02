@@ -1193,6 +1193,19 @@ typedef struct SRSLTE_API {
 } srslte_dl_sf_cfg_t;
 
 typedef struct SRSLTE_API {
+  srslte_tx_scheme_t tx_scheme;
+  uint32_t           pmi;
+  bool               prb_idx[2][SRSLTE_MAX_PRB];
+  uint32_t           nof_prb;
+  uint32_t           nof_re;
+  uint32_t           nof_symb_slot[2];
+  srslte_ra_tb_t     tb[SRSLTE_MAX_CODEWORDS];
+  int                last_tbs[SRSLTE_MAX_CODEWORDS];
+  uint32_t           nof_tb;
+  uint32_t           nof_layers;
+} srslte_pdsch_grant_t;
+
+typedef struct SRSLTE_API {
   srslte_pdsch_grant_t  grant;
   uint16_t              rnti;
   uint32_t              max_nof_iterations;
@@ -1218,7 +1231,7 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
 {
    const auto rnti = cfg->rnti;
 
-   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
+   for(uint32_t tb = 0; tb < SRSLTE_MAX_CODEWORDS; ++tb)
     {
      if(cfg->grant.tb[tb].enabled && !data[tb].crc)
        {
@@ -1338,6 +1351,31 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 } srslte_ue_dl_t;
 
 typedef struct SRSLTE_API {
+  srslte_tx_scheme_t tx_scheme;
+  uint32_t           pmi;
+  bool               prb_idx[2][SRSLTE_MAX_PRB];
+  uint32_t           nof_prb;
+  uint32_t           nof_re;
+  uint32_t           nof_symb_slot[2];
+  srslte_ra_tb_t     tb[SRSLTE_MAX_CODEWORDS];
+  int                last_tbs[SRSLTE_MAX_CODEWORDS];
+  uint32_t           nof_tb;
+  uint32_t           nof_layers;
+} srslte_pdsch_grant_t;
+
+typedef struct SRSLTE_API {
+  srslte_pdsch_grant_t  grant;
+  uint16_t              rnti;
+  uint32_t              max_nof_iterations;
+  srslte_mimo_decoder_t decoder_type;
+  float                 p_a;
+  uint32_t              p_b;
+  float                 rs_power;
+  bool                  power_scale;
+  bool                  csi_enable;
+} srslte_pdsch_cfg_t;
+
+typedef struct SRSLTE_API {
   srslte_pdsch_cfg_t pdsch_cfg;
   uint16_t           area_id;
 } srslte_pmch_cfg_t;
@@ -1350,56 +1388,49 @@ typedef struct {
 
 int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
                       srslte_dl_sf_cfg_t* sf,
-                      srslte_pmch_cfg_t*  pmch_cfg,
+                      srslte_pmch_cfg_t*  cfg,
                       srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS])
 {
-  // XXX TODO
+   const auto area_id = cfg->area_id;
 
-  return SRSLTE_SUCCESS;
-}
-
-
-#if 0 // XXX TODO
-
-bool ue_dl_decode_pmch(srslte_ue_dl_t * q, 
-                       uint16_t area_id,
-                       uint8_t * payload)
-{
-  if(enb_dl_msg_.has_pmch())
+   for(uint32_t tb = 0; tb < SRSLTE_MAX_CODEWORDS; ++tb)
     {
-      const EMANELTE::MHAL::ENB_DL_Message_PMCH & pmch = enb_dl_msg_.pmch();
-
-      if(area_id == pmch.area_id())
+      if(cfg->pdsch_cfg.grant.tb[tb].enabled && !data[tb].crc)
        {
-         Info("MHAL:ue_dl_decode_pmch: area_id %u, tbs %u\n",
-           pmch.area_id(),
-           pmch.tbs());
+         if(enb_dl_msg_.has_pmch())
+          {
+            const auto & pmch = enb_dl_msg_.pmch();
 
-         if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PMCH))
-           {
-             memset(payload, 0x0, SRSLTE_MAX_BUFFER_SIZE_BYTES);
+            if(area_id == pmch.area_id())
+             {
+               if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PMCH))
+                 {
+                   memcpy(data[tb].payload, pmch.data().data(), pmch.data().length());
+ 
+                   data[tb].avg_iterations_block = 1;
 
-             memcpy(payload, pmch.data().data(), pmch.data().length());
+                   data[tb].crc = true;
 
-             return true;
-           }
-       }
-     else
-       {
-         Debug("MHAL:ue_dl_decode_pmch: area_id %u != our area_id %hu, tbs %u\n",
-              pmch.area_id(),
-              area_id,
-              pmch.tbs());
+                   q->chest_res.snr_db = 111; // XXX TODO
 
-         return false;
+                   InfoHex(pmch.data().data(), pmch.data().size(),
+                           "PMCH:%s: areaid %d, tb[%d], payload %zu bytes, snr %f\n",
+                           __func__, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
+
+                   break; // expect 1 and only 1
+                 }
+             }
+            else
+             {
+               Info("MHAL:%s: dl_area_id %u != area_id %hu\n",
+                       __func__, pmch.area_id(), area_id);
+             }
+          }
        }
     }
 
-  Debug("MHAL:ue_dl_decode_pmch: no pmch\n");
-
-  return false;
+  return SRSLTE_SUCCESS;
 }
-#endif
 
 
 void ue_ul_tx_init()
