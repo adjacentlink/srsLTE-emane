@@ -213,6 +213,52 @@ typedef struct SRSLTE_API {
 } srslte_enb_dl_t;
 
 typedef struct SRSLTE_API {
+  uint32_t k[4];
+  uint32_t k0;
+  uint32_t l;
+  bool     assigned;
+}srslte_regs_reg_t;
+
+typedef struct SRSLTE_API {
+  uint32_t          nof_regs;
+  srslte_regs_reg_t **regs;
+}srslte_regs_ch_t;
+
+typedef struct SRSLTE_API {
+  srslte_cell_t cell;
+  uint32_t      max_ctrl_symbols;
+  uint32_t      ngroups_phich;
+  uint32_t      ngroups_phich_m1;
+
+  srslte_phich_r_t      phich_res;
+  srslte_phich_length_t phich_len;
+  
+  srslte_regs_ch_t  pcfich;
+  srslte_regs_ch_t* phich; 
+  srslte_regs_ch_t  pdcch[3];
+
+  uint32_t           phich_mi;
+  uint32_t           nof_regs;
+  srslte_regs_reg_t* regs;
+}srslte_regs_t;
+
+typedef struct SRSLTE_API {
+  srslte_cell_t  cell;
+  uint32_t       nof_regs[3];
+  uint32_t       nof_cce[3];
+  uint32_t       max_bits;
+  uint32_t       nof_rx_antennas;
+  bool           is_ue;
+  srslte_regs_t* regs;
+  float          rm_f[3*(SRSLTE_DCI_MAX_BITS + 16)];
+  float*         llr;
+  srslte_modem_table_t mod;
+  srslte_sequence_t    seq[SRSLTE_NOF_SF_X_FRAME];
+  srslte_viterbi_t     decoder;
+  srslte_crc_t         crc;
+} srslte_pdcch_t;
+
+typedef struct SRSLTE_API {
   uint8_t               payload[SRSLTE_DCI_MAX_BITS];
   uint32_t              nof_bits;
   srslte_dci_location_t location;
@@ -230,8 +276,7 @@ typedef struct SRSLTE_API {
   int      rv;
   bool     ndi;
   uint32_t cw_idx;
-} srslte_dci_tb_t;
-*/
+} srslte_dci_tb_t; */
 
 // see lib/src/phy/phch/pdcch.c
 // srslte_pdcch_encode(&q->pdcch, &q->dl_sf, &dci_msg, q->sf_symbols)
@@ -251,27 +296,36 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                               rnti,
                               dci_msg->nof_bits);
 
-   const uint32_t start_reg = dci_msg->location.ncce * 9;
-   const uint32_t nof_regs  = (1<<dci_msg->location.L)*9;
+   const uint32_t start_reg = dci_msg->location.ncce   * 9;
+
+#if 0
+   const uint32_t nof_regs  = (1<<dci_msg->location.L) * 9;
+#else
+#warning "enb_dl_put_dl_pdcch_i nof_regs need attention"
+   const uint32_t nof_regs  = q->pdcch.nof_regs[0]; // XXX enb mbms crash 
+#endif
 
    for (uint32_t i = start_reg; i < start_reg + nof_regs; ++i) {
-     srslte_regs_reg_t *reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
+     const auto reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
 
-     const uint32_t  k0 = reg->k0;
-     const uint32_t  l  = reg->l;
-     const uint32_t* k  = &reg->k[0];
+     if(reg)
+      {
+       const uint32_t  k0 = reg->k0;
+       const uint32_t  l  = reg->l;
+       const uint32_t* k  = &reg->k[0];
 
-     const uint32_t rb = k0 / 12;
+       const uint32_t rb = k0 / 12;
 
-     Debug("PDCCH DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
-           "(l=%u, "
-           "k0=%u, "
-           "k[0]=%u "
-           "k[1]=%u "
-           "k[2]=%u "
-           "k[3]=%u) in rb=%u\n", tti_tx_ % 10, i, rnti, l, k0, k[0], k[1], k[2], k[3], rb);
+       Debug("PDCCH DCI group sf_idx=%d, reg=%d, rnti=%d placement: "
+             "(l=%u, "
+             "k0=%u, "
+             "k[0]=%u "
+             "k[1]=%u "
+             "k[2]=%u "
+             "k[3]=%u) in rb=%u\n", tti_tx_ % 10, i, rnti, l, k0, k[0], k[1], k[2], k[3], rb);
 
-     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+     }
    }
 
    if(type == 0)
@@ -1333,6 +1387,10 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
            {
              continue;
            }
+         else
+           {
+             Info("PRACH:%s: fail snr\n", __func__);
+           }
 
          const auto & prach    = ul_msg->first.prach();
          const auto & preamble = prach.preamble();
@@ -1520,7 +1578,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
            // XXX ue crnti might not be set when CR pdu is sent so allow ul_rnti 0
            if(ul_rnti == 0 || ul_rnti == rnti)
             {
-              // check sinr
+              // check snr
               auto & rx_control = ul_msg->second;
 
               if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, ul_rnti))
@@ -1543,9 +1601,9 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                 }
               else
                 {
-                  Info("PUCCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+                  Info("PUCCH:%s fail snr rnti 0x%hx,\n", __func__, rnti);
 
-                  // PUCCH failed sinr, ignore
+                  // PUCCH failed snr, ignore
                   ENBSTATS::getPUCCH(rnti, false);
                 }
             }
@@ -1651,7 +1709,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
            if(ul_rnti == rnti)
             {
-              // check sinr
+              // check snr
               auto & rx_control = ul_msg->second;
 
               if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, ul_rnti))
@@ -1686,9 +1744,9 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                 }
               else
                 {
-                  Info("PUSCH:%s fail sinr rnti %hx,\n", __func__, rnti);
+                  Info("PUSCH:%s fail snr rnti 0x%hx,\n", __func__, rnti);
 
-                  // PUSCH failed sinr, ignore
+                  // PUSCH failed snr, ignore
                   ENBSTATS::getPUSCH(rnti, false);
                 }
             }
