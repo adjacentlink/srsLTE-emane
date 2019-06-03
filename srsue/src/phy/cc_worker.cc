@@ -358,8 +358,6 @@ bool cc_worker::work_dl_regular()
 
 bool cc_worker::work_dl_mbsfn(srslte_mbsfn_cfg_t mbsfn_cfg)
 {
-  Error("%s TODO\n", __func__);
-
   mac_interface_phy::tb_action_dl_t dl_action;
 
   // Configure MBSFN settings
@@ -533,6 +531,7 @@ int cc_worker::decode_pdsch(srslte_pdsch_ack_resource_t        ack_resource,
 int cc_worker::decode_pmch(mac_interface_phy::tb_action_dl_t* action, srslte_mbsfn_cfg_t* mbsfn_cfg)
 {
   srslte_pdsch_res_t pmch_dec;
+  ZERO_OBJECT(pmch_dec);
 
   pmch_cfg.area_id                     = mbsfn_cfg->mbsfn_area_id;
   pmch_cfg.pdsch_cfg.softbuffers.rx[0] = action->tb[0].softbuffer.rx;

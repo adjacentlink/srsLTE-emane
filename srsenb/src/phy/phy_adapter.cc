@@ -34,7 +34,7 @@
 #define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
 #define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
 
-#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->warning_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
 
 extern "C" {
 #include "srslte/phy/phch/ra.h"
@@ -514,13 +514,13 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 
    const uint32_t tb = 0;
 
-   // ppmch
+   // pmch
    auto pmch_message = enb_dl_msg_.mutable_pmch();
 
    pmch_message->set_area_id(pmch_cfg->area_id);
-   pmch_message->set_tbs(bits_to_bytes(grant.tb[tb].tbs));
+   pmch_message->set_tbs(grant.tb[tb].tbs);
    pmch_message->set_rnti(rnti);
-   pmch_message->set_data(data ? data : zeros_, bits_to_bytes(grant.tb[tb].tbs));
+   pmch_message->set_data(data ? data : zeros_, grant.tb[tb].tbs);
 
    auto channel_message = downlink_control_message_->mutable_pmch();
 
@@ -536,6 +536,11 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
        channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
        channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
      }
+
+   InfoHex(data, grant.tb[tb].tbs,
+           "PMCH:%s rnti=0x%hx, area_id %d, tbs %d\n",
+           __func__, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
+
 
    return SRSLTE_SUCCESS;
 }

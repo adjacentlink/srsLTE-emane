@@ -45,7 +45,7 @@
 #define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
 #define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
 
-#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->warning_hex ((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex ((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -300,7 +300,7 @@ static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
                }
              else
                {
-                 Info("PUCCH:%s: fail snr dci rnti 0x%hx\n", __func__, rnti);
+                 Info("PUCCH:%s: fail snr rnti 0x%hx\n", __func__, rnti);
                }
            }
          else
@@ -340,7 +340,7 @@ static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
                }
              else
                {
-                 Info("PDSCH:%s: fail snr dci for rnti 0x%hx\n", __func__, rnti);
+                 Info("PDSCH:%s: fail snr rnti 0x%hx\n", __func__, rnti);
                }
            }
          else
@@ -375,6 +375,10 @@ static PDSCH_DataList ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
                   data_message_list.emplace_back(data_message);
                 }
             }
+        }
+      else
+        {
+          Info("PDSCH:%s: fail snr rnti 0x%hx\n", __func__, rnti);
         }
     }
 
@@ -794,6 +798,10 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                       return 1;
                 }
              }
+            else
+             {
+               Info("MIB:%s: fail snr\n", __func__);
+             }
           }
        }
     }
@@ -897,6 +905,10 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 
                       return 1;
                     }
+                }
+              else
+                {
+                  Info("PBCH:%s: fail snr\n", __func__);
                 }
             }
         }
@@ -1233,7 +1245,7 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
 
    for(uint32_t tb = 0; tb < SRSLTE_MAX_CODEWORDS; ++tb)
     {
-     if(cfg->grant.tb[tb].enabled && !data[tb].crc)
+     if(cfg->grant.tb[tb].enabled)
        {
          if(enb_dl_pdsch_messages_.count(rnti))
            {
@@ -1316,6 +1328,10 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 
          q->chest_res.snr_db = 111; // XXX TODO
        }
+     else
+       {
+         Info("PHICH:%s: fail snr\n", __func__);
+       }
    }
 
    return SRSLTE_SUCCESS;
@@ -1395,7 +1411,7 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
 
    for(uint32_t tb = 0; tb < SRSLTE_MAX_CODEWORDS; ++tb)
     {
-      if(cfg->pdsch_cfg.grant.tb[tb].enabled && !data[tb].crc)
+      if(cfg->pdsch_cfg.grant.tb[tb].enabled)
        {
          if(enb_dl_msg_.has_pmch())
           {
@@ -1416,13 +1432,15 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
                    InfoHex(pmch.data().data(), pmch.data().size(),
                            "PMCH:%s: areaid %d, tb[%d], payload %zu bytes, snr %f\n",
                            __func__, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
-
-                   break; // expect 1 and only 1
+                 }
+               else
+                 {
+                   Info("PMCH:%s: area_id %d, fail snr\n", __func__, area_id);
                  }
              }
             else
              {
-               Info("MHAL:%s: dl_area_id %u != area_id %hu\n",
+               Info("MHAL:%s: dl_area_id %u != area_id %hu, skip\n",
                        __func__, pmch.area_id(), area_id);
              }
           }
