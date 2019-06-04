@@ -390,7 +390,7 @@ bool ue::get_metrics(ue_metrics_t &m)
       rlc.get_metrics(m.rlc);
       gw.get_metrics(m.gw);
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
      UESTATS::RLCQueueMetricsList rlcQueueMetrics;
      UESTATS::RLCQueueMetricsList rlcMrbQueueMetrics;
 
@@ -447,39 +447,41 @@ bool ue::get_metrics(ue_metrics_t &m)
   phy.get_metrics(m.phy);
   mac.get_metrics(m.mac);
 
-#ifdef PHY_ADAPTER_ENABLE_PENDING
+#ifdef PHY_ADAPTER_ENABLE
   UESTATS::setRRCState(rrc_state_text[rrc.get_state()]);
   UESTATS::setEMMState(emm_state_text[nas.get_state()]);
 
-  UESTATS::setMACMetrics(
-   UESTATS::MACMetrics(
-                    m.mac.tx_pkts,
-                    m.mac.tx_errors,
-                    m.mac.tx_brate,
-                    m.mac.rx_pkts,
-                    m.mac.rx_errors,
-                    m.mac.rx_brate,
-                    m.mac.ul_buffer,
-                    m.mac.dl_retx_avg,
-                    m.mac.ul_retx_avg));
 
-  UESTATS::setPHYMetrics(
-   UESTATS::PHYMetrics(
-                    m.phy.sync.ta_us,
-                    m.phy.sync.cfo,      
-                    m.phy.sync.sfo,        
-                    m.phy.dl.n,
-                    m.phy.dl.sinr,
-                    m.phy.dl.rsrp,
-                    m.phy.dl.rsrq,
-                    m.phy.dl.rssi,
-                    m.phy.dl.turbo_iters,
-                    m.phy.dl.mcs,
-                    m.phy.dl.pathloss,
-                    m.phy.dl.mabr_mbps,
-                    m.phy.ul.mcs,
-                    m.phy.ul.power,
-                    m.phy.ul.mabr_mbps));
+  for(int cc = 0; cc < 1; ++cc)
+   {
+     UESTATS::setMACMetrics(
+      UESTATS::MACMetrics(m.mac[cc].tx_pkts,
+                          m.mac[cc].tx_errors,
+                          m.mac[cc].tx_brate,
+                          m.mac[cc].rx_pkts,
+                          m.mac[cc].rx_errors,
+                          m.mac[cc].rx_brate,
+                          m.mac[cc].ul_buffer,
+                          m.mac[cc].dl_retx_avg,
+                          m.mac[cc].ul_retx_avg));
+
+      UESTATS::setPHYMetrics(
+       UESTATS::PHYMetrics(m.phy.sync.ta_us,
+                           m.phy.sync.cfo,      
+                           m.phy.sync.sfo,        
+                           m.phy.dl[cc].n,
+                           m.phy.dl[cc].sinr,
+                           m.phy.dl[cc].rsrp,
+                           m.phy.dl[cc].rsrq,
+                           m.phy.dl[cc].rssi,
+                           m.phy.dl[cc].turbo_iters,
+                           m.phy.dl[cc].mcs,
+                           m.phy.dl[cc].pathloss,
+                           0,   // was mabr_mbps, now unused
+                           m.phy.ul[cc].mcs,
+                           m.phy.ul[cc].power,
+                           0)); // was mabr_mbps, now unused
+    }
 #endif
 
   return result;

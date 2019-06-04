@@ -32,7 +32,7 @@ target_link_libraries(rrc_reconfig_test srsue_upper srslte_upper srslte_phy rrc_
 add_test(rrc_reconfig_test rrc_reconfig_test)
 
 add_executable(nas_test nas_test.cc)
-target_link_libraries(nas_test srsue_upper srslte_upper srslte_phy rrc_asn1)
+target_link_libraries(nas_test srsue_upper srslte_upper srslte_phy rrc_asn1 ${emanelte_LIBRARIES})
 add_test(nas_test nas_test)
 
 ########################################################################

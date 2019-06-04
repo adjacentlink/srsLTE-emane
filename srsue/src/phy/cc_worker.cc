@@ -602,7 +602,7 @@ void cc_worker::decode_phich()
 
 void cc_worker::update_measurements()
 {
-#ifndef PHY_ADAPTER_ENABLE_PENDING
+#ifndef PHY_ADAPTER_ENABLE
   float snr_ema_coeff = phy->args->snr_ema_coeff;
 
   // In TDD, ignore special subframes without PDSCH
