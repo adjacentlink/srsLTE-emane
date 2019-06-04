@@ -317,6 +317,7 @@ bool cc_worker::work_dl_regular()
 
   // If found a dci for this carrier, generate a grant, pass it to MAC and decode the associated PDSCH
   if (has_dl_grant) {
+
     // Read last TB from last retx for this pid
     for (uint32_t i = 0; i < SRSLTE_MAX_CODEWORDS; i++) {
       ue_dl_cfg.cfg.pdsch.grant.last_tbs[i] = phy->last_dl_tbs[dci_dl.pid][cc_idx][i];
@@ -344,9 +345,7 @@ bool cc_worker::work_dl_regular()
 
     // Send grant to MAC and get action for this TB, then call tb_decoded to unlock MAC
     phy->mac->new_grant_dl(cc_idx, mac_grant, &dl_action);
-
     decode_pdsch(ack_resource, &dl_action, dl_ack);
-
     phy->mac->tb_decoded(cc_idx, mac_grant, dl_ack);
   }
 
@@ -457,7 +456,7 @@ int cc_worker::decode_pdcch_dl()
       // Logging
       char str[512];
       srslte_dci_dl_info(&dci[k], str, 512);
-      Info("PDCCH_DL: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
+      Info("PDCCH: cc=%d, %s, snr=%.1f dB\n", cc_idx, str, ue_dl.chest_res.snr_db);
     }
   }
   return nof_grants;
@@ -553,7 +552,7 @@ int cc_worker::decode_pmch(mac_interface_phy::tb_action_dl_t* action, srslte_mbs
     // Store metrics
     dl_metrics.mcs = pmch_cfg.pdsch_cfg.grant.tb[0].mcs_idx;
 
-    Warning("PMCH: l_crb=%2d, tbs=%d, mcs=%d, crc=%s, snr=%.1f dB, n_iter=%.1f\n",
+    Info("PMCH: l_crb=%2d, tbs=%d, mcs=%d, crc=%s, snr=%.1f dB, n_iter=%.1f\n",
          pmch_cfg.pdsch_cfg.grant.nof_prb,
          pmch_cfg.pdsch_cfg.grant.tb[0].tbs / 8,
          pmch_cfg.pdsch_cfg.grant.tb[0].mcs_idx,
@@ -837,7 +836,7 @@ int cc_worker::decode_pdcch_ul()
       // Logging
       char str[512];
       srslte_dci_ul_info(&dci[k], str, 512);
-      Info("PDCCH_UL: cc=%d, %s, snr=%.1f dB\n", cc_idx_grant, str, ue_dl.chest_res.snr_db);
+      Info("PDCCH: cc=%d, %s, snr=%.1f dB\n", cc_idx_grant, str, ue_dl.chest_res.snr_db);
     }
   }
 
@@ -881,7 +880,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   int ret = phy_adapter::ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
 #endif
   if (ret < 0) {
-    Error("Error Encoding UL cc=%d\n", cc_idx);
+    Error("Encoding UL cc=%d\n", cc_idx);
   }
 
   // Store metrics
@@ -892,7 +891,7 @@ bool cc_worker::encode_uplink(mac_interface_phy::tb_action_ul_t* action, srslte_
   // Logging
   char str[512];
   if (srslte_ue_ul_info(&ue_ul_cfg, &sf_cfg_ul, &data.uci, str, 512)) {
-    Info("UL %s\n", str);
+    Info("%s\n", str);
   }
 
   return ret > 0;

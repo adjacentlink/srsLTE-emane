@@ -186,8 +186,6 @@ double async_scell_recv::set_rx_gain(double gain)
 
 int async_scell_recv::radio_recv_fnc(cf_t* data[SRSLTE_MAX_PORTS], uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
- fprintf(stderr, "XXX ue async radio_recv_fnc \n");
-
 #ifdef PHY_ADAPTER_ENABLE
   int ret = nsamples;
 #else
@@ -471,7 +469,7 @@ void async_scell_recv::run_thread()
       tti = (tti + 1) % 10240;
     } else if (ret == 0) {
       // Error in synchronization
-      Warning("SYNC:  Out-of-sync detected in PSS/SSS\n");
+      // Warning("SYNC:  Out-of-sync detected in PSS/SSS\n");
       // out_of_sync();
     }
 

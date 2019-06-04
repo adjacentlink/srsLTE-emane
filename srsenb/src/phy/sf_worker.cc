@@ -46,11 +46,10 @@
 using namespace std;
 
 // Enable this to log SI
-#define LOG_THIS(a) 1
+//#define LOG_THIS(a) 1
 
 // Enable this one to skip SI-RNTI
-//#define LOG_THIS(rnti) (rnti != 0xFFFF)
-
+#define LOG_THIS(rnti) (rnti != 0xFFFF)
 
 /* Define GUI-related things */
 #ifdef ENABLE_GUI
@@ -741,7 +740,7 @@ int sf_worker::encode_pdcch_ul(mac_interface_phy::ul_sched_grant_t* grants, uint
       // Logging
       char str[512];
       srslte_dci_ul_info(&grants[i].dci, str, 512);
-      Info("PDCCH_UL: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
+      Info("PDCCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
     }
   }
   return SRSLTE_SUCCESS;
@@ -765,7 +764,7 @@ int sf_worker::encode_pdcch_dl(mac_interface_phy::dl_sched_grant_t* grants, uint
         // Logging
         char str[512];
         srslte_dci_dl_info(&grants[i].dci, str, 512);
-        Info("PDCCH_DL: rnti 0x%hx, %s, tti_tx_dl=%d\n", rnti, str, tti_tx_dl);
+        Info("PDCCH: %s, tti_tx_dl=%d\n", str, tti_tx_dl);
       }
     }
   }
@@ -795,7 +794,7 @@ int sf_worker::encode_pmch(mac_interface_phy::dl_sched_grant_t* grant, srslte_mb
   // Logging
   char str[512];
   srslte_pdsch_tx_info(&pmch_cfg.pdsch_cfg, str, 512);
-  Info("PMCH: %s\n", str);
+  Info("pmch: %s\n", str);
 
   return SRSLTE_SUCCESS;
 }
@@ -840,7 +839,7 @@ int sf_worker::encode_pdsch(mac_interface_phy::dl_sched_grant_t* grants, uint32_
         for (uint32_t tb_idx = 0; tb_idx < SRSLTE_MAX_TB; tb_idx++) {
           /* If TB enabled, set pending ACK */
           if (ue_db[rnti]->dl_cfg.pdsch.grant.tb[tb_idx].enabled) {
-            Info("ACK: set pending tti=%d, mod=%d, ncce %d\n", tti_tx_ul, TTIMOD(tti_tx_ul), grants[i].dci.location.ncce);
+            Debug("ACK: set pending tti=%d, mod=%d\n", tti_tx_ul, TTIMOD(tti_tx_ul));
             phy->ue_db_set_ack_pending(tti_tx_ul, rnti, tb_idx, grants[i].dci.location.ncce);
           }
         }

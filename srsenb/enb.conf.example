@@ -59,9 +59,6 @@ drb_config = drb.conf
 # device_args:        Arguments for the device driver. Options are "auto" or any string. 
 #                     Default for UHD: "recv_frame_size=9232,send_frame_size=9232"
 #                     Default for bladeRF: ""
-#                     device_name = zmq
-#                     rx_port=ipc://uplink,tx_port=ipc://downlink
-#                     rx_port=tcp://127.0.0.1:5556,tx_port=tcp://127.0.0.1:5555
 # #time_adv_nsamples: Transmission time advance (in number of samples) to compensate for RF delay 
 #                     from antenna to timestamp insertion. 
 #                     Default "auto". B210 USRP: 100 samples, bladeRF: 27.
@@ -73,8 +70,8 @@ dl_earfcn = 3400
 tx_gain = 80
 rx_gain = 40
 
-device_name = zmq
-device_args = rx_port=tcp://127.0.0.1:5556,tx_port=tcp://127.0.0.1:5555
+#device_name = auto
+#device_args = auto
 #time_adv_nsamples = auto
 #burst_preamble_us = auto
 

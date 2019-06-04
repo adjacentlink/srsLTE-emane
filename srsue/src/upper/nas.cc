@@ -538,11 +538,8 @@ bool nas::integrity_check(byte_buffer_t *pdu)
         return false;
       }
     }
-    nas_log->info("Integrity check ok. Local: count=%d, [%02x %02x %02x %02x], "
-                  "Received: count=%d, [%02x %02x %02x %02x]\n",
-                   ctxt.rx_count, exp_mac[0], exp_mac[1], exp_mac[2], exp_mac[3],
-                   pdu->msg[5], mac[0], mac[1], mac[2], mac[3]);
-
+    nas_log->info("Integrity check ok. Local: count=%d, Received: count=%d\n",
+                  ctxt.rx_count, pdu->msg[5]);
     return true;
   } else {
     nas_log->error("Invalid integrity check PDU size (%d)\n", pdu->N_bytes);

@@ -18,8 +18,6 @@
 # device_args:        Arguments for the device driver. Options are "auto" or any string. 
 #                     Default for UHD: "recv_frame_size=9232,send_frame_size=9232"
 #                     Default for bladeRF: ""
-#                     tx_port=ipc://uplink,rx_port=ipc://downlink
-#                     tx_port=tcp://127.0.0.1:5556,rx_port=tcp://127.0.0.1:5555
 # device_args_2:      Arguments for the RF device driver 2.
 # device_args_3:      Arguments for the RF device driver 3.
 # time_adv_nsamples:  Transmission time advance (in number of samples) to compensate for RF delay
@@ -38,8 +36,8 @@ tx_gain = 80
 
 #nof_radios = 1
 #nof_rx_ant = 1
-device_name = zmq
-device_args = tx_port=tcp://127.0.0.1:5556,rx_port=tcp://127.0.0.1:5555
+#device_name = auto
+#device_args = auto
 #device_args_2 = auto
 #device_args_3 = auto
 #time_adv_nsamples = auto
