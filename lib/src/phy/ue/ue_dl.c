@@ -76,7 +76,7 @@ int srslte_ue_dl_init(srslte_ue_dl_t* q, cf_t* in_buffer[SRSLTE_MAX_PORTS], uint
     q->mi_manual_index      = 0;
     q->pregen_rnti          = 0;
 
-#ifndef PHY_ADAPTER_ENABLE_PENDING // XXX_MEMORY 
+#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY 
     for (int j = 0; j < SRSLTE_MAX_PORTS; j++) {
       q->sf_symbols[j] = srslte_vec_malloc(MAX_SFLEN_RE * sizeof(cf_t));
       if (!q->sf_symbols[j]) {
@@ -369,6 +369,7 @@ static int estimate_pdcch_pcfich(srslte_ue_dl_t* q, srslte_dl_sf_cfg_t* sf, srsl
 
 int srslte_ue_dl_decode_fft_estimate(srslte_ue_dl_t* q, srslte_dl_sf_cfg_t* sf, srslte_ue_dl_cfg_t* cfg)
 {
+#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY 
   if (q) {
     /* Run FFT for all subframe data */
     for (int j = 0; j < q->nof_rx_antennas; j++) {
@@ -382,6 +383,9 @@ int srslte_ue_dl_decode_fft_estimate(srslte_ue_dl_t* q, srslte_dl_sf_cfg_t* sf, 
   } else {
     return SRSLTE_ERROR_INVALID_INPUTS;
   }
+#else
+  return SRSLTE_SUCCESS;
+#endif
 }
 
 int srslte_ue_dl_decode_fft_estimate_noguru(srslte_ue_dl_t*     q,

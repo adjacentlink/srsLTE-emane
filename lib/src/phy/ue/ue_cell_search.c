@@ -60,7 +60,7 @@ int srslte_ue_cellsearch_init(srslte_ue_cellsearch_t * q, uint32_t max_frames,
     for (int p = 0; p < SRSLTE_MAX_PORTS; p++) {
       q->sf_buffer[p] = NULL;
     }
-#ifndef PHY_ADAPTER_ENABLE_PENDING // XXX_MEMORY 
+#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY 
     q->sf_buffer[0]    = srslte_vec_malloc(3 * sizeof(cf_t) * SRSLTE_SF_LEN_PRB(100));
 #endif
     q->nof_rx_antennas = 1; 
@@ -120,7 +120,7 @@ int srslte_ue_cellsearch_init_multi(srslte_ue_cellsearch_t* q,
       ERROR("Error setting cell in ue_sync\n");
       goto clean_exit;
     }
-#ifndef PHY_ADAPTER_ENABLE_PENDING // XXX_MEMORY 
+#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY 
     for (int i = 0; i < nof_rx_antennas; i++) {
       q->sf_buffer[i] = srslte_vec_malloc(3 * sizeof(cf_t) * SRSLTE_SF_LEN_PRB(100));
     }
