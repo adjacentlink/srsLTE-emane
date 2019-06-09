@@ -13,8 +13,9 @@ Build-Depends:
     libconfig++-dev,
     libsctp-dev,
     libuhd-dev,
-    uhd-host
-Standards-Version: 4.1.1
+    uhd-host,
+    txt2man
+Standards-Version: 4.2.1
 Homepage: http://www.softwareradiosystems.com
 Vcs-Git: https://github.com/srsLTE/srsLTE.git
 Vcs-Browser: https://github.com/srsLTE/srsLTE/

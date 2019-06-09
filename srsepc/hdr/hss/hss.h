@@ -75,7 +75,7 @@ enum hss_auth_algo {
   HSS_ALGO_MILENAGE
 };
 
-class hss : public hss_interface_s1ap
+class hss : public hss_interface_nas
 {
 public:
   static hss* get_instance(void);
@@ -83,10 +83,10 @@ public:
   int init(hss_args_t *hss_args, srslte::log_filter* hss_log);
   void stop(void);
 
-  bool gen_auth_info_answer(uint64_t imsi, uint8_t *k_asme, uint8_t *autn, uint8_t *rand, uint8_t *xres);
-  bool gen_update_loc_answer(uint64_t imsi, uint8_t* qci);
+  virtual bool gen_auth_info_answer(uint64_t imsi, uint8_t *k_asme, uint8_t *autn, uint8_t *rand, uint8_t *xres);
+  virtual bool gen_update_loc_answer(uint64_t imsi, uint8_t* qci);
 
-  bool resync_sqn(uint64_t imsi, uint8_t *auts);
+  virtual bool resync_sqn(uint64_t imsi, uint8_t *auts);
 
   std::map<std::string, uint64_t> get_ip_to_imsi() const;
 

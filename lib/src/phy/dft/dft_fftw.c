@@ -37,7 +37,11 @@
 #define dft_ceil(a,b) ((a-1)/b+1)
 #define dft_floor(a,b) (a/b)
 
+#ifndef PHY_ADAPTER_ENABLE
+#define FFTW_WISDOM_FILE ".fftw_wisdom"
+#else
 #define FFTW_WISDOM_FILE "dot_fftw_wisdom"
+#endif
 
 #ifdef FFTW_WISDOM_FILE
 #define FFTW_TYPE FFTW_MEASURE
@@ -45,7 +49,7 @@
 #define FFTW_TYPE 0
 #endif
 
-pthread_mutex_t fft_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t fft_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void srslte_dft_load() {
 #ifdef FFTW_WISDOM_FILE
@@ -347,7 +351,6 @@ void srslte_dft_plan_free(srslte_dft_plan_t *plan) {
   }
   if (plan->p) fftwf_destroy_plan(plan->p);
   pthread_mutex_unlock(&fft_mutex);
-
   bzero(plan, sizeof(srslte_dft_plan_t));
 }
 

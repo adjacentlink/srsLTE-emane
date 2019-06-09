@@ -335,9 +335,8 @@ void enb_initialize(srslte::log * log_h, uint32_t sf_interval_msec, uint32_t phy
 {
   log_h_ = log_h;
 
-  pdsch_rs_power_milliwatt = pow(10.0, static_cast<float>(rrc_cfg->sibs[1].sib.sib2.rr_config_common_sib.pdsch_cnfg.rs_power) / 10.0);
-
-  uint8_t p_b = rrc_cfg->sibs[1].sib.sib2.rr_config_common_sib.pdsch_cnfg.p_b;
+  pdsch_rs_power_milliwatt = pow(10.0, static_cast<float>(rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr) / 10.0);
+  uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
 
   if(p_b < 4)
     {
@@ -359,9 +358,9 @@ void enb_initialize(srslte::log * log_h, uint32_t sf_interval_msec, uint32_t phy
        ul_freq/1e6,
        dl_freq/1e6,
        n_prb,
-       rrc_cfg->sibs[1].sib.sib2.rr_config_common_sib.pdsch_cnfg.rs_power,
+       rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr,
        pdsch_rs_power_milliwatt,
-       rrc_cfg->sibs[1].sib.sib2.rr_config_common_sib.pdsch_cnfg.p_b,
+       rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b,
        pdsch_rho_b_over_rho_a);
 
   EMANELTE::MHAL::ENB::initialize(
