@@ -58,9 +58,9 @@ index 3fd26db..a1ad442 100644
 -SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libboost-dev")
 +IF(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
 +  IF(LSB_RELEASE_VERSION_SHORT STREQUAL "16.04")
-+    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.58.0, libmbedcrypto0, libconfig++9v5, libsctp1")
++    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.58.0, libmbedcrypto0, libconfig++9v5, libsctp1, libuhd003")
 +  ELSEIF(LSB_RELEASE_VERSION_SHORT STREQUAL "18.04")
-+    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.65.1, libmbedcrypto1, libconfig++9v5, libsctp1")
++    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.65.1, libmbedcrypto1, libconfig++9v5, libsctp1, libuhd003.010.003")
 +  ELSE()
 +    message(FATAL_ERROR "Unsupported Ubuntu Version. Quitting.")
 +  ENDIF()
@@ -70,7 +70,7 @@ index 3fd26db..a1ad442 100644
  # Setup CPack RPM
  ########################################################################
 -SET(CPACK_RPM_PACKAGE_REQUIRES "boost-devel")
-+SET(CPACK_RPM_PACKAGE_REQUIRES "emane-model-lte fftw-libs-single boost-program-options mbedtls libconfig lksctp-tools")
++SET(CPACK_RPM_PACKAGE_REQUIRES "emane-model-lte fftw-libs-single boost-program-options mbedtls libconfig lksctp-tools uhd")
  
  ########################################################################
  # Setup CPack NSIS
