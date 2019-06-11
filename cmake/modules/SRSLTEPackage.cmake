@@ -6,7 +6,7 @@ SET(CPACK_PACKAGE_CONTACT "Ismael Gomez ")
 SET(CPACK_PACKAGE_VENDOR "Software Radio Systems Limited")
 SET(CPACK_PACKAGE_VERSION_MAJOR ${SRSLTE_VERSION_MAJOR})
 SET(CPACK_PACKAGE_VERSION_MINOR ${SRSLTE_VERSION_MINOR})
-SET(CPACK_PACKAGE_VERSION_EMANE 1)
+SET(CPACK_PACKAGE_VERSION_EMANE 2)
 SET(CPACK_PACKAGE_VERSION_PATCH ${SRSLTE_VERSION_PATCH})
 SET(VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_EMANE}-${CPACK_PACKAGE_VERSION_PATCH}")
 
@@ -59,9 +59,9 @@ ENDIF()
 ########################################################################
 IF(LSB_RELEASE_ID_SHORT STREQUAL "Ubuntu")
   IF(LSB_RELEASE_VERSION_SHORT STREQUAL "16.04")
-    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.58.0, libmbedcrypto0, libconfig++9v5, libsctp1")
+    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.58.0, libmbedcrypto0, libconfig++9v5, libsctp1, libuhd003")
   ELSEIF(LSB_RELEASE_VERSION_SHORT STREQUAL "18.04")
-    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.65.1, libmbedcrypto1, libconfig++9v5, libsctp1")
+    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.65.1, libmbedcrypto1, libconfig++9v5, libsctp1, libuhd003.010.003")
   ELSE()
     message(FATAL_ERROR "Unsupported Ubuntu Version. Quitting.")
   ENDIF()
@@ -70,7 +70,7 @@ ENDIF()
 ########################################################################
 # Setup CPack RPM
 ########################################################################
-SET(CPACK_RPM_PACKAGE_REQUIRES "emane-model-lte fftw-libs-single boost-program-options mbedtls libconfig lksctp-tools")
+SET(CPACK_RPM_PACKAGE_REQUIRES "emane-model-lte fftw-libs-single boost-program-options mbedtls libconfig lksctp-tools uhd")
 
 ########################################################################
 # Setup CPack NSIS
