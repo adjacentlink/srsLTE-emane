@@ -1486,10 +1486,9 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Info("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+      Info("TX:%s tx_ctrl:%s\n",
            __func__,
-           GetDebugString(tx_control_.DebugString()).c_str(),
-           GetDebugString(ue_ul_msg_.DebugString()).c_str());
+           tx_control_.DebugString().c_str());
 
       EMANELTE::MHAL::UE::send_msg(data, tx_control_);
     }

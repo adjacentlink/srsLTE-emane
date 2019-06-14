@@ -582,9 +582,9 @@ void sf_worker::send_uci_data(uint16_t rnti, srslte_uci_cfg_t* uci_cfg, srslte_u
 int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_t nof_pusch)
 {
   srslte_pusch_res_t pusch_res;
-  ZERO_OBJECT(pusch_res);
 
   for (uint32_t i = 0; i < nof_pusch; i++) {
+    ZERO_OBJECT(pusch_res);
     uint16_t rnti = grants[i].dci.rnti;
     if (rnti) {
       // mark this tti as having an ul dci to avoid pucch
@@ -662,9 +662,9 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
 int sf_worker::decode_pucch()
 {
   srslte_pucch_res_t pucch_res;
-  ZERO_OBJECT(pucch_res);
 
   for (std::map<uint16_t, ue*>::iterator iter = ue_db.begin(); iter != ue_db.end(); ++iter) {
+    ZERO_OBJECT(pucch_res);
     uint16_t rnti = (uint16_t)iter->first;
 
     // If it's a User RNTI and doesn't have PUSCH grant in this TTI

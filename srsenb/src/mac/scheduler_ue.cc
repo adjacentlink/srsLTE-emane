@@ -479,6 +479,7 @@ int sched_ue::generate_format1(dl_harq_proc* h, sched_interface::dl_sched_data_t
 
     if (tbs < MIN_DATA_TBS) {
       log_h->warning("SCHED: Allocation of TBS=%d that does not account header\n", tbs);
+      pthread_mutex_unlock(&mutex);
       return 0;
     }
 

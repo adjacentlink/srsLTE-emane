@@ -1302,8 +1302,6 @@ int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interf
 
 bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 {
-  struct timeval tv_sor;
-
   pthread_mutex_lock(&ul_mutex_);
 
   curr_tti_ = tti;
@@ -1319,7 +1317,9 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   EMANELTE::MHAL::RxMessages messages;
 
-  const bool bInStep = EMANELTE::MHAL::ENB::get_messages(messages, tv_sor);
+  struct timeval tv_sor;
+
+  EMANELTE::MHAL::ENB::get_messages(messages, tv_sor);
 
   // set rx time 
   ts->full_secs = tv_sor.tv_sec;
@@ -1332,25 +1332,29 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
      if(ue_ul_msg.ParseFromString(iter->first))
       {
-        const auto & rx_control = iter->second;
+        const auto & rxControl = iter->second;
 
-        Info("RX:%s %s, sf_time %ld:%06ld msg:%s\n",
-              __func__,
-              bInStep ? "in-step" : "late",
-              rx_control.rxData_.sf_time_.tv_sec,
-              rx_control.rxData_.sf_time_.tv_usec,
-              GetDebugString(ue_ul_msg.DebugString()).c_str());
+        Info("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti %u, tti %u, %s %s %s\n",
+                __func__,
+                rxControl.rxData_.sf_time_.tv_sec,
+                rxControl.rxData_.sf_time_.tv_usec,
+                rxControl.rxData_.rx_seqnum_,
+                ue_ul_msg.transmitter().crnti(),
+                ue_ul_msg.transmitter().tti(),
+                ue_ul_msg.has_prach() ? "prach" : "",
+                ue_ul_msg.has_pucch() ? "pucch" : "",
+                ue_ul_msg.has_pusch() ? "pusch" : "");
 
         const uint32_t & pci = ue_ul_msg.transmitter().phy_cell_id();
 
-        // check ul msg src vs our pci
+        // check ul msg pci vs our pci
         if(pci != my_pci_)
          {
            Debug("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
          }
         else
          {
-           ue_ul_msgs_.push_back(UE_UL_Message(ue_ul_msg, rx_control));
+           ue_ul_msgs_.emplace_back(UE_UL_Message(ue_ul_msg, rxControl));
          }
       }
     else
@@ -1381,9 +1385,9 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
     {
       if(ul_msg->first.has_prach())
        {
-         auto & rx_control = ul_msg->second;
+         auto & rxControl = ul_msg->second;
 
-         if(!rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
+         if(!rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
            {
              continue;
            }
@@ -1557,15 +1561,17 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   const auto rnti = cfg->rnti;
 
-  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
+  res->correlation    = 1.0;
+  res->detected       = false;
+
+  // for each uplink message
+  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end() && !res->detected; ++ul_msg)
    {
-     res->detected    = false;
-     res->correlation = 0;
-  
      if(ul_msg->first.has_pucch())
       {
         const auto & pucch = ul_msg->first.pucch();
 
+        // for each grant
         for(int n = 0; n < pucch.grant_size(); ++n)
          {
            const auto & grant = pucch.grant(n);
@@ -1575,20 +1581,19 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
            Info("PUCCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
                 __func__, ul_rnti, rnti, n+1, pucch.grant_size());
 
-           // XXX ue crnti might not be set when CR pdu is sent so allow ul_rnti 0
-           if(ul_rnti == 0 || ul_rnti == rnti)
+           if(ul_rnti == rnti)
             {
-              // check snr
-              auto & rx_control = ul_msg->second;
+              auto & rxControl = ul_msg->second;
 
-              if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, ul_rnti))
+              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, ul_rnti))
                 {
                   const auto & uci = grant.uci();
 
                   memcpy(&res->uci_data, uci.data(), uci.length());
 
-                  res->detected    = true;
-                  res->correlation = 1.0;
+                  res->detected = true;
+
+                  q->chest_res.snr_db = 111; // XXX TODO
 
                   InfoHex(uci.data(), uci.length(),
                           "PUCCH:%s found pucch ul_rnti %hx, corr %f\n",
@@ -1596,19 +1601,31 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
                   // pass
                   ENBSTATS::getPUCCH(rnti, true);
-
-                  break;
                 }
               else
                 {
-                  Info("PUCCH:%s fail snr rnti 0x%hx,\n", __func__, rnti);
+                  q->chest_res.snr_db = 0.0; // XXX TODO
 
                   // PUCCH failed snr, ignore
                   ENBSTATS::getPUCCH(rnti, false);
                 }
-            }
-         }
-      }
+
+               // done with this rnti
+               break;
+             }
+          }
+       }
+    }
+
+  if(res->detected == false)
+   {
+     Info("PUCCH:%s tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
+           __func__, curr_tti_, rnti, ue_ul_msgs_.size());
+   }
+  else
+   {
+     Info("PUCCH:%s tti %u, DID find rnti 0x%hx, in %zu uplink messages\n", 
+           __func__, curr_tti_, rnti, ue_ul_msgs_.size());
    }
 
   pthread_mutex_unlock(&ul_mutex_);
@@ -1688,16 +1705,17 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   pthread_mutex_lock(&ul_mutex_);
 
-  res->crc = false;
+  res->crc            = false;
+  res->uci.ack.valid  = false;
 
-  res->uci.ack.valid = false;
-
-  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
+  // for each uplink message
+  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end() && !res->crc; ++ul_msg)
    {
      if(ul_msg->first.has_pusch())
       {
         const auto & pusch_message = ul_msg->first.pusch();
 
+        // for each grant
         for(int n = 0; n < pusch_message.grant_size(); ++n)
          {
            const auto & grant_message = pusch_message.grant(n);
@@ -1709,10 +1727,9 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
            if(ul_rnti == rnti)
             {
-              // check snr
-              auto & rx_control = ul_msg->second;
+              auto & rxControl = ul_msg->second;
 
-              if(rx_control.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, ul_rnti))
+              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, ul_rnti))
                 {
                   const auto & ul_grant_message = grant_message.ul_grant();
                   const auto & uci_message      = grant_message.uci();
@@ -1731,7 +1748,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   res->crc = true;
                   res->uci.ack.valid = true;
 
-                  q->chest_res.snr_db = 111; // XXX TODO
+                  q->chest_res.snr_db = 100; // XXX TODO
  
                   InfoHex(payload.data(), payload.length(),
                           "PUSCH:%s rnti %hx, snr_db %f\n",
@@ -1739,19 +1756,31 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
                   // pass
                   ENBSTATS::getPUSCH(rnti, true);
-
-                  break;
                 }
               else
                 {
-                  Info("PUSCH:%s fail snr rnti 0x%hx,\n", __func__, rnti);
+                  q->chest_res.snr_db = 0.0; // XXX TODO
 
                   // PUSCH failed snr, ignore
                   ENBSTATS::getPUSCH(rnti, false);
                 }
+
+              // done with this rnti
+              break;
             }
          }
       }
+   }
+
+  if(res->crc == false)
+   {
+     Info("PUSCH:%s tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
+           __func__, curr_tti_, rnti, ue_ul_msgs_.size());
+   }
+  else
+   {
+     Info("PUSCH:%s tti %u, DID find rnti 0x%hx, in %zu uplink messages\n", 
+           __func__, curr_tti_, rnti, ue_ul_msgs_.size());
    }
 
   pthread_mutex_unlock(&ul_mutex_);
