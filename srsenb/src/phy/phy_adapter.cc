@@ -306,7 +306,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    const uint32_t start_reg = 0;
 #endif
 
-   Warning("PDCCH:%s type %s, rnti 0x%hx, ncce %d, L %d, start_reg %d, nof_regs %d\n", 
+   Info("PDCCH:%s type %s, rnti 0x%hx, ncce %d, L %d, start_reg %d, nof_regs %d\n", 
         __func__,
         type ? "UL" : "DL",
         rnti,
