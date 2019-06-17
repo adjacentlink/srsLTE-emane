@@ -284,7 +284,7 @@ typedef struct SRSLTE_API {
 static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                                  const srslte_dci_msg_t * dci_msg,
                                  uint32_t ref,
-                                 int type)
+                                 int type) // 0 for DL, 1 for UL
  {
    const auto rnti = dci_msg->rnti;
 
@@ -296,16 +296,24 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                               EMANELTE::MHAL::MOD_QPSK,
                               rnti,
                               dci_msg->nof_bits);
+
+   const uint32_t nof_regs  = (1<<dci_msg->location.L) * 9;
+
 #if 0
    const uint32_t start_reg = dci_msg->location.ncce   * 9;
-   const uint32_t nof_regs  = (1<<dci_msg->location.L) * 9;
 #else
-#warning "enb_dl_put_dl_pdcch_i regs need attention"
+#warning "enb_dl_put_dl_pdcch_i start_regs need attention"
    const uint32_t start_reg = 0;
-   const uint32_t nof_regs  = q->pdcch.nof_regs[0]; // XXX enb mbms crash 
 #endif
 
-   Info("PDCCH:%s start_reg %d, nof_regs %d\n", __func__, start_reg, nof_regs);
+   Warning("PDCCH:%s type %s, rnti 0x%hx, ncce %d, L %d, start_reg %d, nof_regs %d\n", 
+        __func__,
+        type ? "UL" : "DL",
+        rnti,
+        dci_msg->location.ncce, 
+        dci_msg->location.L,
+        start_reg,
+        nof_regs);
 
    for (uint32_t i = start_reg; i < start_reg + nof_regs; ++i) {
      const auto reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
@@ -1004,7 +1012,7 @@ int enb_dl_put_pdcch_dl_i(srslte_enb_dl_t* q,
 
   if(srslte_dci_msg_pack_pdsch(&q->cell, &q->dl_sf, dci_cfg, dci_dl, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 0);
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 0); // DL
     }
   else
     {
@@ -1166,7 +1174,7 @@ int enb_dl_put_pdcch_ul(srslte_enb_dl_t* q,
 
   if(srslte_dci_msg_pack_pusch(&q->cell, &q->dl_sf, dci_cfg, dci_ul, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 1);
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 1); // UL
     }
   else
     {
