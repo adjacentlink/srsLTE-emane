@@ -40,6 +40,7 @@ extern "C" {
 #include "srslte/phy/phch/ra.h"
 #include "srslte/phy/phch/dci.h"
 #include "srslte/phy/phch/phich.h"
+#include "srslte/phy/phch/pucch.h"
 }
 
 #include "lib/include/srslte/phy/phch/pdsch_cfg.h"
@@ -297,13 +298,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                               dci_msg->nof_bits);
 
    const uint32_t start_reg = dci_msg->location.ncce   * 9;
-
-#if 0
    const uint32_t nof_regs  = (1<<dci_msg->location.L) * 9;
-#else
-#warning "enb_dl_put_dl_pdcch_i nof_regs need attention"
-   const uint32_t nof_regs  = q->pdcch.nof_regs[0]; // XXX enb mbms crash 
-#endif
 
    for (uint32_t i = start_reg; i < start_reg + nof_regs; ++i) {
      const auto reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
@@ -1559,45 +1554,78 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 {
   pthread_mutex_lock(&ul_mutex_);
 
+  // see lib/src/phy/enb/enb_ul.c get_pucch()
+  if (!srslte_pucch_cfg_isvalid(cfg, q->cell.nof_prb)) {
+    Error("PUCCH %s, Invalid PUCCH configuration\n", __func__);
+    return -1;
+  }
+
+  // XXX FIXME this is needed to set cfg->format
+  // but introduces other problems in PDCCH at line 308
+  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, NULL);
+
   const auto rnti = cfg->rnti;
 
-  res->correlation    = 1.0;
-  res->detected       = false;
+  res->correlation = 1.0;
+  res->detected    = false;
 
   // for each uplink message
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end() && !res->detected; ++ul_msg)
    {
      if(ul_msg->first.has_pucch())
       {
-        const auto & pucch = ul_msg->first.pucch();
+        const auto & pucch_message = ul_msg->first.pucch();
 
         // for each grant
-        for(int n = 0; n < pucch.grant_size(); ++n)
+        for(int n = 0; n < pucch_message.grant_size(); ++n)
          {
-           const auto & grant = pucch.grant(n);
+           const auto & grant_message = pucch_message.grant(n);
 
-           const uint16_t ul_rnti = grant.rnti();
+           Info("PUCCH:%s sr %d, acks %d, ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
+                __func__, 
+                cfg->uci_cfg.is_scheduling_request_tti,
+                cfg->uci_cfg.ack.nof_acks,
+                grant_message.rnti(), rnti, n+1, pucch_message.grant_size());
 
-           Info("PUCCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
-                __func__, ul_rnti, rnti, n+1, pucch.grant_size());
-
-           if(ul_rnti == rnti)
+           if(grant_message.rnti() == rnti)
             {
               auto & rxControl = ul_msg->second;
 
-              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, ul_rnti))
+              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, rnti))
                 {
-                  const auto & uci = grant.uci();
+                  const auto & uci_message = grant_message.uci();
 
-                  memcpy(&res->uci_data, uci.data(), uci.length());
+                  memcpy(&res->uci_data, uci_message.data(), uci_message.length());
 
-                  res->detected = true;
-
+                  res->detected       = true;
                   q->chest_res.snr_db = 111; // XXX TODO
 
-                  InfoHex(uci.data(), uci.length(),
+                  // from lib/src/phy/phch/pucch.c srslte_pucch_decode()
+                  switch (cfg->format) {
+                   case SRSLTE_PUCCH_FORMAT_1A:
+                   case SRSLTE_PUCCH_FORMAT_1B:
+                     res->uci_data.ack.valid = true;
+                     Warning("PUCCH:%s format 1A/B, %s\n", __func__, pucch_message.DebugString().c_str());
+                   break;
+
+                   case SRSLTE_PUCCH_FORMAT_2:
+                   case SRSLTE_PUCCH_FORMAT_2A:
+                   case SRSLTE_PUCCH_FORMAT_2B:
+                     res->uci_data.ack.valid    = true;
+                     res->uci_data.cqi.data_crc = true;
+                     Warning("PUCCH:%s format 2, %s\n", __func__, pucch_message.DebugString().c_str());
+                   break;
+
+                   case SRSLTE_PUCCH_FORMAT_1:
+                   case SRSLTE_PUCCH_FORMAT_3:
+                     Warning("PUCCH:%s format 1/3, %s\n", __func__, pucch_message.DebugString().c_str());
+                   default:
+                    /* Not considered, do nothing */;
+                  }
+
+                  InfoHex(uci_message.data(), uci_message.length(),
                           "PUCCH:%s found pucch ul_rnti %hx, corr %f\n",
-                          __func__, ul_rnti, res->correlation);
+                          __func__, rnti, res->correlation);
 
                   // pass
                   ENBSTATS::getPUCCH(rnti, true);
@@ -1720,16 +1748,14 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
          {
            const auto & grant_message = pusch_message.grant(n);
 
-           const uint16_t ul_rnti = grant_message.rnti();
-
            Info("PUSCH:%s check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n",
-                   __func__, ul_rnti, rnti, n+1, pusch_message.grant_size());
+                   __func__, grant_message.rnti(), rnti, n+1, pusch_message.grant_size());
 
-           if(ul_rnti == rnti)
+           if(grant_message.rnti() == rnti)
             {
               auto & rxControl = ul_msg->second;
 
-              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, ul_rnti))
+              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, rnti))
                 {
                   const auto & ul_grant_message = grant_message.ul_grant();
                   const auto & uci_message      = grant_message.uci();
@@ -1744,9 +1770,10 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   // payload
                   memcpy(res->data, payload.data(), payload.length());
 
+                  // see lib/src/phy/phch/pusch.c srslte_pusch_decode()
                   res->avg_iterations_block = 1;
-                  res->crc = true;
-                  res->uci.ack.valid = true;
+                  res->crc                  = true;
+                  res->uci.ack.valid        = true;
 
                   q->chest_res.snr_db = 100; // XXX TODO
  
