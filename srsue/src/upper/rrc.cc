@@ -610,7 +610,7 @@ void rrc::new_phy_meas(float rsrp, float rsrq, uint32_t tti, int earfcn_i, int p
   }
   phy_meas_t new_meas = {rsrp, rsrq, tti, earfcn, pci};
   phy_meas_q.push(new_meas);
-  rrc_log->info("MEAS:  New measurement pci=%d, rsrp=%.1f dBm.\n", pci, rsrp);
+  rrc_log->debug("MEAS:  New measurement pci=%d, rsrp=%.1f dBm.\n", pci, rsrp);
 }
 
 /* Processes all pending PHY measurements in queue. Must be called from a mutexed function
@@ -1004,8 +1004,6 @@ void rrc::set_serving_cell(uint32_t cell_idx) {
       if (!add_neighbour_cell(serving_cell)) {
         rrc_log->info("Serving cell not added to list of neighbours. Worse than current neighbours\n");
       }
-      rrc_log->warning("XXX old pci %u, new pci %u, nof_neighbours=%lu\n",
-                  serving_cell->get_pci(), new_serving_cell->get_pci(), neighbour_cells.size());
     }
 
     // Set new serving cell

@@ -281,8 +281,9 @@ void spgw::gtpu::handle_s1u_pdu(srslte::byte_buffer_t* msg)
   } else {
     m_gtpu_log->debug("Forwarded packet to TUN interface. Bytes= %d/%d\n", n, msg->N_bytes);
 #ifdef PHY_ADAPTER_ENABLE
-    struct iphdr *iph = (struct iphdr *) msg->msg;
-    EPCSTATS::updateUplinkTraffic(iph->saddr, iph->daddr, msg->N_bytes);
+    const struct iphdr *iph = (const struct iphdr *) msg->msg;
+    if(iph && iph->version == 4)
+      EPCSTATS::updateUplinkTraffic(iph->saddr, iph->daddr, msg->N_bytes);
 #endif
   }
   return;
