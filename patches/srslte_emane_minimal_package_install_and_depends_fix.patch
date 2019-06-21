@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 209de25a..aebd4665 100644
+index 209de25..aebd466 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -284,7 +284,7 @@ configure_file(
@@ -12,7 +12,7 @@ index 209de25a..aebd4665 100644
  ########################################################################
  # Compiler specific setup
 diff --git a/cmake/modules/SRSLTEPackage.cmake b/cmake/modules/SRSLTEPackage.cmake
-index 3fd26db8..a3a1b166 100644
+index 3fd26db..a3a1b16 100644
 --- a/cmake/modules/SRSLTEPackage.cmake
 +++ b/cmake/modules/SRSLTEPackage.cmake
 @@ -1,18 +1,30 @@
@@ -83,7 +83,7 @@ index 3fd26db8..a3a1b166 100644
  INCLUDE(CPack)
  
 diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
-index 7e89e7d1..96d9923f 100644
+index 7e89e7d..96d9923 100644
 --- a/lib/CMakeLists.txt
 +++ b/lib/CMakeLists.txt
 @@ -29,6 +29,6 @@ add_subdirectory(test)
@@ -97,7 +97,7 @@ index 7e89e7d1..96d9923f 100644
 +#          DESTINATION "${INCLUDE_DIR}"
 +#          FILES_MATCHING PATTERN "*.h" ) // MIN_INSTALL
 diff --git a/lib/examples/CMakeLists.txt b/lib/examples/CMakeLists.txt
-index dc986626..170862f1 100644
+index dc98662..170862f 100644
 --- a/lib/examples/CMakeLists.txt
 +++ b/lib/examples/CMakeLists.txt
 @@ -32,10 +32,10 @@ target_link_libraries(synch_file srslte_phy)
@@ -135,7 +135,7 @@ index dc986626..170862f1 100644
    message(STATUS "   examples will be installed.")
  
 diff --git a/lib/include/srslte/CMakeLists.txt b/lib/include/srslte/CMakeLists.txt
-index 6ace11dd..8bd03720 100644
+index 6ace11d..8bd0372 100644
 --- a/lib/include/srslte/CMakeLists.txt
 +++ b/lib/include/srslte/CMakeLists.txt
 @@ -23,6 +23,6 @@ configure_file(
@@ -149,7 +149,7 @@ index 6ace11dd..8bd03720 100644
 +#        DESTINATION "${INCLUDE_DIR}/srslte"
 +#) // MIN_INSTALL
 diff --git a/lib/src/asn1/CMakeLists.txt b/lib/src/asn1/CMakeLists.txt
-index f88b0ad2..29470a42 100644
+index f88b0ad..29470a4 100644
 --- a/lib/src/asn1/CMakeLists.txt
 +++ b/lib/src/asn1/CMakeLists.txt
 @@ -26,7 +26,7 @@ add_library(srslte_asn1 STATIC
@@ -162,7 +162,7 @@ index f88b0ad2..29470a42 100644
  add_library(rrc_asn1 STATIC
          rrc_asn1.cc
 diff --git a/lib/src/common/CMakeLists.txt b/lib/src/common/CMakeLists.txt
-index 4cedc3a2..ab8e4981 100644
+index 4cedc3a..ab8e498 100644
 --- a/lib/src/common/CMakeLists.txt
 +++ b/lib/src/common/CMakeLists.txt
 @@ -29,4 +29,4 @@ add_executable(arch_select arch_select.cc)
@@ -172,7 +172,7 @@ index 4cedc3a2..ab8e4981 100644
 -install(TARGETS srslte_common DESTINATION ${LIBRARY_DIR})
 +#install(TARGETS srslte_common DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/lib/src/phy/CMakeLists.txt b/lib/src/phy/CMakeLists.txt
-index 5a4b2707..7f3bbd62 100644
+index 5a4b270..7f3bbd6 100644
 --- a/lib/src/phy/CMakeLists.txt
 +++ b/lib/src/phy/CMakeLists.txt
 @@ -59,4 +59,4 @@ add_library(srslte_phy STATIC ${srslte_srcs})
@@ -182,7 +182,7 @@ index 5a4b2707..7f3bbd62 100644
 -install(TARGETS srslte_phy DESTINATION ${LIBRARY_DIR})
 +#install(TARGETS srslte_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/lib/src/phy/phch/test/CMakeLists.txt b/lib/src/phy/phch/test/CMakeLists.txt
-index 2730b604..575bd458 100644
+index 2730b60..575bd45 100644
 --- a/lib/src/phy/phch/test/CMakeLists.txt
 +++ b/lib/src/phy/phch/test/CMakeLists.txt
 @@ -358,5 +358,5 @@ add_test(prach_test_multi_n4 prach_test_multi -n 4)
@@ -193,7 +193,7 @@ index 2730b604..575bd458 100644
 +  target_link_libraries(prach_test_usrp srslte_rf_emane srslte_phy pthread)
  endif(UHD_FOUND)
 diff --git a/lib/src/phy/rf/CMakeLists.txt b/lib/src/phy/rf/CMakeLists.txt
-index 388cede3..39c7faea 100644
+index 388cede..39c7fae 100644
 --- a/lib/src/phy/rf/CMakeLists.txt
 +++ b/lib/src/phy/rf/CMakeLists.txt
 @@ -20,8 +20,8 @@
@@ -244,7 +244,7 @@ index 388cede3..39c7faea 100644
 +  INSTALL(TARGETS srslte_rf_emane DESTINATION ${LIBRARY_DIR})
  endif(RF_FOUND)
 diff --git a/lib/src/phy/sync/test/CMakeLists.txt b/lib/src/phy/sync/test/CMakeLists.txt
-index 1f6ccabd..db54b473 100644
+index 1f6ccab..db54b47 100644
 --- a/lib/src/phy/sync/test/CMakeLists.txt
 +++ b/lib/src/phy/sync/test/CMakeLists.txt
 @@ -29,7 +29,7 @@ target_link_libraries(pss_file srslte_phy)
@@ -257,7 +257,7 @@ index 1f6ccabd..db54b473 100644
  
  
 diff --git a/lib/src/radio/CMakeLists.txt b/lib/src/radio/CMakeLists.txt
-index ca8c87a4..035c362b 100644
+index ca8c87a..035c362 100644
 --- a/lib/src/radio/CMakeLists.txt
 +++ b/lib/src/radio/CMakeLists.txt
 @@ -20,8 +20,8 @@
@@ -274,7 +274,7 @@ index ca8c87a4..035c362b 100644
 \ No newline at end of file
 +add_subdirectory(test)
 diff --git a/lib/src/upper/CMakeLists.txt b/lib/src/upper/CMakeLists.txt
-index 4b2da877..db5eacec 100644
+index 4b2da87..db5eace 100644
 --- a/lib/src/upper/CMakeLists.txt
 +++ b/lib/src/upper/CMakeLists.txt
 @@ -21,4 +21,4 @@
@@ -285,7 +285,7 @@ index 4b2da877..db5eacec 100644
 \ No newline at end of file
 +#install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/srsenb/CMakeLists.txt b/srsenb/CMakeLists.txt
-index bb336bc1..e7c25367 100644
+index bb336bc..e7c2536 100644
 --- a/srsenb/CMakeLists.txt
 +++ b/srsenb/CMakeLists.txt
 @@ -52,7 +52,7 @@ add_subdirectory(test)
@@ -302,16 +302,16 @@ index bb336bc1..e7c25367 100644
 +#install(FILES rr.conf.example DESTINATION ${DATA_DIR})
 +#install(FILES sib.conf.example DESTINATION ${DATA_DIR}) // MIN_INSTALL
 diff --git a/srsenb/src/CMakeLists.txt b/srsenb/src/CMakeLists.txt
-index f1976ab5..54761045 100644
+index 85738f3..fa84487 100644
 --- a/srsenb/src/CMakeLists.txt
 +++ b/srsenb/src/CMakeLists.txt
 @@ -34,8 +34,8 @@ if (RPATH)
  endif (RPATH)
  
  
--add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc)
+-add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
 -target_link_libraries(srsenb  srsenb_upper
-+add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc)
++add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
 +target_link_libraries(srsenb-emane  srsenb_upper
                                srsenb_mac
                                srsenb_phy
@@ -341,7 +341,7 @@ index f1976ab5..54761045 100644
 -install(TARGETS srsenb DESTINATION ${RUNTIME_DIR})
 +install(TARGETS srsenb-emane DESTINATION ${RUNTIME_DIR})
 diff --git a/srsenb/src/mac/CMakeLists.txt b/srsenb/src/mac/CMakeLists.txt
-index d46c5a20..7219d70e 100644
+index d46c5a2..7219d70 100644
 --- a/srsenb/src/mac/CMakeLists.txt
 +++ b/srsenb/src/mac/CMakeLists.txt
 @@ -20,5 +20,5 @@
@@ -352,7 +352,7 @@ index d46c5a20..7219d70e 100644
 +#install(TARGETS srsenb_mac DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
  
 diff --git a/srsenb/src/phy/CMakeLists.txt b/srsenb/src/phy/CMakeLists.txt
-index 427b2c69..ad780851 100644
+index 427b2c6..ad78085 100644
 --- a/srsenb/src/phy/CMakeLists.txt
 +++ b/srsenb/src/phy/CMakeLists.txt
 @@ -27,5 +27,5 @@ endif(ENABLE_GUI AND SRSGUI_FOUND)
@@ -363,7 +363,7 @@ index 427b2c69..ad780851 100644
 +#install(TARGETS srsenb_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
  
 diff --git a/srsenb/src/upper/CMakeLists.txt b/srsenb/src/upper/CMakeLists.txt
-index a06b4bf5..e8b276f2 100644
+index a06b4bf..e8b276f 100644
 --- a/srsenb/src/upper/CMakeLists.txt
 +++ b/srsenb/src/upper/CMakeLists.txt
 @@ -20,5 +20,5 @@
@@ -374,7 +374,7 @@ index a06b4bf5..e8b276f2 100644
 +#install(TARGETS srsenb_upper DESTINATION ${LIBRARY_DIR}) //MIN_INSTALL
  
 diff --git a/srsepc/CMakeLists.txt b/srsepc/CMakeLists.txt
-index e8ac1f68..fe38ed35 100644
+index e8ac1f6..fe38ed3 100644
 --- a/srsepc/CMakeLists.txt
 +++ b/srsepc/CMakeLists.txt
 @@ -51,7 +51,7 @@ add_subdirectory(src)
@@ -391,7 +391,7 @@ index e8ac1f68..fe38ed35 100644
 +#install(FILES user_db.csv.example DESTINATION ${DATA_DIR})
 +#install(PROGRAMS srsepc_if_masq.sh DESTINATION ${RUNTIME_DIR}) // MIN_INSTALL
 diff --git a/srsepc/src/CMakeLists.txt b/srsepc/src/CMakeLists.txt
-index f7b9d2a7..636a8561 100644
+index f7b9d2a..636a856 100644
 --- a/srsepc/src/CMakeLists.txt
 +++ b/srsepc/src/CMakeLists.txt
 @@ -34,8 +34,8 @@ if (RPATH)
@@ -440,7 +440,7 @@ index f7b9d2a7..636a8561 100644
 -install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
 +install(TARGETS srsepc-emane DESTINATION ${RUNTIME_DIR})
 diff --git a/srsepc/src/hss/CMakeLists.txt b/srsepc/src/hss/CMakeLists.txt
-index ea077a22..5a1f5b60 100644
+index ea077a2..5a1f5b6 100644
 --- a/srsepc/src/hss/CMakeLists.txt
 +++ b/srsepc/src/hss/CMakeLists.txt
 @@ -20,5 +20,5 @@
@@ -451,7 +451,7 @@ index ea077a22..5a1f5b60 100644
 +#install(TARGETS srsepc_hss DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
  
 diff --git a/srsepc/src/mbms-gw/CMakeLists.txt b/srsepc/src/mbms-gw/CMakeLists.txt
-index dd33a756..ac1b44dd 100644
+index dd33a75..ac1b44d 100644
 --- a/srsepc/src/mbms-gw/CMakeLists.txt
 +++ b/srsepc/src/mbms-gw/CMakeLists.txt
 @@ -20,4 +20,4 @@
@@ -461,7 +461,7 @@ index dd33a756..ac1b44dd 100644
 -install(TARGETS srsepc_mbms_gw DESTINATION ${LIBRARY_DIR})
 +#install(TARGETS srsepc_mbms_gw DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/srsepc/src/mme/CMakeLists.txt b/srsepc/src/mme/CMakeLists.txt
-index 97d90cbc..4f6fecaf 100644
+index 97d90cb..4f6feca 100644
 --- a/srsepc/src/mme/CMakeLists.txt
 +++ b/srsepc/src/mme/CMakeLists.txt
 @@ -20,5 +20,5 @@
@@ -472,7 +472,7 @@ index 97d90cbc..4f6fecaf 100644
 +#install(TARGETS srsepc_mme DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
  
 diff --git a/srsepc/src/spgw/CMakeLists.txt b/srsepc/src/spgw/CMakeLists.txt
-index b3ebda99..55ca98ad 100644
+index b3ebda9..55ca98a 100644
 --- a/srsepc/src/spgw/CMakeLists.txt
 +++ b/srsepc/src/spgw/CMakeLists.txt
 @@ -20,4 +20,4 @@
@@ -482,7 +482,7 @@ index b3ebda99..55ca98ad 100644
 -install(TARGETS srsepc_sgw DESTINATION ${LIBRARY_DIR})
 +#install(TARGETS srsepc_sgw DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/srsue/CMakeLists.txt b/srsue/CMakeLists.txt
-index 491d72ee..69effa65 100644
+index 491d72e..69effa6 100644
 --- a/srsue/CMakeLists.txt
 +++ b/srsue/CMakeLists.txt
 @@ -48,4 +48,4 @@ add_subdirectory(test)
@@ -493,16 +493,16 @@ index 491d72ee..69effa65 100644
 \ No newline at end of file
 +#install(FILES ue.conf.example DESTINATION ${DATA_DIR}) // MIN_INSTALL
 diff --git a/srsue/src/CMakeLists.txt b/srsue/src/CMakeLists.txt
-index 2749e976..97551fd6 100644
+index bb9892f..d3194aa 100644
 --- a/srsue/src/CMakeLists.txt
 +++ b/srsue/src/CMakeLists.txt
 @@ -31,8 +31,8 @@ if (RPATH)
    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
  endif (RPATH)
  
--add_executable(srsue main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc)
+-add_executable(srsue main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
 -target_link_libraries(srsue   srsue_mac
-+add_executable(srsue-emane main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc)
++add_executable(srsue-emane main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
 +target_link_libraries(srsue-emane   srsue_mac
                                srsue_phy
                                srsue_upper
@@ -532,7 +532,7 @@ index 2749e976..97551fd6 100644
 -install(TARGETS srsue DESTINATION ${RUNTIME_DIR})
 +install(TARGETS srsue-emane DESTINATION ${RUNTIME_DIR})
 diff --git a/srsue/src/mac/CMakeLists.txt b/srsue/src/mac/CMakeLists.txt
-index db01c0cd..710d9e06 100644
+index db01c0c..710d9e0 100644
 --- a/srsue/src/mac/CMakeLists.txt
 +++ b/srsue/src/mac/CMakeLists.txt
 @@ -20,4 +20,4 @@
@@ -542,7 +542,7 @@ index db01c0cd..710d9e06 100644
 -install(TARGETS srsue_mac DESTINATION ${LIBRARY_DIR})
 +#install(TARGETS srsue_mac DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/srsue/src/phy/CMakeLists.txt b/srsue/src/phy/CMakeLists.txt
-index 94d06843..31904cc2 100644
+index 94d0684..31904cc 100644
 --- a/srsue/src/phy/CMakeLists.txt
 +++ b/srsue/src/phy/CMakeLists.txt
 @@ -27,4 +27,4 @@ endif(ENABLE_GUI AND SRSGUI_FOUND)
@@ -552,7 +552,7 @@ index 94d06843..31904cc2 100644
 -install(TARGETS srsue_phy DESTINATION ${LIBRARY_DIR})
 +#install(TARGETS srsue_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/srsue/src/upper/CMakeLists.txt b/srsue/src/upper/CMakeLists.txt
-index 65975146..ab6818de 100644
+index 6597514..ab6818d 100644
 --- a/srsue/src/upper/CMakeLists.txt
 +++ b/srsue/src/upper/CMakeLists.txt
 @@ -30,4 +30,4 @@ if(HAVE_PCSC)
