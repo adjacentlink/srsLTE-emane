@@ -22,8 +22,6 @@
 #include "libemanelte/enbstatisticmanager.h"
 #include "srsenb/hdr/metrics_ostatistic.h"
 
-#include <stdio.h>
-
 namespace srsenb{
 
 metrics_ostatistic::metrics_ostatistic():
@@ -47,8 +45,6 @@ void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
   // track ue's
   for(uint16_t ue = 0; ue < m.rrc.n_ues; ++ue)
    {
-     fprintf(stderr, "%s ue %d\n", __func__, ue);
-
      const std::string state = m.rrc.ues[ue].state == RRC_STATE_IDLE                            ? "IDLE" :
                                m.rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE     ? "WAIT_SETUP_COMP" :
                                m.rrc.ues[ue].state == RRC_STATE_WAIT_FOR_SECURITY_MODE_COMPLETE ? "WAIT_SECMD_COMP" :
@@ -123,8 +119,6 @@ void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
 
   ENBSTATS::setMACMetrics(macMetrics);
   ENBSTATS::setRLCMetrics(rlcMetrics);
-
-
 }
 
 } // end namespace srsenb

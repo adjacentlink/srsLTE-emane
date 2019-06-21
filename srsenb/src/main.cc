@@ -431,11 +431,9 @@ int main(int argc, char *argv[])
     metrics_file.set_handle(enb);
   }
 
-#if 0
   metrics_ostatistic metrics_ostatistic;
   metricshub.add_listener(&metrics_ostatistic);
   metrics_ostatistic.set_handle(enb);
-#endif
 
   pthread_t input = {0};
   if(! args.runtime.daemonize) {
