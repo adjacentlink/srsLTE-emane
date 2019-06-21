@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -20,30 +20,30 @@
  */
 
 /******************************************************************************
- *  File:         mod.h
- *
- *  Description:  Modulation.
- *                Supports BPSK, QPSK, 16QAM and 64QAM.
- *
- *  Reference:    3GPP TS 36.211 version 10.0.0 Release 10 Sec. 7.1
+ * File:        metrics_ostatistic.h
+ * Description: Metrics class for open statistic
  *****************************************************************************/
 
-#ifndef SRSLTE_MOD_H
-#define SRSLTE_MOD_H
+#ifndef SRSENB_METRICS_OSTATISTIC_H
+#define SRSENB_METRICS_OSTATISTIC_H
 
-#include <stdint.h>
+#include "srslte/interfaces/enb_metrics_interface.h"
 
-#include "srslte/config.h"
-#include "modem_table.h"
+namespace srsenb {
 
-SRSLTE_API int srslte_mod_modulate(srslte_modem_table_t* table,
-                                   uint8_t *bits, 
-                                   cf_t* symbols, 
-                                   uint32_t nbits);
+class metrics_ostatistic : public srslte::metrics_listener<enb_metrics_t>
+{
+public:
+  metrics_ostatistic();
 
-SRSLTE_API int srslte_mod_modulate_bytes(srslte_modem_table_t* q, 
-                                         uint8_t *bits, 
-                                         cf_t* symbols, 
-                                         uint32_t nbits); 
+  void set_metrics(enb_metrics_t &m, const uint32_t period_usec);
+  void set_handle(enb_metrics_interface *enb_);
+  void stop() {};
 
-#endif // SRSLTE_MOD_H
+private:
+  enb_metrics_interface* enb;
+};
+
+} // namespace srsenb
+
+#endif // SRSENB_METRICS_OSTATISTIC_H

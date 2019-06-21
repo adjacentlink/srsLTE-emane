@@ -135,7 +135,7 @@ private:
   
   uint32_t      tti; 
   bool          started; 
-  bool          configured; // ALINK
+  bool          configured;
 
   /* Scheduler unit */
   sched            scheduler; 

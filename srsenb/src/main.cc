@@ -36,6 +36,7 @@
 #include "srsenb/hdr/enb.h"
 #include "srsenb/hdr/metrics_stdout.h"
 #include "srsenb/hdr/metrics_csv.h"
+#include "srsenb/hdr/metrics_ostatistic.h"
 
 using namespace std;
 using namespace srsenb;
@@ -354,7 +355,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
   }
 }
 
-static int  sigcnt = 9;
+static int  sigcnt = 0;
 static bool running    = true;
 static bool do_metrics = false;
 
@@ -429,6 +430,12 @@ int main(int argc, char *argv[])
     metricshub.add_listener(&metrics_file);
     metrics_file.set_handle(enb);
   }
+
+#if 0
+  metrics_ostatistic metrics_ostatistic;
+  metricshub.add_listener(&metrics_ostatistic);
+  metrics_ostatistic.set_handle(enb);
+#endif
 
   pthread_t input = {0};
   if(! args.runtime.daemonize) {

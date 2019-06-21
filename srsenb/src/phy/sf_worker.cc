@@ -633,7 +633,7 @@ int sf_worker::decode_pusch(mac_interface_phy::ul_sched_grant_t* grants, uint32_
 
         if (grants[i].dci.tb.rv == 0) {
           if (!pusch_res.crc) {
-            Warning("PUSCH: Radio-Link failure snr=%.1f dB\n", snr_db);
+            Info("PUSCH: Radio-Link failure snr=%.1f dB\n", snr_db);
             phy->mac->rl_failure(rnti);
           } else {
             phy->mac->rl_ok(rnti);
@@ -684,7 +684,7 @@ int sf_worker::decode_pucch()
         // Notify MAC of RL status (skip SR subframes)
         if (!ue_db[rnti]->ul_cfg.pucch.uci_cfg.is_scheduling_request_tti) {
           if (pucch_res.correlation < PUCCH_RL_CORR_TH) {
-            Warning("PUCCH: Radio-Link failure corr=%.1f\n", pucch_res.correlation);
+            Info("PUCCH: Radio-Link failure corr=%.1f\n", pucch_res.correlation);
             phy->mac->rl_failure(rnti);
           } else {
             phy->mac->rl_ok(rnti);
