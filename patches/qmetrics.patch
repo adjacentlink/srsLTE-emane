@@ -1,7 +1,8 @@
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h srsLTE_emane_qmetrics/lib/include/srslte/common/block_queue.h
---- ./srsLTE_emane/lib/include/srslte/common/block_queue.h	2018-11-08 11:19:56.832773976 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/common/block_queue.h	2018-11-08 11:19:44.899760325 -0500
-@@ -45,6 +45,8 @@
+diff --git a/lib/include/srslte/common/block_queue.h b/lib/include/srslte/common/block_queue.h
+index 7de09298..080f39fb 100644
+--- a/lib/include/srslte/common/block_queue.h
++++ b/lib/include/srslte/common/block_queue.h
+@@ -39,6 +39,8 @@
  #include <unistd.h>
  #include <strings.h>
  
@@ -10,7 +11,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
  namespace srslte {
  
  template<typename myobj>
-@@ -67,6 +69,7 @@
+@@ -61,6 +63,7 @@ public:
      mutexed_callback = NULL;
      enable = true;
      num_threads = 0;
@@ -18,7 +19,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
    }
    ~block_queue() {
      // Unlock threads waiting at push or pop
-@@ -92,7 +95,10 @@
+@@ -86,7 +89,10 @@ public:
      mutexed_callback = itf;
    }
    void resize(int new_capacity) {
@@ -29,7 +30,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
    }
  
    void push(const myobj& value) {
-@@ -122,7 +128,9 @@
+@@ -116,7 +122,9 @@ public:
  
    void clear() { // remove all items
      myobj *item = NULL;
@@ -40,7 +41,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
    }
  
    myobj front() {
-@@ -130,31 +138,51 @@
+@@ -124,31 +132,50 @@ public:
    }
  
    size_t size() {
@@ -51,7 +52,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
 +    return result;
    }
  
-+  queue_metrics_t get_qmetrics(bool bReset) {
++  queue_metrics_t get_qmetrics(bool bReset = false) {
 +    pthread_mutex_lock(&mutex);
 +    const queue_metrics_t result = qmetrics;
 +    if(bReset) {
@@ -85,7 +86,6 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
      if (value) {
        *value = q.front();
      }
-+
      q.pop();
 +    ++qmetrics.num_pop;
 +    qmetrics.currsize = q.size();
@@ -93,7 +93,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
      ret = true;
      if (mutexed_callback) {
        mutexed_callback->popping(*value);
-@@ -168,6 +196,7 @@
+@@ -162,6 +189,7 @@ private:
  
    bool push_(const myobj& value, bool block) {
      if (!enable) {
@@ -101,7 +101,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
        return false;
      }
      pthread_mutex_lock(&mutex);
-@@ -179,13 +208,20 @@
+@@ -173,13 +201,19 @@ private:
            pthread_cond_wait(&cv_full, &mutex);
          }
          if (!enable) {
@@ -113,7 +113,6 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
          goto exit;
        }
      }
-+
      q.push(value);
 +    ++qmetrics.num_push;
 +    qmetrics.currsize = q.size();
@@ -122,24 +121,52 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/block_queue.h
      ret = true;
      if (mutexed_callback) {
        mutexed_callback->pushing(value);
-@@ -205,6 +241,8 @@
+@@ -199,6 +233,7 @@ private:
    int capacity;
    bool enable;
    uint32_t num_threads;
-+
 +  queue_metrics_t qmetrics;
  };
  
  }
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/queue_metrics.h srsLTE_emane_qmetrics/lib/include/srslte/common/queue_metrics.h
---- ./srsLTE_emane/lib/include/srslte/common/queue_metrics.h	1969-12-31 19:00:00.000000000 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/common/queue_metrics.h	2018-11-08 11:19:44.899760325 -0500
-@@ -0,0 +1,94 @@
+diff --git a/lib/include/srslte/common/queue_metrics.h b/lib/include/srslte/common/queue_metrics.h
+new file mode 100644
+index 00000000..15727f82
+--- /dev/null
++++ b/lib/include/srslte/common/queue_metrics.h
+@@ -0,0 +1,120 @@
 +/**
 + *
 + * \section COPYRIGHT
 + *
-+ * Copyright 2018 Software Radio Systems Limited
++ * Copyright (c) 2019 - Adjacent Link LLC, Bridgewater, New Jersey
++ *
++ * \section LICENSE
++ *
++ * This file is part of the srsLTE library.
++ *
++ * srsLTE is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU Affero General Public License as
++ * published by the Free Software Foundation, either version 3 of
++ * the License, or (at your option) any later version.
++ *
++ * srsLTE is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU Affero General Public License for more details.
++ *
++ * A copy of the GNU Affero General Public License can be found in
++ * the LICENSE file in the top-level directory of this distribution
++ * and at http://www.gnu.org/licenses/.
++ *
++ */
++
++/**
++ *
++ * \section COPYRIGHT
++ *
++ * Copyright 2015 The srsUE Developers. See the
++ * COPYRIGHT file at the top-level directory of this distribution.
 + *
 + * \section LICENSE
 + *
@@ -160,7 +187,6 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/queue_metrics
 + * and at http://www.gnu.org/licenses/.
 + *
 + */
-+
 +
 +/******************************************************************************
 + *  File:         qmetrics.h
@@ -229,21 +255,23 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/common/queue_metrics
 +}
 +
 +#endif // QUEUE_METRICS_H
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/interfaces/enb_metrics_interface.h srsLTE_emane_qmetrics/lib/include/srslte/interfaces/enb_metrics_interface.h
---- ./srsLTE_emane/lib/include/srslte/interfaces/enb_metrics_interface.h	2018-11-08 11:19:56.832773976 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/interfaces/enb_metrics_interface.h	2018-11-08 11:19:44.900760326 -0500
-@@ -52,6 +52,7 @@
+diff --git a/lib/include/srslte/interfaces/enb_metrics_interface.h b/lib/include/srslte/interfaces/enb_metrics_interface.h
+index 31bd5e1e..1f527566 100644
+--- a/lib/include/srslte/interfaces/enb_metrics_interface.h
++++ b/lib/include/srslte/interfaces/enb_metrics_interface.h
+@@ -48,6 +48,7 @@ typedef struct {
    mac_metrics_t   mac[ENB_METRICS_MAX_USERS];
    rrc_metrics_t   rrc; 
    s1ap_metrics_t  s1ap;
-+  srslte::rlc_metrics_t rlc;
++  srslte::rlc_metrics_t rlc[ENB_METRICS_MAX_USERS];
    bool            running;
  }enb_metrics_t;
  
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_am.h srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_am.h
---- ./srsLTE_emane/lib/include/srslte/upper/rlc_am.h	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_am.h	2018-11-08 11:19:44.901760327 -0500
-@@ -98,6 +98,7 @@
+diff --git a/lib/include/srslte/upper/rlc_am.h b/lib/include/srslte/upper/rlc_am.h
+index 226fa035..00d19019 100644
+--- a/lib/include/srslte/upper/rlc_am.h
++++ b/lib/include/srslte/upper/rlc_am.h
+@@ -93,6 +93,7 @@ public:
    uint32_t get_num_rx_bytes();
    void reset_metrics();
  
@@ -251,7 +279,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_am.h srsLT
  private:
  
    // Transmitter sub-class
-@@ -128,6 +129,7 @@
+@@ -123,6 +124,7 @@ private:
      // Interface for Rx subclass
      void handle_control_pdu(uint8_t *payload, uint32_t nof_bytes);
  
@@ -259,22 +287,23 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_am.h srsLT
    private:
  
      int  build_status_pdu(uint8_t *payload, uint32_t nof_bytes);
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_common.h srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_common.h
---- ./srsLTE_emane/lib/include/srslte/upper/rlc_common.h	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_common.h	2018-11-08 11:19:44.901760327 -0500
-@@ -173,6 +174,8 @@
-   virtual uint32_t get_total_buffer_state() = 0;
+diff --git a/lib/include/srslte/upper/rlc_common.h b/lib/include/srslte/upper/rlc_common.h
+index 6c69b92a..af2ca01b 100644
+--- a/lib/include/srslte/upper/rlc_common.h
++++ b/lib/include/srslte/upper/rlc_common.h
+@@ -168,6 +168,7 @@ public:
+   virtual uint32_t get_buffer_state() = 0;
    virtual int      read_pdu(uint8_t *payload, uint32_t nof_bytes) = 0;
    virtual void     write_pdu(uint8_t *payload, uint32_t nof_bytes) = 0;
-+
 +  virtual queue_metrics_t get_qmetrics(bool bReset = false) = 0;
  };
  
  } // namespace srslte
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_metrics.h srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_metrics.h
---- ./srsLTE_emane/lib/include/srslte/upper/rlc_metrics.h	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_metrics.h	2018-11-08 11:19:44.901760327 -0500
-@@ -28,14 +28,25 @@
+diff --git a/lib/include/srslte/upper/rlc_metrics.h b/lib/include/srslte/upper/rlc_metrics.h
+index 5e2d69c1..43e7aaa6 100644
+--- a/lib/include/srslte/upper/rlc_metrics.h
++++ b/lib/include/srslte/upper/rlc_metrics.h
+@@ -23,14 +23,25 @@
  #define SRSLTE_RLC_METRICS_H
  
  #include "srslte/common/common.h"
@@ -300,81 +329,58 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_metrics.h 
  };
  
  } // namespace srslte
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_tm.h srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_tm.h
---- ./srsLTE_emane/lib/include/srslte/upper/rlc_tm.h	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_tm.h	2018-11-08 11:19:44.901760327 -0500
-@@ -67,6 +67,7 @@
+diff --git a/lib/include/srslte/upper/rlc_tm.h b/lib/include/srslte/upper/rlc_tm.h
+index 8d3b9375..820ababb 100644
+--- a/lib/include/srslte/upper/rlc_tm.h
++++ b/lib/include/srslte/upper/rlc_tm.h
+@@ -62,6 +62,7 @@ public:
    int      read_pdu(uint8_t *payload, uint32_t nof_bytes);
    void     write_pdu(uint8_t *payload, uint32_t nof_bytes);
  
-+  queue_metrics_t get_qmetrics(bool bReset);
++  queue_metrics_t get_qmetrics(bool bReset = false);
  private:
  
    byte_buffer_pool          *pool;
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_tx_queue.h srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_tx_queue.h
---- ./srsLTE_emane/lib/include/srslte/upper/rlc_tx_queue.h	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_tx_queue.h	2018-11-08 11:19:44.901760327 -0500
-@@ -110,6 +110,10 @@
-     unread_bytes = 0;
+diff --git a/lib/include/srslte/upper/rlc_tx_queue.h b/lib/include/srslte/upper/rlc_tx_queue.h
+index 9eafa832..115eda27 100644
+--- a/lib/include/srslte/upper/rlc_tx_queue.h
++++ b/lib/include/srslte/upper/rlc_tx_queue.h
+@@ -109,6 +109,9 @@ public:
+     return queue.empty();
    }
  
-+  queue_metrics_t get_qmetrics(bool bReset) {
++  queue_metrics_t get_qmetrics(bool bReset = false) {
 +    return queue.get_qmetrics(bReset);
 +  }
-+
  private:
-   bool                        is_empty() { return queue.empty(); }
  
-diff -Nrua --exclude .git ./srsLTE_emane/lib/include/srslte/upper/rlc_um.h srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_um.h
---- ./srsLTE_emane/lib/include/srslte/upper/rlc_um.h	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/include/srslte/upper/rlc_um.h	2018-11-08 11:19:44.901760327 -0500
-@@ -78,6 +78,7 @@
+   block_queue<byte_buffer_t*> queue;
+diff --git a/lib/include/srslte/upper/rlc_um.h b/lib/include/srslte/upper/rlc_um.h
+index df179a34..a8093f3e 100644
+--- a/lib/include/srslte/upper/rlc_um.h
++++ b/lib/include/srslte/upper/rlc_um.h
+@@ -73,6 +73,7 @@ public:
    uint32_t get_num_rx_bytes();
    void reset_metrics();
  
-+  queue_metrics_t get_qmetrics(bool bReset);
++  queue_metrics_t get_qmetrics(bool bReset = false);
  private:
  
    // Transmitter sub-class
-@@ -97,6 +98,7 @@
-     uint32_t get_num_tx_bytes();
-     void reset_metrics();
-     uint32_t get_buffer_size_bytes();
-+    queue_metrics_t get_qmetrics(bool bReset);
+@@ -94,6 +95,8 @@ private:
+     bool has_data();
+     uint32_t get_buffer_state();
  
++    queue_metrics_t get_qmetrics(bool bReset = false);
++
    private:
      byte_buffer_pool        *pool;
-diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc_am.cc srsLTE_emane_qmetrics/lib/src/upper/rlc_am.cc
---- ./srsLTE_emane/lib/src/upper/rlc_am.cc	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/src/upper/rlc_am.cc	2018-11-08 11:19:44.908760335 -0500
-@@ -139,6 +139,11 @@
-   rx.reset_metrics();
- }
- 
-+queue_metrics_t rlc_am::get_qmetrics(bool bReset)
-+{
-+  return tx.get_qmetrics(bReset);
-+}
-+
- /****************************************************************************
-  * PDCP interface
-  ***************************************************************************/
-@@ -1194,7 +1199,10 @@
-   return false;
- }
- 
--
-+queue_metrics_t rlc_am::rlc_am_tx::get_qmetrics(bool bReset)
-+{
-+  return tx_sdu_queue.get_qmetrics(bReset);
-+}
- 
- /****************************************************************************
-  * Rx subclass implementation
-diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc.cc srsLTE_emane_qmetrics/lib/src/upper/rlc.cc
---- ./srsLTE_emane/lib/src/upper/rlc.cc	2018-11-08 11:19:56.833773977 -0500
-+++ srsLTE_emane_qmetrics/lib/src/upper/rlc.cc	2018-11-08 11:19:44.908760335 -0500
-@@ -122,18 +122,26 @@
+     srslte::log             *log;
+diff --git a/lib/src/upper/rlc.cc b/lib/src/upper/rlc.cc
+index f33f6386..d433128e 100644
+--- a/lib/src/upper/rlc.cc
++++ b/lib/src/upper/rlc.cc
+@@ -113,18 +113,26 @@ void rlc::get_metrics(rlc_metrics_t &m)
    for (rlc_map_t::iterator it = rlc_array.begin(); it != rlc_array.end(); ++it) {
      m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
      m.ul_tput_mbps[it->first] = (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs;
@@ -395,20 +401,49 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc.cc srsLTE_emane_qmetr
      m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
 -    rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps\n",
 +    m.mrb_metrics[it->first].qmetrics = it->second->get_qmetrics();
-+    m.metrics[it->first].mode = it->second->get_mode();
++    m.mrb_metrics[it->first].mode = it->second->get_mode();
 +    rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps. mode %s, %s\n",
                    it->first,
 -                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs);
 +                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
 +                  rlc_mode_text[it->second->get_mode()],
-+                  m.metrics[it->first].qmetrics.toString().c_str());
++                  m.mrb_metrics[it->first].qmetrics.toString().c_str());
    }
  
    memcpy(&metrics_time[1], &metrics_time[2], sizeof(struct timeval));
-diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc_tm.cc srsLTE_emane_qmetrics/lib/src/upper/rlc_tm.cc
---- ./srsLTE_emane/lib/src/upper/rlc_tm.cc	2018-11-08 11:19:56.834773978 -0500
-+++ srsLTE_emane_qmetrics/lib/src/upper/rlc_tm.cc	2018-11-08 11:19:44.908760335 -0500
-@@ -192,4 +192,9 @@
+diff --git a/lib/src/upper/rlc_am.cc b/lib/src/upper/rlc_am.cc
+index 2c2810ab..8e8f4928 100644
+--- a/lib/src/upper/rlc_am.cc
++++ b/lib/src/upper/rlc_am.cc
+@@ -124,6 +124,11 @@ void rlc_am::reset_metrics()
+   rx.reset_metrics();
+ }
+ 
++queue_metrics_t rlc_am::get_qmetrics(bool bReset)
++{
++  return tx.get_qmetrics(bReset);
++}
++
+ /****************************************************************************
+  * PDCP interface
+  ***************************************************************************/
+@@ -1134,7 +1139,10 @@ bool rlc_am::rlc_am_tx::retx_queue_has_sn(uint32_t sn)
+   return false;
+ }
+ 
+-
++queue_metrics_t rlc_am::rlc_am_tx::get_qmetrics(bool bReset)
++{
++  return tx_sdu_queue.get_qmetrics(bReset);
++}
+ 
+ /****************************************************************************
+  * Rx subclass implementation
+diff --git a/lib/src/upper/rlc_tm.cc b/lib/src/upper/rlc_tm.cc
+index 11aa4412..d8b12692 100644
+--- a/lib/src/upper/rlc_tm.cc
++++ b/lib/src/upper/rlc_tm.cc
+@@ -188,4 +188,9 @@ void rlc_tm::write_pdu(uint8_t *payload, uint32_t nof_bytes)
    }
  }
  
@@ -418,10 +453,11 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc_tm.cc srsLTE_emane_qm
 +}
 +
  } // namespace srsue
-diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc_um.cc srsLTE_emane_qmetrics/lib/src/upper/rlc_um.cc
---- ./srsLTE_emane/lib/src/upper/rlc_um.cc	2018-11-08 11:19:56.834773978 -0500
-+++ srsLTE_emane_qmetrics/lib/src/upper/rlc_um.cc	2018-11-08 11:19:44.908760335 -0500
-@@ -198,6 +198,10 @@
+diff --git a/lib/src/upper/rlc_um.cc b/lib/src/upper/rlc_um.cc
+index bec8f1d1..10e0cc60 100644
+--- a/lib/src/upper/rlc_um.cc
++++ b/lib/src/upper/rlc_um.cc
+@@ -189,6 +189,10 @@ void rlc_um::reset_metrics()
    rx.reset_metrics();
  }
  
@@ -432,7 +468,7 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc_um.cc srsLTE_emane_qm
  
  /****************************************************************************
   * Helper functions
-@@ -504,6 +508,12 @@
+@@ -498,6 +502,12 @@ void rlc_um::rlc_um_tx::debug_state()
    log->debug("%s vt_us = %d\n", get_rb_name(), vt_us);
  }
  
@@ -445,10 +481,11 @@ diff -Nrua --exclude .git ./srsLTE_emane/lib/src/upper/rlc_um.cc srsLTE_emane_qm
  /****************************************************************************
   * Rx subclass implementation
   ***************************************************************************/
-diff -Nrua --exclude .git ./srsLTE_emane/srsenb/hdr/upper/rlc.h srsLTE_emane_qmetrics/srsenb/hdr/upper/rlc.h
---- ./srsLTE_emane/srsenb/hdr/upper/rlc.h	2018-11-08 11:19:56.834773978 -0500
-+++ srsLTE_emane_qmetrics/srsenb/hdr/upper/rlc.h	2018-11-08 11:19:44.909760336 -0500
-@@ -28,6 +28,7 @@
+diff --git a/srsenb/hdr/upper/rlc.h b/srsenb/hdr/upper/rlc.h
+index bf8bd69c..37072533 100644
+--- a/srsenb/hdr/upper/rlc.h
++++ b/srsenb/hdr/upper/rlc.h
+@@ -23,6 +23,7 @@
  #include "srslte/interfaces/ue_interfaces.h"
  #include "srslte/interfaces/enb_interfaces.h"
  #include "srslte/upper/rlc.h"
@@ -456,41 +493,160 @@ diff -Nrua --exclude .git ./srsLTE_emane/srsenb/hdr/upper/rlc.h srsLTE_emane_qme
  
  #ifndef SRSENB_RLC_H
  #define SRSENB_RLC_H
-@@ -70,6 +71,8 @@
+@@ -65,6 +66,8 @@ public:
    void write_pdu(uint16_t rnti, uint32_t lcid, uint8_t *payload, uint32_t nof_bytes);
    void read_pdu_pcch(uint8_t *payload, uint32_t buffer_size); 
    
-+  void get_metrics(srslte::rlc_metrics_t &m);
++  void get_metrics(srslte::rlc_metrics_t * mlist);
 +
  private: 
    
    class user_interface : public srsue::pdcp_interface_rlc, 
-diff -Nrua --exclude .git ./srsLTE_emane/srsenb/src/enb.cc srsLTE_emane_qmetrics/srsenb/src/enb.cc
---- ./srsLTE_emane/srsenb/src/enb.cc	2018-11-08 11:19:56.834773978 -0500
-+++ srsLTE_emane_qmetrics/srsenb/src/enb.cc	2018-11-08 11:19:44.910760338 -0500
-@@ -316,6 +316,7 @@
+diff --git a/srsenb/src/enb.cc b/srsenb/src/enb.cc
+index 44b7bf7e..82bba6e6 100644
+--- a/srsenb/src/enb.cc
++++ b/srsenb/src/enb.cc
+@@ -352,6 +352,7 @@ bool enb::get_metrics(enb_metrics_t &m)
    mac.get_metrics(m.mac);
    rrc.get_metrics(m.rrc);
    s1ap.get_metrics(m.s1ap);
 +  rlc.get_metrics(m.rlc);
  
- #ifdef PHY_ADAPTER_ENABLE
-   ENBSTATS::setS1State(m.s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
-diff -Nrua --exclude .git ./srsLTE_emane/srsenb/src/upper/rlc.cc srsLTE_emane_qmetrics/srsenb/src/upper/rlc.cc
---- ./srsLTE_emane/srsenb/src/upper/rlc.cc	2018-11-08 11:19:56.834773978 -0500
-+++ srsLTE_emane_qmetrics/srsenb/src/upper/rlc.cc	2018-11-08 11:19:44.916760345 -0500
-@@ -248,4 +248,14 @@
+   m.running = started;  
+   return true;
+diff --git a/srsenb/src/metrics_stdout.cc b/srsenb/src/metrics_stdout.cc
+index ffd0b269..d41a58d8 100644
+--- a/srsenb/src/metrics_stdout.cc
++++ b/srsenb/src/metrics_stdout.cc
+@@ -69,6 +69,50 @@ void metrics_stdout::set_metrics(enb_metrics_t &metrics, const uint32_t period_u
+   std::ios::fmtflags f(cout.flags()); // For avoiding Coverity defect: Not restoring ostream format
+ 
+   if (++n_reports > 10) {
++    for(uint16_t ue = 0; ue < metrics.rrc.n_ues; ++ue) {
++      cout << endl << "quemetrics:------------------------------------------------------------------------------------------------" << endl;
++
++      for(size_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n) {
++         // use capacity to determine if lcid is active
++         if(metrics.rlc[ue].metrics[n].qmetrics.capacity) {
++             cout  << "rnti="      << std::setw(1) << metrics.mac[ue].rnti;
++             cout  << ", bearer"   << std::setw(2) << n;
++             cout  << ", mode="    << std::setw(1) << metrics.rlc[ue].metrics[n].mode;
++             cout  << ", cap="     << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.capacity;
++             cout  << ", depth="   << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.currsize;
++             cout  << ", hw="      << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.highwater;
++             cout  << ", cleared=" << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.num_cleared;
++             cout  << ", pushed="  << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.num_push;
++             cout  << ", pusherr=" << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.num_push_fail;
++             cout  << ", poped="   << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.num_pop;
++             cout  << ", poperr="  << std::setw(3) << metrics.rlc[ue].metrics[n].qmetrics.num_pop_fail;
++             cout << endl;
++         }
++      }
++      cout << "-----------------------------------------------------------------------------------------------------------" << endl;
++
++      cout << endl << "mrb quemetrics:--------------------------------------------------------------------------------------------" << endl;
++
++      for(size_t n = 0; n < SRSLTE_N_MCH_LCIDS; ++n) {
++          // use capacity to determine if lcid is active
++          if(metrics.rlc[ue].mrb_metrics[n].qmetrics.capacity) {
++             cout  << "rnti="     << std::setw(1) << metrics.mac[ue].rnti;
++             cout << ", bearer"   << std::setw(2) << n;
++             cout << ", mode="    << std::setw(1) << metrics.rlc[ue].mrb_metrics[n].mode;
++             cout << ", cap="     << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.capacity;
++             cout << ", depth="   << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.currsize;
++             cout << ", hw="      << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.highwater;
++             cout << ", cleared=" << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.num_cleared;
++             cout << ", pushed="  << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.num_push;
++             cout << ", pusherr=" << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.num_push_fail;
++             cout << ", poped="   << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.num_pop;
++             cout << ", poperr="  << std::setw(3) << metrics.rlc[ue].mrb_metrics[n].qmetrics.num_pop_fail;
++             cout << endl;
++           }
++        }
++      cout << "-----------------------------------------------------------------------------------------------------------" << endl;
++     }
++
+     n_reports = 0;
+     cout << endl;
+     cout << "------DL------------------------------UL----------------------------------" << endl;
+diff --git a/srsenb/src/upper/rlc.cc b/srsenb/src/upper/rlc.cc
+index f64707df..666e6a27 100644
+--- a/srsenb/src/upper/rlc.cc
++++ b/srsenb/src/upper/rlc.cc
+@@ -243,4 +243,15 @@ std::string rlc::user_interface::get_rb_name(uint32_t lcid)
    return std::string(rb_id_text[lcid]);
  }
  
-+void rlc::get_metrics(srslte::rlc_metrics_t &m)
++void rlc::get_metrics(srslte::rlc_metrics_t *mlist)
 +{
 +  pthread_rwlock_rdlock(&rwlock);
++  size_t n = 0;
 +  for(std::map<uint32_t, user_interface>::iterator iter=users.begin(); iter!=users.end(); ++iter) {
-+    iter->second.rlc->get_metrics(m);
++    iter->second.rlc->get_metrics(mlist[n++]);
 +  }
 +  pthread_rwlock_unlock(&rwlock);
 +}
 +
 +
  }
+diff --git a/srsue/src/metrics_stdout.cc b/srsue/src/metrics_stdout.cc
+index 7f77c522..bc5c8d53 100644
+--- a/srsue/src/metrics_stdout.cc
++++ b/srsue/src/metrics_stdout.cc
+@@ -70,6 +70,47 @@ void metrics_stdout::set_metrics(ue_metrics_t &metrics, const uint32_t period_us
+ 
+   if(++n_reports > 10)
+   {
++    cout << endl << "quemetrics:------------------------------------------------------------------------------------------------" << endl;
++
++    for(size_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n) {
++       // use capacity to determine if lcid is active
++       if(metrics.rlc.metrics[n].qmetrics.capacity) {
++           cout  << "bearer"     << std::setw(2) << n;
++           cout  << ", mode="    << std::setw(1) << metrics.rlc.metrics[n].mode;
++           cout  << ", cap="     << std::setw(3) << metrics.rlc.metrics[n].qmetrics.capacity;
++           cout  << ", depth="   << std::setw(3) << metrics.rlc.metrics[n].qmetrics.currsize;
++           cout  << ", hw="      << std::setw(3) << metrics.rlc.metrics[n].qmetrics.highwater;
++           cout  << ", cleared=" << std::setw(3) << metrics.rlc.metrics[n].qmetrics.num_cleared;
++           cout  << ", pushed="  << std::setw(3) << metrics.rlc.metrics[n].qmetrics.num_push;
++           cout  << ", pusherr=" << std::setw(3) << metrics.rlc.metrics[n].qmetrics.num_push_fail;
++           cout  << ", poped="   << std::setw(3) << metrics.rlc.metrics[n].qmetrics.num_pop;
++           cout  << ", poperr="  << std::setw(3) << metrics.rlc.metrics[n].qmetrics.num_pop_fail;
++           cout << endl;
++       }
++    }
++    cout << "-----------------------------------------------------------------------------------------------------------" << endl;
++
++    cout << endl << "mrb quemetrics:--------------------------------------------------------------------------------------------" << endl;
++
++    for(size_t n = 0; n < SRSLTE_N_MCH_LCIDS; ++n) {
++        // use capacity to determine if lcid is active
++        if(metrics.rlc.mrb_metrics[n].qmetrics.capacity) {
++           cout << "bearer"     << std::setw(2) << n;
++           cout << ", mode="    << std::setw(1) << metrics.rlc.mrb_metrics[n].mode;
++           cout << ", cap="     << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.capacity;
++           cout << ", depth="   << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.currsize;
++           cout << ", hw="      << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.highwater;
++           cout << ", cleared=" << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.num_cleared;
++           cout << ", pushed="  << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.num_push;
++           cout << ", pusherr=" << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.num_push_fail;
++           cout << ", poped="   << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.num_pop;
++           cout << ", poperr="  << std::setw(3) << metrics.rlc.mrb_metrics[n].qmetrics.num_pop_fail;
++           cout << endl;
++         }
++      }
++    cout << "-----------------------------------------------------------------------------------------------------------" << endl;
++
++
+     n_reports = 0;
+     cout << endl;
+     cout << "----Signal--------------DL-------------------------------------UL----------------------" << endl;
+@@ -107,6 +148,8 @@ void metrics_stdout::set_metrics(ue_metrics_t &metrics, const uint32_t period_us
+   if (metrics.rf.rf_error) {
+     printf("RF status: O=%d, U=%d, L=%d\n", metrics.rf.rf_o, metrics.rf.rf_u, metrics.rf.rf_l);
+   }
++
++
+ }
+ 
+ std::string metrics_stdout::float_to_string(float f, int digits)
