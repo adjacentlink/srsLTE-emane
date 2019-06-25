@@ -280,6 +280,14 @@ typedef struct SRSLTE_API {
 } srslte_dci_tb_t; */
 
 // see lib/src/phy/phch/pdcch.c
+#define PDCCH_NOF_FORMATS               4
+#define PDCCH_FORMAT_NOF_CCE(i)          (1<<i)
+#define PDCCH_FORMAT_NOF_REGS(i)        ((1<<i)*9)
+#define PDCCH_FORMAT_NOF_BITS(i)        ((1<<i)*72)
+
+#define NOF_CCE(cfi)  ((cfi>0&&cfi<4)?q->pdcch.nof_cce [cfi-1]:0)
+#define NOF_REGS(cfi) ((cfi>0&&cfi<4)?q->pdcch.nof_regs[cfi-1]:0)
+
 // srslte_pdcch_encode(&q->pdcch, &q->dl_sf, &dci_msg, q->sf_symbols)
 static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                                  const srslte_dci_msg_t * dci_msg,
@@ -288,46 +296,70 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
  {
    const auto rnti = dci_msg->rnti;
 
-   // see lib/src/phy/phch/regs.c srslte_regs_pdcch_get_offset
-   const uint32_t nof_regs = (1<<dci_msg->location.L) * 9;
+   // see lib/src/phy/phch/regs.c int srslte_regs_pdcch_put_offset(srslte_regs_t *h, 
+   //                                                              uint32_t cfi, 
+   //                                                              uint32_t start_reg,
+   //                                                              uint32_t nof_regs)
+   const uint32_t nof_regs = PDCCH_FORMAT_NOF_REGS(dci_msg->location.L);
+   uint32_t start_reg      = dci_msg->location.ncce * 9;
 
-   // const uint32_t start_reg = dci_msg->location.ncce * 9; // XXX TODO
-   const uint32_t start_reg = 0;
-
-   const uint32_t regs_len  = start_reg + nof_regs;
-
-   if(regs_len > q->pdcch.nof_regs[q->dl_sf.cfi - 1])
+   // see lib/src/phy/phch/pdcch.c srslte_pdcch_encode(srslte_pdcch_t*     q,
+   //                                                  srslte_dl_sf_cfg_t* sf,
+   //                                                  srslte_dci_msg_t*   msg,
+   if(!((dci_msg->location.ncce + PDCCH_FORMAT_NOF_CCE(dci_msg->location.L) <= NOF_CCE(q->dl_sf.cfi)) &&
+        (dci_msg->nof_bits < (SRSLTE_DCI_MAX_BITS - 16)))) 
     {
-       Error("PDCCH:%s type %s, rnti 0x%hx, cfi %d, pdccd->nof_regs %d, regs_len %u, ncce %d -> start_reg %d, L %d -> nof_regs %d\n", 
+      Info("PDCCH:%s type %s, rnti 0x%hx, cfi %d, illegal dci msg, ncce %d, format_ncce %d, cfi_ncce %d, nof_bits %d, max_bits %d\n", 
              __func__,
              type ? "UL" : "DL",
              rnti,
              q->dl_sf.cfi,
-             q->pdcch.nof_regs[q->dl_sf.cfi - 1],
-             regs_len,
              dci_msg->location.ncce, 
-             start_reg,
-             dci_msg->location.L,
-             nof_regs);
+             PDCCH_FORMAT_NOF_CCE(dci_msg->location.L),
+             NOF_CCE(q->dl_sf.cfi),
+             dci_msg->nof_bits,
+             (SRSLTE_DCI_MAX_BITS - 16));
 
-       return SRSLTE_ERROR;
+      // XXX TODO
+      // srslte p/r #299 amd issue #347 temp fix set start_reg to 0
+      start_reg = 0;
     }
 
-   auto pdcch_message   = enb_dl_msg_.add_pdcch();
-   auto channel_message = downlink_control_message_->add_pdcch();
+   const uint32_t regs_len = start_reg + nof_regs;
 
-   initDownlinkChannelMessage(channel_message,
-                              EMANELTE::MHAL::CHAN_PDCCH,
-                              EMANELTE::MHAL::MOD_QPSK,
-                              rnti,
-                              dci_msg->nof_bits);
+   if(regs_len > NOF_REGS(q->dl_sf.cfi))
+    {
+      Warning("PDCCH:%s type %s, rnti 0x%hx, cfi %d, pdccd->nof_regs %d, regs_len %u, ncce %d -> start_reg %d, L %d -> nof_regs %d\n", 
+            __func__,
+            type ? "UL" : "DL",
+            rnti,
+            q->dl_sf.cfi,
+            NOF_REGS(q->dl_sf.cfi),
+            regs_len,
+            dci_msg->location.ncce, 
+            start_reg,
+            dci_msg->location.L,
+            nof_regs);
+
+      return SRSLTE_ERROR;
+   }
+
+  auto pdcch_message   = enb_dl_msg_.add_pdcch();
+  auto channel_message = downlink_control_message_->add_pdcch();
+
+  initDownlinkChannelMessage(channel_message,
+                             EMANELTE::MHAL::CHAN_PDCCH,
+                             EMANELTE::MHAL::MOD_QPSK,
+                             rnti,
+                                dci_msg->nof_bits);
 
 
-   for (uint32_t i = start_reg; i < regs_len; ++i) {
-     const auto reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
+  for(uint32_t i = start_reg; i < regs_len; ++i)
+   {
+    const auto reg = q->pdcch.regs->pdcch[q->dl_sf.cfi-1].regs[i];
 
-     if(reg)
-      {
+    if(reg)
+     {
        const uint32_t  k0 = reg->k0;
        const uint32_t  l  = reg->l;
        const uint32_t* k  = &reg->k[0];
@@ -346,8 +378,8 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      }
    }
 
-   if(type == 0)
-    {
+  if(type == 0)
+   {
      // dl dci
      auto dl_dci_message = pdcch_message->mutable_dl_dci();
 
@@ -388,7 +420,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
              __func__, rnti, dci_msg->nof_bits);
    }
 
-   return SRSLTE_SUCCESS;
+  return SRSLTE_SUCCESS;
 }
 
 // lib/src/phy/phch/pdsch.c
