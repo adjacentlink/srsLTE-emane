@@ -299,11 +299,13 @@ bool cc_worker::work_dl_regular()
       srslte_ue_dl_set_mi_manual(&ue_dl, i);
     }
 
+#ifndef PHY_ADAPTER_ENABLE
     /* Do FFT and extract PDCCH LLR, or quit if no actions are required in this subframe */
     if (srslte_ue_dl_decode_fft_estimate(&ue_dl, &sf_cfg_dl, &ue_dl_cfg) < 0) {
       Error("Getting PDCCH FFT estimate\n");
       return false;
     }
+#endif
 
     /* Look for DL and UL dci(s) if this is PCell, or no cross-carrier scheduling is enabled */
     if ((cc_idx == 0) || (!phy->cif_enabled)) {
@@ -359,8 +361,10 @@ bool cc_worker::work_dl_mbsfn(srslte_mbsfn_cfg_t mbsfn_cfg)
 {
   mac_interface_phy::tb_action_dl_t dl_action;
 
+#ifndef PHY_ADAPTER_ENABLE
   // Configure MBSFN settings
   srslte_ue_dl_set_mbsfn_area_id(&ue_dl, mbsfn_cfg.mbsfn_area_id);
+#endif
   srslte_ue_dl_set_non_mbsfn_region(&ue_dl, mbsfn_cfg.non_mbsfn_region_length);
 
   sf_cfg_dl.sf_type = SRSLTE_SF_MBSFN;
@@ -369,11 +373,13 @@ bool cc_worker::work_dl_mbsfn(srslte_mbsfn_cfg_t mbsfn_cfg)
   chest_mbsfn_cfg.mbsfn_area_id = mbsfn_cfg.mbsfn_area_id;
   ue_dl_cfg.chest_cfg = chest_mbsfn_cfg;
 
+#ifndef PHY_ADAPTER_ENABLE
   /* Do FFT and extract PDCCH LLR, or quit if no actions are required in this subframe */
   if (srslte_ue_dl_decode_fft_estimate(&ue_dl, &sf_cfg_dl, &ue_dl_cfg) < 0) {
     Error("Getting PDCCH FFT estimate\n");
     return false;
   }
+#endif
 
   decode_pdcch_ul();
 
