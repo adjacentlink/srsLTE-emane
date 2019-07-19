@@ -1437,7 +1437,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
        {
          auto & rxControl = ul_msg->second;
 
-         if(!rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
+         if(!rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH).first)
            {
              continue;
            }
@@ -1648,7 +1648,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
             {
               auto & rxControl = ul_msg->second;
 
-              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUCCH, rnti))
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti).first)
                 {
                   const auto & uci_message = grant_message.uci();
 
@@ -1814,7 +1814,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
             {
               auto & rxControl = ul_msg->second;
 
-              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PUSCH, rnti))
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti).first)
                 {
                   const auto & ul_grant_message = grant_message.ul_grant();
                   const auto & uci_message      = grant_message.uci();

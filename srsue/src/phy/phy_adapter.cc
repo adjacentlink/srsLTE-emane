@@ -290,7 +290,7 @@ static UL_DCIList get_ul_dci_list_i(uint16_t rnti)
 
          if(ul_dci_message.rnti() == rnti)
            {
-             if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
+             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti).first)
                {
                  Info("PUCCH:%s: found dci rnti 0x%hx\n", __func__, rnti);
 
@@ -329,7 +329,7 @@ static DL_DCIList get_dl_dci_list_i(uint16_t rnti)
 
          if(dl_dci_message.rnti() == rnti)
            {
-             if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDCCH, rnti))
+             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti).first)
                {
                  Info("PDSCH:%s: found dci rnti 0x%hx, refid %u\n", 
                         __func__, rnti, dl_dci_message.refid());
@@ -364,7 +364,7 @@ static PDSCH_DataList ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
     {
       const auto & pdsch_message = enb_dl_msg_.pdsch();
 
-      if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PDSCH, rnti))
+      if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti).first)
         {
           for(int n = 0; n < pdsch_message.data().size(); ++n)
             {
@@ -746,7 +746,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
             {
               auto rxControl = dl_enb_signals[0].second;
 
-              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PBCH))
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).first)
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
@@ -880,7 +880,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
-              if(rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PBCH))
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).first)
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
@@ -1306,7 +1306,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
    {
      const auto & phich_message = enb_dl_msg_.phich();
 
-     if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PHICH, rnti))
+     if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti).first)
       {
        if(rnti                == phich_message.rnti()        && 
           grant->n_prb_lowest == phich_message.num_prb_low() &&
@@ -1419,7 +1419,7 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
 
             if(area_id == pmch.area_id())
              {
-               if(rx_control_.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PMCH))
+               if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH).first)
                  {
                    memcpy(data[tb].payload, pmch.data().data(), pmch.data().length());
  
