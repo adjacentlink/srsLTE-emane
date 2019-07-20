@@ -64,10 +64,21 @@ namespace {
 
  EMANELTE::MHAL::ENB_DL_Message enb_dl_msg_;
 
- // pdsch rnti/messages with sinr
- typedef std::pair<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data, double> ENB_DL_Message_PDSCH_Data_Result;
+ struct SignalQuality {
+  double sinr_dB_;
+  double noiseFloor_dBm_;
 
- std::map<uint16_t, ENB_DL_Message_PDSCH_Data_Result> enb_dl_pdsch_messages_;
+  SignalQuality(double sinr, double noiseFloor) :
+   sinr_dB_(sinr),
+   noiseFloor_dBm_(noiseFloor)
+  { }
+};
+
+
+ // pdsch rnti/messages with signal quality
+ typedef std::pair<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data, SignalQuality> ENB_DL_Message_PDSCH_Result;
+
+ std::map<uint16_t, ENB_DL_Message_PDSCH_Result> enb_dl_pdsch_messages_;
 
  EMANELTE::MHAL::RxControl rx_control_;
 
@@ -83,7 +94,7 @@ namespace {
 
  bool is_valid_n_id_2(int n_id_2)
   {
-   return(n_id_2 >= 0 && n_id_2 < 3);
+    return(n_id_2 >= 0 && n_id_2 < 3);
   }
 
  srslte_dci_format_t get_msg_format(EMANELTE::MHAL::DCI_FORMAT format)
@@ -150,19 +161,19 @@ namespace {
 namespace srsue {
 namespace phy_adapter {
 
+
 typedef std::vector<EMANELTE::MHAL::ENB_DL_Message_PDCCH_DL_DCI> DL_DCI_Results;
 
 // message, sinr
-typedef std::pair<EMANELTE::MHAL::ENB_DL_Message_PDCCH_UL_DCI, double> UL_DCI_Result;
+typedef std::pair<EMANELTE::MHAL::ENB_DL_Message_PDCCH_UL_DCI, SignalQuality> UL_DCI_Result;
 
 typedef std::vector<UL_DCI_Result> UL_DCI_Results;
 
 
-typedef std::vector<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data> PDSCH_DataList;
-
 // message, sinr
-typedef std::pair<PDSCH_DataList, double> PDSCH_DataListResult;
+typedef std::pair<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data, SignalQuality> PDSCH_Result;
 
+typedef std::vector<PDSCH_Result> PDSCH_Results;
 
 
 static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
@@ -289,7 +300,7 @@ static DL_ENB_Signals ue_dl_enb_subframe_search_i(srslte_ue_sync_t * ue_sync, co
 
 static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
 {
-  UL_DCI_Results ul_dci_result;
+  UL_DCI_Results ul_dci_results;
 
   for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
    {
@@ -303,13 +314,14 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
            {
              const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti);
 
-             if(sinrResult.first)
+             if(sinrResult.bPassed_)
                {
                  Info("PUCCH:%s: found dci rnti 0x%hx\n", __func__, rnti);
 
-                 ul_dci_result.emplace_back(ul_dci_message, sinrResult.second);
+                 // message, sinr
+                 ul_dci_results.emplace_back(ul_dci_message, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
 
-                 break; // XXX expect 1 and only 1 match
+                 break; // we expect 1 and only 1 match
                }
              else
                {
@@ -324,7 +336,7 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
        }
    }
 
-  return ul_dci_result;
+  return ul_dci_results;
 }
 
 
@@ -342,7 +354,7 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti)
 
          if(dl_dci_message.rnti() == rnti)
            {
-             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti).first)
+             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti).bPassed_)
                {
                  Info("PDSCH:%s: found dci rnti 0x%hx, refid %u\n", 
                         __func__, rnti, dl_dci_message.refid());
@@ -369,9 +381,9 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti)
 
 
 
-static PDSCH_DataListResult ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
+static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
 {
-  PDSCH_DataListResult pdsch_result;
+  PDSCH_Results pdsch_results;
 
   if(enb_dl_msg_.has_pdsch())
     {
@@ -379,7 +391,7 @@ static PDSCH_DataListResult ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t
 
       const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti);
 
-      if(sinrResult.first)
+      if(sinrResult.bPassed_)
         {
           for(int n = 0; n < pdsch_message.data().size(); ++n)
             {
@@ -387,8 +399,7 @@ static PDSCH_DataListResult ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t
 
               if(data_message.refid() == refid)
                 {
-                  pdsch_result.first.emplace_back(data_message);
-                  pdsch_result.second = sinrResult.second;
+                  pdsch_results.emplace_back(data_message, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
                 }
             }
         }
@@ -398,7 +409,7 @@ static PDSCH_DataListResult ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t
         }
     }
 
-  return pdsch_result;
+  return pdsch_results;
 }
 
 
@@ -762,7 +773,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
             {
               auto rxControl = dl_enb_signals[0].second;
 
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).first)
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).bPassed_)
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
@@ -896,7 +907,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).first)
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).bPassed_)
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
@@ -1046,19 +1057,21 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
     {
       const auto & dci_message = dl_dci_results[0];
 
-      const auto pdsch_result = ue_dl_get_pdsch_data_list_i(dci_message.refid(), rnti);
+      const auto pdsch_results = ue_dl_get_pdsch_data_list_i(dci_message.refid(), rnti);
 
       // XXX TODO pass/fail
       UESTATS::getPDCCH(rnti, true);
 
       // expecting 1 pdsch/dci
-      if(pdsch_result.first.size() == 1)
+      if(pdsch_results.size() == 1)
         {
+          const auto & pdsch_result = pdsch_results.front();
+
           // XXX TODO pass/fail
           UESTATS::getPDSCH(rnti, true);
 
           // save the grant for pdsch_decode
-          enb_dl_pdsch_messages_.emplace(rnti, ENB_DL_Message_PDSCH_Data_Result(pdsch_result.first[0], pdsch_result.second));
+          enb_dl_pdsch_messages_.emplace(rnti, ENB_DL_Message_PDSCH_Result(pdsch_result.first, pdsch_result.second));
 
           const auto & dl_dci_message      = dci_message.dci_msg();
           const auto & dl_dci_message_data = dl_dci_message.data();
@@ -1077,7 +1090,8 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
 
           ++nof_msg;
 
-          q->chest_res.snr_db = pdsch_result.second;
+          q->chest_res.snr_db             = pdsch_result.second.sinr_dB_;
+          q->chest_res.noise_estimate_dbm = pdsch_result.second.noiseFloor_dBm_;
 
           // Unpack DCI messages see lib/src/phy/phch/dci.c
           for (int i = 0; i < nof_msg; i++) {
@@ -1089,10 +1103,10 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
        }
       else
        {
-         if(pdsch_result.first.size() > 1)
+         if(pdsch_results.size() > 1)
           {
             Info("PDCCH:%s found %zu dl_dci for rnti 0x%hx\n", 
-                    __func__, pdsch_result.first.size(), rnti);
+                    __func__, pdsch_results.size(), rnti);
           }
          else
           {
@@ -1149,6 +1163,9 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
         const auto & ul_dci_message      = dci_message.dci_msg();
         const auto & ul_dci_message_data = ul_dci_message.data();
 
+        q->chest_res.snr_db             = ul_dci_results[0].second.sinr_dB_;
+        q->chest_res.noise_estimate_dbm = ul_dci_results[0].second.noiseFloor_dBm_;
+
         dci_msg[0].nof_bits      = ul_dci_message.num_bits();
         dci_msg[0].rnti          = rnti;
         dci_msg[0].format        = get_msg_format(ul_dci_message.format());
@@ -1169,7 +1186,6 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
           }
         }
 
-        q->chest_res.snr_db = ul_dci_results[0].second;
       }
    else
     {
@@ -1263,10 +1279,12 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
     {
      if(cfg->grant.tb[tb].enabled)
        {
-         if(enb_dl_pdsch_messages_.count(rnti))
+         const auto iter = enb_dl_pdsch_messages_.find(rnti);
+
+         if(iter != enb_dl_pdsch_messages_.end())
            {
-             const auto & rnti_message = enb_dl_pdsch_messages_[rnti];
-             const auto & pdsch_message = rnti_message.first;
+             const auto & pdsch_result  = iter->second;
+             const auto & pdsch_message = pdsch_result.first;
              const auto & pdsch_data    = pdsch_message.data();
 
              memcpy(data[tb].payload, pdsch_data.data(), pdsch_data.size());
@@ -1274,7 +1292,8 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
              data[tb].avg_iterations_block = 1;
              data[tb].crc = true;
 
-             q->chest_res.snr_db = rnti_message.second;
+             q->chest_res.snr_db             = pdsch_result.second.sinr_dB_;
+             q->chest_res.noise_estimate_dbm = pdsch_result.second.noiseFloor_dBm_;
 
              InfoHex(pdsch_data.data(), pdsch_data.size(),
                      "PDSCH:%s: rnti 0x%hx, refid %d, tb[%d], payload %zu bytes, snr %f\n",
@@ -1325,7 +1344,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 
      const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti);
 
-     if(sinrResult.first)
+     if(sinrResult.bPassed_)
       {
        if(rnti                == phich_message.rnti()        && 
           grant->n_prb_lowest == phich_message.num_prb_low() &&
@@ -1345,7 +1364,8 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
              result->ack_value,
              result->distance);
 
-         q->chest_res.snr_db = sinrResult.second;
+         q->chest_res.snr_db             = sinrResult.sinr_dB_;
+         q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
        }
      else
        {
@@ -1440,7 +1460,7 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
              {
                const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH);
 
-               if(sinrResult.first)
+               if(sinrResult.bPassed_)
                  {
                    memcpy(data[tb].payload, pmch.data().data(), pmch.data().length());
  
@@ -1448,7 +1468,8 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
 
                    data[tb].crc = true;
 
-                   q->chest_res.snr_db = sinrResult.second;
+                   q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                   q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
                    InfoHex(pmch.data().data(), pmch.data().size(),
                            "PMCH:%s: areaid %d, tb[%d], payload %zu bytes, snr %f\n",

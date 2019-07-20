@@ -1437,7 +1437,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
        {
          auto & rxControl = ul_msg->second;
 
-         if(!rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH).first)
+         if(!rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
            {
              continue;
            }
@@ -1648,14 +1648,16 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
             {
               auto & rxControl = ul_msg->second;
 
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti).first)
+              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti);
+
+              if(sinrResult.bPassed_)
                 {
                   const auto & uci_message = grant_message.uci();
 
                   memcpy(&res->uci_data, uci_message.data(), uci_message.length());
 
                   res->detected       = true;
-                  q->chest_res.snr_db = 111; // XXX TODO
+                  q->chest_res.snr_db = sinrResult.sinr_dB_;
 
                   // from lib/src/phy/phch/pucch.c srslte_pucch_decode()
                   switch (cfg->format) {
@@ -1691,7 +1693,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                 }
               else
                 {
-                  q->chest_res.snr_db = 0.0; // XXX TODO
+                  q->chest_res.snr_db = sinrResult.sinr_dB_;
 
                   // PUCCH failed snr, ignore
                   ENBSTATS::getPUCCH(rnti, false);
@@ -1814,7 +1816,9 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
             {
               auto & rxControl = ul_msg->second;
 
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti).first)
+              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti);
+
+              if(sinrResult.bPassed_)
                 {
                   const auto & ul_grant_message = grant_message.ul_grant();
                   const auto & uci_message      = grant_message.uci();
@@ -1834,7 +1838,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   res->crc                  = true;
                   res->uci.ack.valid        = true;
 
-                  q->chest_res.snr_db = 100; // XXX TODO
+                  q->chest_res.snr_db = sinrResult.sinr_dB_;
  
                   InfoHex(payload.data(), payload.length(),
                           "PUSCH:%s rnti %hx, snr_db %f\n",
@@ -1845,7 +1849,7 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                 }
               else
                 {
-                  q->chest_res.snr_db = 0.0; // XXX TODO
+                  q->chest_res.snr_db = sinrResult.sinr_dB_;
 
                   // PUSCH failed snr, ignore
                   ENBSTATS::getPUSCH(rnti, false);
