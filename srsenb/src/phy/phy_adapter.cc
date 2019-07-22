@@ -34,7 +34,11 @@
 #define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
 #define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
 
+#undef DEBUG_HEX
+
+#ifdef DEBUG_HEX
 #define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#endif
 
 extern "C" {
 #include "srslte/phy/phch/ra.h"
@@ -395,9 +399,11 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      dl_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
      dl_dci_msg->set_format(convert(dci_msg->format));
 
+#ifdef DEBUG_HEX
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
              "PDCCH_DL:%s rnti=0x%hx, refid %d, nof_bits %d\n",
              __func__, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
+#endif
    }
   else
    {
@@ -415,9 +421,11 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      ul_dci_msg->set_data(dci_msg->payload, dci_msg->nof_bits);
      ul_dci_msg->set_format(convert(dci_msg->format));
 
+#ifdef DEBUG_HEX
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
              "PDCCH_UL:%s rnti=0x%hx, nof_bits %d\n",
              __func__, rnti, dci_msg->nof_bits);
+#endif
    }
 
   return SRSLTE_SUCCESS;
@@ -548,9 +556,11 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    
    ENBSTATS::putDLGrant(rnti);
 
+#ifdef DEBUG_HEX
    InfoHex(data, bits_to_bytes(grant.tb[tb].tbs),
            "PDSCH:%s rnti=0x%hx, refid %d, tbs %d\n",
            __func__, rnti, pdsch_ref_ - 1, grant.tb[tb].tbs);
+#endif
 
    return SRSLTE_SUCCESS;
 }
@@ -641,10 +651,11 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
        channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
      }
 
+#ifdef DEBUG_HEX
    InfoHex(data, grant.tb[tb].tbs,
            "PMCH:%s rnti=0x%hx, area_id %d, tbs %d\n",
            __func__, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
-
+#endif
 
    return SRSLTE_SUCCESS;
 }
@@ -1656,8 +1667,10 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
                   memcpy(&res->uci_data, uci_message.data(), uci_message.length());
 
-                  res->detected       = true;
-                  q->chest_res.snr_db = sinrResult.sinr_dB_;
+                  res->detected = true;
+
+                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
                   // from lib/src/phy/phch/pucch.c srslte_pucch_decode()
                   switch (cfg->format) {
@@ -1684,16 +1697,19 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
                      format = "default";
                   }
 
+#ifdef DEBUG_HEX
                   InfoHex(uci_message.data(), uci_message.length(),
                           "PUCCH:%s found pucch format %s, rnti %hx, corr %f\n",
                           __func__, format.c_str(), rnti, res->correlation);
+#endif
 
                   // pass
                   ENBSTATS::getPUCCH(rnti, true);
                 }
               else
                 {
-                  q->chest_res.snr_db = sinrResult.sinr_dB_;
+                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
                   // PUCCH failed snr, ignore
                   ENBSTATS::getPUCCH(rnti, false);
@@ -1838,18 +1854,22 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
                   res->crc                  = true;
                   res->uci.ack.valid        = true;
 
-                  q->chest_res.snr_db = sinrResult.sinr_dB_;
+                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
  
+#ifdef DEBUG_HEX
                   InfoHex(payload.data(), payload.length(),
                           "PUSCH:%s rnti %hx, snr_db %f\n",
                           __func__, rnti, q->chest_res.snr_db);
+#endif
 
                   // pass
                   ENBSTATS::getPUSCH(rnti, true);
                 }
               else
                 {
-                  q->chest_res.snr_db = sinrResult.sinr_dB_;
+                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
                   // PUSCH failed snr, ignore
                   ENBSTATS::getPUSCH(rnti, false);

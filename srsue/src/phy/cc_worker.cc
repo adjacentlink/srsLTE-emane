@@ -681,13 +681,13 @@ void cc_worker::update_measurements()
   dl_metrics.sinr     = phy->avg_snr_db_cqi[cc_idx];
   dl_metrics.sync_err = ue_dl.chest_res.sync_error;
 #else
-  // XXX TODO "good" values taken from sockrf run
-  dl_metrics.n        = phy->avg_noise[cc_idx]      =  0.001;
-  dl_metrics.rsrp     = phy->avg_rsrp_dbm[cc_idx]   = -50.0;
-  dl_metrics.rsrq     = phy->avg_rsrq_db            =  -5.0;
-  dl_metrics.rssi     = phy->avg_rssi_dbm           =  10.0;
-  dl_metrics.pathloss = phy->pathloss[cc_idx]       =  50.0;
-  dl_metrics.sinr     = phy->avg_snr_db_cqi[cc_idx] = 10*log10(10/phy->avg_noise[cc_idx]);
+  // XXX TODO review these values/units
+  dl_metrics.n        = phy->avg_noise[cc_idx]      = ue_dl.chest_res.noise_estimate;
+  dl_metrics.rsrp     = phy->avg_rsrp_dbm[cc_idx]   = ue_dl.chest_res.snr_db + ue_dl.chest_res.noise_estimate_dbm;
+  dl_metrics.rsrq     = phy->avg_rsrq_db            = ue_dl.chest_res.snr_db;
+  dl_metrics.rssi     = phy->avg_rssi_dbm           = ue_dl.chest_res.snr_db;
+  dl_metrics.pathloss = phy->pathloss[cc_idx]       = 0.0;
+  dl_metrics.sinr     = phy->avg_snr_db_cqi[cc_idx] = ue_dl.chest_res.snr_db;
 #endif
   phy->set_dl_metrics(dl_metrics, cc_idx);
   phy->set_ul_metrics(ul_metrics, cc_idx);

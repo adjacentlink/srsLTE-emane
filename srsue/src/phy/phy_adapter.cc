@@ -45,7 +45,11 @@
 #define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
 #define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
 
+#undef DEBUG_HEX
+
+#ifdef DEBUG_HEX
 #define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex ((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#endif
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -1083,15 +1087,16 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           dci_msg[0].location.ncce = dl_dci_message.l_ncce();
 
           memcpy(dci_msg[0].payload, dl_dci_message_data.data(), dl_dci_message_data.size());
-
-          InfoHex(dl_dci_message_data.data(), dl_dci_message_data.size(),
-                  "PDCCH:%s dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
-                  __func__, dci_message.refid(), rnti, dl_dci_message_data.size());
-
           ++nof_msg;
 
           q->chest_res.snr_db             = pdsch_result.second.sinr_dB_;
           q->chest_res.noise_estimate_dbm = pdsch_result.second.noiseFloor_dBm_;
+
+#ifdef DEBUG_HEX
+          InfoHex(dl_dci_message_data.data(), dl_dci_message_data.size(),
+                  "PDCCH:%s dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
+                  __func__, dci_message.refid(), rnti, dl_dci_message_data.size());
+#endif
 
           // Unpack DCI messages see lib/src/phy/phch/dci.c
           for (int i = 0; i < nof_msg; i++) {
@@ -1295,9 +1300,11 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
              q->chest_res.snr_db             = pdsch_result.second.sinr_dB_;
              q->chest_res.noise_estimate_dbm = pdsch_result.second.noiseFloor_dBm_;
 
+#ifdef DEBUG_HEX
              InfoHex(pdsch_data.data(), pdsch_data.size(),
                      "PDSCH:%s: rnti 0x%hx, refid %d, tb[%d], payload %zu bytes, snr %f\n",
                      __func__, rnti, pdsch_message.refid(), tb, pdsch_data.size(), q->chest_res.snr_db);
+#endif
            }
          else
            {
@@ -1471,9 +1478,11 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
                    q->chest_res.snr_db             = sinrResult.sinr_dB_;
                    q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
+#ifdef DEBUG_HEX
                    InfoHex(pmch.data().data(), pmch.data().size(),
                            "PMCH:%s: areaid %d, tb[%d], payload %zu bytes, snr %f\n",
                            __func__, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
+#endif
                  }
                else
                  {
@@ -1740,8 +1749,10 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
    grant_message->set_rnti(rnti);
    grant_message->set_uci(uci_data, sizeof(srslte_uci_value_t));
 
+#ifdef DEBUG_HEX
    InfoHex(uci_data, sizeof(srslte_uci_value_t), 
            "PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
+#endif
 
    pthread_mutex_unlock(&ul_mutex_);
 
@@ -1848,8 +1859,10 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
    // payload
    grant_message->set_payload(data->ptr, bits_to_bytes(grant->tb.tbs));
 
+#ifdef DEBUG_HEX
    InfoHex(data->ptr, bits_to_bytes(grant->tb.tbs), 
            "PUSCH:%s: rnti 0x%hx\n", __func__, rnti);
+#endif
 
    UESTATS::putULGrant(rnti);
 
