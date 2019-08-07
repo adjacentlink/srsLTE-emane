@@ -24,10 +24,7 @@
 #include "srslte/common/log.h"
 #include "srslte/common/threads.h"
 #include <sstream>
-
-#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
-#endif
 
 #include <assert.h>
 
@@ -46,7 +43,7 @@ phy_common::phy_common(uint32_t max_workers) : tx_sem(max_workers)
   this->nof_workers          = nof_workers;
   params.max_prach_offset_us = 20;
   radio                      = NULL;
-  mac                        = NULL;
+  stack                      = NULL;
   is_first_tx                = false;
   is_first_of_burst          = false;
   have_mtch_stop             = false;
@@ -75,15 +72,17 @@ void phy_common::set_nof_workers(uint32_t nof_workers)
 
 void phy_common::reset()
 {
-  bzero(ul_grants, sizeof(mac_interface_phy::ul_sched_t)*TTIMOD_SZ);
-  bzero(dl_grants, sizeof(mac_interface_phy::dl_sched_t)*TTIMOD_SZ);
+  bzero(ul_grants, sizeof(stack_interface_phy_lte::ul_sched_t) * TTIMOD_SZ);
+  bzero(dl_grants, sizeof(stack_interface_phy_lte::dl_sched_t) * TTIMOD_SZ);
 }
 
-bool phy_common::init(srslte_cell_t* cell_, srslte::radio* radio_h_, mac_interface_phy* mac_)
+bool phy_common::init(const srslte_cell_t&         cell_,
+                      srslte::radio_interface_phy* radio_h_,
+                      stack_interface_phy_lte*     stack_)
 {
   radio = radio_h_;
-  mac   = mac_;
-  memcpy(&cell, cell_, sizeof(srslte_cell_t));
+  stack = stack_;
+  cell  = cell_;
 
   pthread_mutex_init(&user_mutex, NULL);
   pthread_mutex_init(&mtch_mutex, NULL);
@@ -127,8 +126,8 @@ void phy_common::worker_end(uint32_t           tti,
   sem_wait(&tx_sem[tti%nof_workers]);
 
 #ifndef PHY_ADAPTER_ENABLE
-  radio->set_tti(tti);
-  radio->tx(buffer, nof_samples, tx_time);
+  // always transmit on single radio
+  radio->tx(0, buffer, nof_samples, tx_time);
 #else
   phy_adapter::enb_dl_send_signal(tx_time.full_secs, tx_time.frac_secs);
 #endif
@@ -137,7 +136,7 @@ void phy_common::worker_end(uint32_t           tti,
   sem_post(&tx_sem[(tti+1)%nof_workers]);
 
   // Trigger MAC clock
-  mac->tti_clock();
+  stack->tti_clock();
 }
 
 void phy_common::ue_db_clear(uint32_t tti)
@@ -254,7 +253,7 @@ void phy_common::set_mch_period_stop(uint32_t stop)
   pthread_mutex_unlock(&mtch_mutex);
 }
 
-void phy_common::configure_mbsfn(phy_interface_rrc::phy_cfg_mbsfn_t* cfg)
+void phy_common::configure_mbsfn(phy_interface_stack_lte::phy_cfg_mbsfn_t* cfg)
 {
   mbsfn = *cfg;
 
@@ -270,10 +269,15 @@ void phy_common::build_mch_table()
   ZERO_OBJECT(mcch_table);
 
   // 40 element table represents 4 frames (40 subframes)
+  uint32_t nof_sfs = 0;
   if (mbsfn.mbsfn_subfr_cnfg.sf_alloc.type().value == mbsfn_sf_cfg_s::sf_alloc_c_::types::one_frame) {
     generate_mch_table(&mch_table[0], (uint32_t)mbsfn.mbsfn_subfr_cnfg.sf_alloc.one_frame().to_number(), 1);
-  } else {
+    nof_sfs = 10;
+  } else if (mbsfn.mbsfn_subfr_cnfg.sf_alloc.type().value == mbsfn_sf_cfg_s::sf_alloc_c_::types::four_frames) {
     generate_mch_table(&mch_table[0], (uint32_t)mbsfn.mbsfn_subfr_cnfg.sf_alloc.four_frames().to_number(), 4);
+    nof_sfs = 40;
+  } else {
+    fprintf(stderr, "No valid SF alloc\n");
   }
   // Debug
   std::stringstream ss;
@@ -281,6 +285,8 @@ void phy_common::build_mch_table()
   for(uint32_t j=0; j<40; j++) {
     ss << (int) mch_table[j] << "|";
   }
+
+  stack->set_sched_dl_tti_mask(mch_table, nof_sfs);
 }
 
 void phy_common::build_mcch_table()

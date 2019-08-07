@@ -28,10 +28,7 @@
 #include "srsue/hdr/phy/prach.h"
 #include "srsue/hdr/phy/phy.h"
 #include "srslte/interfaces/ue_interfaces.h"
-
-#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
-#endif
 
 #define Error(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h->error(fmt, ##__VA_ARGS__)
 #define Warning(fmt, ...) if (SRSLTE_DEBUG_ENABLED) log_h->warning(fmt, ##__VA_ARGS__)
@@ -199,9 +196,9 @@ bool prach::is_ready_to_send(uint32_t current_tti_) {
   return false;
 }
 
-phy_interface_mac::prach_info_t prach::get_info()
+phy_interface_mac_lte::prach_info_t prach::get_info()
 {
-  phy_interface_mac::prach_info_t info = {};
+  phy_interface_mac_lte::prach_info_t info = {};
 
   info.preamble_format = prach_obj.config_idx / 16;
   if (transmitted_tti >= 0) {

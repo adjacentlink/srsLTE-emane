@@ -38,6 +38,8 @@ void metrics_ostatistic::set_metrics(ue_metrics_t &m, const uint32_t)
    UESTATS::RLCQueueMetricsList rlcQueueMetrics;
    UESTATS::RLCQueueMetricsList rlcMrbQueueMetrics;
 
+#warning "metrics to do"
+#if 0
    for(size_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n)
      {
        // use capacity to determine if lcid is active
@@ -112,6 +114,7 @@ void metrics_ostatistic::set_metrics(ue_metrics_t &m, const uint32_t)
                            m.phy.ul[cc].power,
                            0)); // was mabr_mbps, now unused
     }
+#endif
 }
 
 } // end namespace srsue

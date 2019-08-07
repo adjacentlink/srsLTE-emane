@@ -1111,7 +1111,7 @@ int enb_dl_put_pdcch_dl_i(srslte_enb_dl_t* q,
  } dl_sched_grant_t; */
 int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
                         srslte_pdsch_cfg_t* pdsch, 
-                        mac_interface_phy::dl_sched_grant_t* grant,
+                        mac_interface_phy_lte::dl_sched_grant_t* grant,
                         uint32_t ref)
 {
   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
@@ -1172,7 +1172,7 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
 
 int enb_dl_put_pdsch_dl(srslte_enb_dl_t* q, 
                         srslte_pdsch_cfg_t* pdsch, 
-                        mac_interface_phy::dl_sched_grant_t* grant,
+                        mac_interface_phy_lte::dl_sched_grant_t* grant,
                         uint32_t ref)
 {
   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
@@ -1199,7 +1199,7 @@ int enb_dl_put_pdsch_dl(srslte_enb_dl_t* q,
 // int srslte_enb_dl_put_pmch(srslte_enb_dl_t* q, srslte_pmch_cfg_t* pmch_cfg, uint8_t* data)
 int enb_dl_put_pmch(srslte_enb_dl_t* q, 
                     srslte_pmch_cfg_t* pmch_cfg, 
-                    mac_interface_phy::dl_sched_grant_t* dl_sched_grant)
+                    mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant)
 {
   if(dl_sched_grant->dci.rnti != 0)
    {
@@ -1310,7 +1310,9 @@ typedef struct SRSLTE_API {
   } ul_sched_ack_t; */
 
 // see lib/src/phy/enb/enb_dl.c
-int enb_dl_put_phich(srslte_enb_dl_t* q, srslte_phich_grant_t* grant, mac_interface_phy::ul_sched_ack_t * ack)
+int enb_dl_put_phich(srslte_enb_dl_t* q,
+                     srslte_phich_grant_t* grant,
+                     mac_interface_phy_lte::ul_sched_ack_t * ack)
 {
   srslte_phich_resource_t resource;
   bzero(&resource, sizeof(resource));

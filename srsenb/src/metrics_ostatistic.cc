@@ -35,7 +35,9 @@ void metrics_ostatistic::set_handle(enb_metrics_interface *enb_)
 
 void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
 {
+#warning "metrics to do"
 
+#if 0
   ENBSTATS::setS1State(m.s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
                        m.s1ap.status == S1AP_READY     ? "READY"     : "ERROR");
 
@@ -119,6 +121,8 @@ void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
 
   ENBSTATS::setMACMetrics(macMetrics);
   ENBSTATS::setRLCMetrics(rlcMetrics);
+
+#endif
 }
 
 } // end namespace srsenb

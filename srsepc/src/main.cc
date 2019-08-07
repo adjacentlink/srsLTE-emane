@@ -33,10 +33,7 @@
 #include <iostream>
 #include <signal.h>
 #include <sstream>
-
-#ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/epcstatisticmanager.h"
-#endif
 
 using namespace std;
 using namespace srsepc;
@@ -73,11 +70,9 @@ typedef struct {
   bool daemonize;
 } runtime_args_t;
 
-#ifdef PHY_ADAPTER_ENABLE
 typedef struct{
   std::string statistic_service_endpoint;
 }mhal_args_t;
-#endif
 
 typedef struct {
   mme_args_t  mme_args;
@@ -85,9 +80,7 @@ typedef struct {
   spgw_args_t spgw_args;
   log_args_t  log_args;
   runtime_args_t runtime;
-#ifdef PHY_ADAPTER_ENABLE
   mhal_args_t   mhal;
-#endif
 } all_args_t;
 
 /**********************************************************************
@@ -171,11 +164,10 @@ void parse_args(all_args_t* args, int argc, char* argv[])
 
     ("runtime.daemonize",   bpo::value<bool>(&args->runtime.daemonize)->default_value(false), "Run this process as a daemon")
 
-#ifdef PHY_ADAPTER_ENABLE
     ("mhal.statistic_service_endpoint",
+
       bpo::value<string>(&args->mhal.statistic_service_endpoint)->default_value("0.0.0.0:47100"),
        "Statistic service endpoint")
-#endif
     ;
   // clang-format on
 

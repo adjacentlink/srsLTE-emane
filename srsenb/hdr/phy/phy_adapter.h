@@ -30,8 +30,10 @@
 #include "srslte/config.h"
 #include "srslte/common/log.h"
 #include "srslte/phy/enb/enb_dl.h"
-#include "srsenb/hdr/upper/rrc.h"
 #include "srslte/interfaces/enb_interfaces.h"
+
+#include "srsenb/hdr/stack/rrc/rrc.h"
+
 #include "libemanelte/mhalconfig.h"
 
 #include <vector>
@@ -78,12 +80,12 @@ void enb_initialize(srslte::log*                   log_h,
  // set dl pdcch
  int enb_dl_put_pdcch_dl(srslte_enb_dl_t*                     q, 
                          srslte_pdsch_cfg_t*                  pdsch, 
-                         mac_interface_phy::dl_sched_grant_t* grant,
+                         mac_interface_phy_lte::dl_sched_grant_t* grant,
                          uint32_t ref);
  // set dl pdsch
  int enb_dl_put_pdsch_dl(srslte_enb_dl_t*                     q, 
                          srslte_pdsch_cfg_t*                  pdsch, 
-                         mac_interface_phy::dl_sched_grant_t* grant,
+                         mac_interface_phy_lte::dl_sched_grant_t* grant,
                          uint32_t ref);
 
 
@@ -96,7 +98,7 @@ void enb_initialize(srslte::log*                   log_h,
  // set dl mch
  int enb_dl_put_pmch(srslte_enb_dl_t*                     q,
                      srslte_pmch_cfg_t*                   pmch_cfg,
-                     mac_interface_phy::dl_sched_grant_t* dl_sched_grant);
+                     mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant);
 
  //set ul pdcch
  int enb_dl_put_pdcch_ul(srslte_enb_dl_t*  q, 
@@ -107,7 +109,7 @@ void enb_initialize(srslte::log*                   log_h,
  // set phich
  int enb_dl_put_phich(srslte_enb_dl_t*                   q, 
                       srslte_phich_grant_t*              grant,
-                      mac_interface_phy::ul_sched_ack_t* ack);
+                      mac_interface_phy_lte::ul_sched_ack_t* ack);
 
  // get prach
  int enb_ul_get_prach(uint32_t*  indicies, 
