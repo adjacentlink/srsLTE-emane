@@ -1,12 +1,7 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
- *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsLTE library.
+ * This file is part of srsLTE.
  *
  * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -23,7 +18,6 @@
  * and at http://www.gnu.org/licenses/.
  *
  */
-
 
 /* RF frontend API */
 typedef struct {
@@ -48,10 +42,11 @@ typedef struct {
   double (*srslte_rf_get_rx_gain)(void *h);
   double (*srslte_rf_get_tx_gain)(void *h);
   srslte_rf_info_t *(*srslte_rf_get_info)(void *h);
-  double (*srslte_rf_set_rx_freq)(void *h, double freq);  
+  double (*srslte_rf_set_rx_freq)(void* h, uint32_t ch, double freq);
   double (*srslte_rf_set_tx_srate)(void *h, double freq);
-  double (*srslte_rf_set_tx_freq)(void *h, double freq);
-  void   (*srslte_rf_get_time)(void *h, time_t *secs, double *frac_secs);  
+  double (*srslte_rf_set_tx_freq)(void* h, uint32_t ch, double freq);
+  void (*srslte_rf_get_time)(void* h, time_t* secs, double* frac_secs);
+  void (*srslte_rf_sync_pps)(void* h);
   int    (*srslte_rf_recv_with_time)(void *h, void *data, uint32_t nsamples, 
                            bool blocking, time_t *secs,double *frac_secs);
   int    (*srslte_rf_recv_with_time_multi)(void *h, void **data, uint32_t nsamples, 
@@ -69,37 +64,36 @@ typedef struct {
 
 #include "rf_uhd_imp.h"
 
-static rf_dev_t dev_uhd = {
-  "UHD", 
-  rf_uhd_devname,
-  rf_uhd_rx_wait_lo_locked,
-  rf_uhd_start_rx_stream,
-  rf_uhd_stop_rx_stream,
-  rf_uhd_flush_buffer,
-  rf_uhd_has_rssi,
-  rf_uhd_get_rssi,
-  rf_uhd_suppress_stdout,
-  rf_uhd_register_error_handler,
-  rf_uhd_open,
-  .srslte_rf_open_multi = rf_uhd_open_multi,
-  rf_uhd_close,
-  rf_uhd_set_master_clock_rate,
-  rf_uhd_is_master_clock_dynamic,
-  rf_uhd_set_rx_srate,
-  rf_uhd_set_rx_gain,
-  rf_uhd_set_tx_gain,
-  rf_uhd_get_rx_gain,
-  rf_uhd_get_tx_gain,
-  rf_uhd_get_info,
-  rf_uhd_set_rx_freq, 
-  rf_uhd_set_tx_srate,
-  rf_uhd_set_tx_freq,
-  rf_uhd_get_time,  
-  rf_uhd_recv_with_time,
-  rf_uhd_recv_with_time_multi,
-  rf_uhd_send_timed,
-  .srslte_rf_send_timed_multi = rf_uhd_send_timed_multi
-};
+static rf_dev_t dev_uhd = {"UHD",
+                           rf_uhd_devname,
+                           rf_uhd_rx_wait_lo_locked,
+                           rf_uhd_start_rx_stream,
+                           rf_uhd_stop_rx_stream,
+                           rf_uhd_flush_buffer,
+                           rf_uhd_has_rssi,
+                           rf_uhd_get_rssi,
+                           rf_uhd_suppress_stdout,
+                           rf_uhd_register_error_handler,
+                           rf_uhd_open,
+                           .srslte_rf_open_multi = rf_uhd_open_multi,
+                           rf_uhd_close,
+                           rf_uhd_set_master_clock_rate,
+                           rf_uhd_is_master_clock_dynamic,
+                           rf_uhd_set_rx_srate,
+                           rf_uhd_set_rx_gain,
+                           rf_uhd_set_tx_gain,
+                           rf_uhd_get_rx_gain,
+                           rf_uhd_get_tx_gain,
+                           rf_uhd_get_info,
+                           rf_uhd_set_rx_freq,
+                           rf_uhd_set_tx_srate,
+                           rf_uhd_set_tx_freq,
+                           rf_uhd_get_time,
+                           rf_uhd_sync_pps,
+                           rf_uhd_recv_with_time,
+                           rf_uhd_recv_with_time_multi,
+                           rf_uhd_send_timed,
+                           .srslte_rf_send_timed_multi = rf_uhd_send_timed_multi};
 #endif
 
 /* Define implementation for bladeRF */
@@ -107,79 +101,113 @@ static rf_dev_t dev_uhd = {
 
 #include "rf_blade_imp.h"
 
-static rf_dev_t dev_blade = {
-  "bladeRF", 
-  rf_blade_devname,
-  rf_blade_rx_wait_lo_locked,
-  rf_blade_start_rx_stream,
-  rf_blade_stop_rx_stream,
-  rf_blade_flush_buffer,
-  rf_blade_has_rssi,
-  rf_blade_get_rssi,
-  rf_blade_suppress_stdout,
-  rf_blade_register_error_handler,
-  rf_blade_open,
-  .srslte_rf_open_multi = rf_blade_open_multi,
-  rf_blade_close,
-  rf_blade_set_master_clock_rate,
-  rf_blade_is_master_clock_dynamic,
-  rf_blade_set_rx_srate,
-  rf_blade_set_rx_gain,
-  rf_blade_set_tx_gain,
-  rf_blade_get_rx_gain,
-  rf_blade_get_tx_gain,
-  rf_blade_get_info,
-  rf_blade_set_rx_freq, 
-  rf_blade_set_tx_srate,
-  rf_blade_set_tx_freq,
-  rf_blade_get_time,  
-  rf_blade_recv_with_time,
-  rf_blade_recv_with_time_multi,
-  rf_blade_send_timed,
-  .srslte_rf_send_timed_multi = rf_blade_send_timed_multi
-};
+static rf_dev_t dev_blade = {"bladeRF",
+                             rf_blade_devname,
+                             rf_blade_rx_wait_lo_locked,
+                             rf_blade_start_rx_stream,
+                             rf_blade_stop_rx_stream,
+                             rf_blade_flush_buffer,
+                             rf_blade_has_rssi,
+                             rf_blade_get_rssi,
+                             rf_blade_suppress_stdout,
+                             rf_blade_register_error_handler,
+                             rf_blade_open,
+                             .srslte_rf_open_multi = rf_blade_open_multi,
+                             rf_blade_close,
+                             rf_blade_set_master_clock_rate,
+                             rf_blade_is_master_clock_dynamic,
+                             rf_blade_set_rx_srate,
+                             rf_blade_set_rx_gain,
+                             rf_blade_set_tx_gain,
+                             rf_blade_get_rx_gain,
+                             rf_blade_get_tx_gain,
+                             rf_blade_get_info,
+                             rf_blade_set_rx_freq,
+                             rf_blade_set_tx_srate,
+                             rf_blade_set_tx_freq,
+                             rf_blade_get_time,
+                             NULL,
+                             rf_blade_recv_with_time,
+                             rf_blade_recv_with_time_multi,
+                             rf_blade_send_timed,
+                             .srslte_rf_send_timed_multi = rf_blade_send_timed_multi};
 #endif
 
 #ifdef ENABLE_SOAPYSDR
 
 #include "rf_soapy_imp.h"
 
-static rf_dev_t dev_soapy = {
-  "soapy",
-  rf_soapy_devname,
-  rf_soapy_rx_wait_lo_locked,
-  rf_soapy_start_rx_stream,
-  rf_soapy_stop_rx_stream,
-  rf_soapy_flush_buffer,
-  rf_soapy_has_rssi,
-  rf_soapy_get_rssi,
-  rf_soapy_suppress_stdout,
-  rf_soapy_register_error_handler,
-  rf_soapy_open,
-  rf_soapy_open_multi,
-  rf_soapy_close,
-  rf_soapy_set_master_clock_rate,
-  rf_soapy_is_master_clock_dynamic,
-  rf_soapy_set_rx_srate,
-  rf_soapy_set_rx_gain,
-  rf_soapy_set_tx_gain,
-  rf_soapy_get_rx_gain,
-  rf_soapy_get_tx_gain,
-  rf_soapy_get_info,
-  rf_soapy_set_rx_freq,
-  rf_soapy_set_tx_srate,
-  rf_soapy_set_tx_freq,
-  rf_soapy_get_time,
-  rf_soapy_recv_with_time,
-  rf_soapy_recv_with_time_multi,
-  rf_soapy_send_timed,
-  .srslte_rf_send_timed_multi = rf_soapy_send_timed_multi
-};
+static rf_dev_t dev_soapy = {"soapy",
+                             rf_soapy_devname,
+                             rf_soapy_rx_wait_lo_locked,
+                             rf_soapy_start_rx_stream,
+                             rf_soapy_stop_rx_stream,
+                             rf_soapy_flush_buffer,
+                             rf_soapy_has_rssi,
+                             rf_soapy_get_rssi,
+                             rf_soapy_suppress_stdout,
+                             rf_soapy_register_error_handler,
+                             rf_soapy_open,
+                             rf_soapy_open_multi,
+                             rf_soapy_close,
+                             rf_soapy_set_master_clock_rate,
+                             rf_soapy_is_master_clock_dynamic,
+                             rf_soapy_set_rx_srate,
+                             rf_soapy_set_rx_gain,
+                             rf_soapy_set_tx_gain,
+                             rf_soapy_get_rx_gain,
+                             rf_soapy_get_tx_gain,
+                             rf_soapy_get_info,
+                             rf_soapy_set_rx_freq,
+                             rf_soapy_set_tx_srate,
+                             rf_soapy_set_tx_freq,
+                             rf_soapy_get_time,
+                             NULL,
+                             rf_soapy_recv_with_time,
+                             rf_soapy_recv_with_time_multi,
+                             rf_soapy_send_timed,
+                             .srslte_rf_send_timed_multi = rf_soapy_send_timed_multi};
 
 #endif
 
-#define ENABLE_DUMMY_DEV
+/* Define implementation for UHD */
+#ifdef ENABLE_ZEROMQ
 
+#include "rf_zmq_imp.h"
+
+static rf_dev_t dev_zmq = {"zmq",
+                           rf_zmq_devname,
+                           rf_zmq_rx_wait_lo_locked,
+                           rf_zmq_start_rx_stream,
+                           rf_zmq_stop_rx_stream,
+                           rf_zmq_flush_buffer,
+                           rf_zmq_has_rssi,
+                           rf_zmq_get_rssi,
+                           rf_zmq_suppress_stdout,
+                           rf_zmq_register_error_handler,
+                           rf_zmq_open,
+                           .srslte_rf_open_multi = rf_zmq_open_multi,
+                           rf_zmq_close,
+                           rf_zmq_set_master_clock_rate,
+                           rf_zmq_is_master_clock_dynamic,
+                           rf_zmq_set_rx_srate,
+                           rf_zmq_set_rx_gain,
+                           rf_zmq_set_tx_gain,
+                           rf_zmq_get_rx_gain,
+                           rf_zmq_get_tx_gain,
+                           rf_zmq_get_info,
+                           rf_zmq_set_rx_freq,
+                           rf_zmq_set_tx_srate,
+                           rf_zmq_set_tx_freq,
+                           rf_zmq_get_time,
+                           NULL,
+                           rf_zmq_recv_with_time,
+                           rf_zmq_recv_with_time_multi,
+                           rf_zmq_send_timed,
+                           .srslte_rf_send_timed_multi = rf_zmq_send_timed_multi};
+#endif
+
+#define ENABLE_DUMMY_DEV
 #ifdef ENABLE_DUMMY_DEV
 
 #include "rf_dummy_imp.h"
@@ -216,61 +244,21 @@ static rf_dev_t dev_dummy = {
 };                        
 #endif
 
-
-#ifdef  ENABLE_SHMEMRF
-
-#include "rf_shmem_imp.h"
-
-static rf_dev_t dev_shmem = {
-  .name                              = "shmemrf", 
-  .srslte_rf_devname                 = rf_shmem_devname,
-  .srslte_rf_rx_wait_lo_locked       = rf_shmem_rx_wait_lo_locked,
-  .srslte_rf_start_rx_stream         = rf_shmem_start_rx_stream,
-  .srslte_rf_stop_rx_stream          = rf_shmem_stop_rx_stream,
-  .srslte_rf_flush_buffer            = rf_shmem_flush_buffer,
-  .srslte_rf_has_rssi                = rf_shmem_has_rssi,
-  .srslte_rf_get_rssi                = rf_shmem_get_rssi,
-  .srslte_rf_suppress_stdout         = rf_shmem_suppress_stdout,
-  .srslte_rf_register_error_handler  = rf_shmem_register_error_handler,
-  .srslte_rf_open                    = rf_shmem_open,
-  .srslte_rf_open_multi              = rf_shmem_open_multi,
-  .srslte_rf_close                   = rf_shmem_close,
-  .srslte_rf_set_master_clock_rate   = rf_shmem_set_master_clock_rate,
-  .srslte_rf_is_master_clock_dynamic = rf_shmem_is_master_clock_dynamic,
-  .srslte_rf_set_rx_srate            = rf_shmem_set_rx_srate,
-  .srslte_rf_set_rx_gain             = rf_shmem_set_rx_gain,
-  .srslte_rf_set_tx_gain             = rf_shmem_set_tx_gain,
-  .srslte_rf_get_rx_gain             = rf_shmem_get_rx_gain,
-  .srslte_rf_get_tx_gain             = rf_shmem_get_tx_gain,
-  .srslte_rf_get_info                = rf_shmem_get_rf_info,
-  .srslte_rf_set_rx_freq             = rf_shmem_set_rx_freq, 
-  .srslte_rf_set_tx_srate            = rf_shmem_set_tx_srate,
-  .srslte_rf_set_tx_freq             = rf_shmem_set_tx_freq,
-  .srslte_rf_get_time                = rf_shmem_get_time,  
-  .srslte_rf_recv_with_time          = rf_shmem_recv_with_time,
-  .srslte_rf_recv_with_time_multi    = rf_shmem_recv_with_time_multi,
-  .srslte_rf_send_timed              = rf_shmem_send_timed,
-  .srslte_rf_send_timed_multi        = rf_shmem_send_timed_multi
-};                        
-#endif
-
-
-static rf_dev_t *available_devices[] = {
+static rf_dev_t* available_devices[] = {
 
 #ifdef ENABLE_UHD
-  &dev_uhd, 
+    &dev_uhd,
 #endif
 #ifdef ENABLE_SOAPYSDR
-  &dev_soapy,
+    &dev_soapy,
 #endif
 #ifdef ENABLE_BLADERF
-  &dev_blade,  
+    &dev_blade,
+#endif
+#ifdef ENABLE_ZEROMQ
+    &dev_zmq,
 #endif
 #ifdef ENABLE_DUMMY_DEV
-  &dev_dummy,
+    &dev_dummy,
 #endif
-#ifdef ENABLE_SHMEMRF
-  &dev_shmem,
-#endif
-  NULL
-};
+    NULL};

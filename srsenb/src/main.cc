@@ -1,19 +1,14 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -37,11 +32,11 @@
 #include <string>
 #include <boost/program_options.hpp>
 #include <boost/program_options/parsers.hpp>
-#include <srsenb/hdr/enb.h>
 
 #include "srsenb/hdr/enb.h"
 #include "srsenb/hdr/metrics_stdout.h"
 #include "srsenb/hdr/metrics_csv.h"
+#include "srsenb/hdr/metrics_ostatistic.h"
 
 using namespace std;
 using namespace srsenb;
@@ -145,7 +140,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
     ("expert.pusch_max_its", bpo::value<int>(&args->expert.phy.pusch_max_its)->default_value(8), "Maximum number of turbo decoder iterations")
     ("expert.pusch_8bit_decoder", bpo::value<bool>(&args->expert.phy.pusch_8bit_decoder)->default_value(false), "Use 8-bit for LLR representation and turbo decoder trellis computation (Experimental)")
     ("expert.tx_amplitude", bpo::value<float>(&args->expert.phy.tx_amplitude)->default_value(0.6), "Transmit amplitude factor")
-    ("expert.nof_phy_threads", bpo::value<int>(&args->expert.phy.nof_phy_threads)->default_value(2), "Number of PHY threads")
+    ("expert.nof_phy_threads", bpo::value<int>(&args->expert.phy.nof_phy_threads)->default_value(3), "Number of PHY threads")
     ("expert.link_failure_nof_err", bpo::value<int>(&args->expert.mac.link_failure_nof_err)->default_value(100), "Number of PUSCH failures after which a radio-link failure is triggered")
     ("expert.max_prach_offset_us", bpo::value<float>(&args->expert.phy.max_prach_offset_us)->default_value(30), "Maximum allowed RACH offset (in us)")
     ("expert.equalizer_mode", bpo::value<string>(&args->expert.phy.equalizer_mode)->default_value("mmse"), "Equalizer mode")
@@ -155,6 +150,8 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
     ("expert.print_buffer_state", bpo::value<bool>(&args->expert.print_buffer_state)->default_value(false), "Prints on the console the buffer state every 10 seconds")
     ("expert.m1u_multiaddr", bpo::value<string>(&args->expert.m1u_multiaddr)->default_value("239.255.0.1"), "M1-U Multicast address the eNB joins.")
     ("expert.m1u_if_addr", bpo::value<string>(&args->expert.m1u_if_addr)->default_value("127.0.1.201"), "IP address of the interface the eNB will listen for M1-U traffic.")
+    ("expert.eea_pref_list", bpo::value<string>(&args->expert.eea_pref_list)->default_value("EEA0, EEA2, EEA1"), "Ordered preference list for the selection of encryption algorithm (EEA) (default: EEA0, EEA2, EEA1).")
+    ("expert.eia_pref_list", bpo::value<string>(&args->expert.eia_pref_list)->default_value("EIA2, EIA1, EIA0"), "Ordered preference list for the selection of integrity algorithm (EIA) (default: EIA2, EIA1, EIA0).")
 
     ("runtime.daemonize", bpo::value<bool>(&args->runtime.daemonize)->default_value(false), "Run this process as a daemon")
 
@@ -223,8 +220,15 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
     cout << "Failed to read configuration file " << config_file << " - exiting" << endl;
     exit(1);
   }
-  bpo::store(bpo::parse_config_file(conf, common), vm);
-  bpo::notify(vm);
+
+  // parse config file and handle errors gracefully
+  try {
+    bpo::store(bpo::parse_config_file(conf, common), vm);
+    bpo::notify(vm);
+  } catch (const boost::program_options::error& e) {
+    cerr << e.what() << endl;
+    exit(1);
+  }
 
   // Convert hex strings
   {
@@ -251,6 +255,34 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
   }
   if(!srslte::string_to_mnc(mnc, &args->enb.s1ap.mnc)) {
     cout << "Error parsing enb.mnc:" << mnc << " - must be a 2 or 3-digit string." << endl;
+  }
+
+  // Convert UL/DL EARFCN to frequency if needed
+  if (args->rf.dl_freq < 0) {
+    args->rf.dl_freq = 1e6 * srslte_band_fd(args->rf.dl_earfcn);
+    if (args->rf.dl_freq < 0) {
+      fprintf(stderr, "Error getting DL frequency for EARFCN=%d\n", args->rf.dl_earfcn);
+      exit(1);
+    }
+  }
+  if (args->rf.ul_freq < 0) {
+    if (args->rf.ul_earfcn == 0) {
+      args->rf.ul_earfcn = srslte_band_ul_earfcn(args->rf.dl_earfcn);
+    }
+    args->rf.ul_freq = 1e6 * srslte_band_fu(args->rf.ul_earfcn);
+    if (args->rf.ul_freq < 0) {
+      fprintf(stderr, "Error getting UL frequency for EARFCN=%d\n", args->rf.dl_earfcn);
+      exit(1);
+    }
+  }
+  if (args->expert.enable_mbsfn) {
+    if (args->expert.mac.sched.nof_ctrl_symbols == 3) {
+      fprintf(stderr,
+              "nof_ctrl_symbols = %d, While using MBMS, please set number of control symbols to either 1 or 2, "
+              "depending on the length of the non-mbsfn region\n",
+              args->expert.mac.sched.nof_ctrl_symbols);
+      exit(1);
+    }
   }
 
   // Apply all_level to any unset layers
@@ -323,7 +355,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
   }
 }
 
-static int  sigcnt = 8;
+static int  sigcnt = 0;
 static bool running    = true;
 static bool do_metrics = false;
 
@@ -331,7 +363,7 @@ void sig_int_handler(int signo)
 {
   sigcnt++;
   running = false;
-  printf("Stopping srsENB... Press Ctrl+C %d more times to force stop\n", 10-sigcnt);
+  cout << "Stopping srsENB... Press Ctrl+C " << (10 - sigcnt) << " more times to force stop" << endl;
   if (sigcnt >= 10) {
     exit(-1);
   }
@@ -399,6 +431,10 @@ int main(int argc, char *argv[])
     metrics_file.set_handle(enb);
   }
 
+  metrics_ostatistic metrics_ostatistic;
+  metricshub.add_listener(&metrics_ostatistic);
+  metrics_ostatistic.set_handle(enb);
+
   pthread_t input = {0};
   if(! args.runtime.daemonize) {
     pthread_create(&input, NULL, &input_loop, &metricshub);
@@ -425,6 +461,7 @@ int main(int argc, char *argv[])
   }
   if(input)
     pthread_cancel(input);
+
   metricshub.stop();
   enb->stop();
   enb->cleanup();

@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -64,26 +59,22 @@ typedef struct {
   float         freq_offset;
   float         rx_gain;
   float         tx_gain;
-  uint32_t      nof_rx_ant;
+  uint32_t      nof_radios;
+  uint32_t      nof_rf_channels; // Number of RF channels per radio
+  uint32_t      nof_rx_ant;      // Number of RF channels for MIMO
   std::string   device_name;
-  std::string   device_args;
+  std::string   device_args[SRSLTE_MAX_RADIOS];
   std::string   time_adv_nsamples;
   std::string   burst_preamble;
   std::string   continuous_tx;
-}rf_args_t;
+} rf_args_t;
 
 typedef struct {
   bool          enable;
   std::string   filename;
   bool          nas_enable;
   std::string   nas_filename;
-}pcap_args_t;
-
-typedef struct {
-  bool          enable;
-  std::string   phy_filename;
-  std::string   radio_filename;
-}trace_args_t;
+} pcap_args_t;
 
 typedef struct {
   std::string   phy_level;
@@ -107,7 +98,7 @@ typedef struct {
   int           all_hex_limit;
   int           file_max_size;
   std::string   filename;
-}log_args_t;
+} log_args_t;
 
 typedef struct {
   bool          enable;
@@ -132,12 +123,10 @@ typedef struct {
 typedef struct {
   rf_args_t     rf;
   pcap_args_t   pcap;
-  trace_args_t  trace;
   log_args_t    log;
   gui_args_t    gui;
   usim_args_t   usim;
   rrc_args_t    rrc;
-  std::string   ue_category_str;
   nas_args_t    nas;
   expert_args_t expert;
   runtime_args_t runtime;

@@ -1,0 +1,76 @@
+diff --git a/lib/include/srslte/phy/modem/demod_hard.h b/lib/include/srslte/phy/modem/demod_hard.h
+index 482466a..57e4e4a 100644
+--- a/lib/include/srslte/phy/modem/demod_hard.h
++++ b/lib/include/srslte/phy/modem/demod_hard.h
+@@ -31,7 +31,7 @@
+ #ifndef SRSLTE_DEMOD_HARD_H
+ #define SRSLTE_DEMOD_HARD_H
+ 
+-#include <complex.h>
++//#include <complex.h>
+ #include <stdint.h>
+ 
+ #include "srslte/config.h"
+diff --git a/lib/include/srslte/phy/modem/demod_soft.h b/lib/include/srslte/phy/modem/demod_soft.h
+index d2661e0..0f77dd6 100644
+--- a/lib/include/srslte/phy/modem/demod_soft.h
++++ b/lib/include/srslte/phy/modem/demod_soft.h
+@@ -31,7 +31,7 @@
+ #ifndef SRSLTE_DEMOD_SOFT_H
+ #define SRSLTE_DEMOD_SOFT_H
+ 
+-#include <complex.h>
++//#include <complex.h>
+ #include <stdint.h>
+ 
+ #include "srslte/config.h"
+diff --git a/lib/include/srslte/phy/modem/mod.h b/lib/include/srslte/phy/modem/mod.h
+index 889a027..ac1ef4d 100644
+--- a/lib/include/srslte/phy/modem/mod.h
++++ b/lib/include/srslte/phy/modem/mod.h
+@@ -31,7 +31,7 @@
+ #ifndef SRSLTE_MOD_H
+ #define SRSLTE_MOD_H
+ 
+-#include <complex.h>
++//#include <complex.h>
+ #include <stdint.h>
+ 
+ #include "srslte/config.h"
+diff --git a/lib/include/srslte/phy/modem/modem_table.h b/lib/include/srslte/phy/modem/modem_table.h
+index cffe0b7..e220846 100644
+--- a/lib/include/srslte/phy/modem/modem_table.h
++++ b/lib/include/srslte/phy/modem/modem_table.h
+@@ -32,7 +32,7 @@
+ #define SRSLTE_MODEM_TABLE_H
+ 
+ #include <stdbool.h>
+-#include <complex.h>
++//#include <complex.h>
+ #include <stdint.h>
+ 
+ #include "srslte/phy/common/phy_common.h"
+diff --git a/lib/src/phy/modem/demod_soft.c b/lib/src/phy/modem/demod_soft.c
+index 1f1005c..10bc01c 100644
+--- a/lib/src/phy/modem/demod_soft.c
++++ b/lib/src/phy/modem/demod_soft.c
+@@ -21,6 +21,7 @@
+ 
+ #include <stdlib.h>
+ #include <strings.h>
++#include <complex.h>
+ 
+ #include "srslte/phy/modem/demod_soft.h"
+ #include "srslte/phy/utils/bit.h"
+diff --git a/lib/src/phy/phch/phich.c b/lib/src/phy/phch/phich.c
+index 9da6a6a..822db88 100644
+--- a/lib/src/phy/phch/phich.c
++++ b/lib/src/phy/phch/phich.c
+@@ -27,6 +27,7 @@
+ #include <stdbool.h>
+ #include <assert.h>
+ #include <math.h>
++#include <complex.h>
+ 
+ #include "srslte/phy/phch/regs.h"
+ #include "srslte/phy/phch/phich.h"

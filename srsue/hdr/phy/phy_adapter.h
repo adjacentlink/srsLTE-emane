@@ -43,23 +43,23 @@ void ue_initialize(srslte::log * log_h,
                    uint32_t sf_interval,
                    EMANELTE::MHAL::mhal_config_t & mhal_config);
 
+void ue_start();
+
+void ue_stop();
+
 void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn);
 
 void ue_set_bandwidth(int n_prb);
 
+void ue_set_prach_freq_offset(uint32_t freq_offset);
+
 void ue_set_crnti(uint16_t rnti);
 
-// state start
-void ue_start();
-
- // state stop
-void ue_stop();
-
 // 1 cell cearch
-int ue_dl_cell_search(srslte_ue_cellsearch_t * cs,
-                      srslte_ue_cellsearch_result_t * fc,
-                      int force_nid_2,
-                      uint32_t *max_peak);
+int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
+                          srslte_ue_cellsearch_result_t * fc,
+                          int force_nid_2,
+                          uint32_t *max_peak);
 
 // 2 mib search 
 int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
@@ -72,39 +72,43 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * tti);
 // 4 syncd search
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti);
 
-
 // decode signal
-float ue_dl_decode_signal(srslte_chest_dl_t * q,
-                          uint32_t cell_id,
-                          uint32_t &cfi, 
-                          uint32_t tti);
+float ue_dl_decode_signal(uint32_t cell_id);
 
 // get dl dci
-int ue_dl_find_dl_dci(srslte_ue_dl_t *q, 
-                      uint16_t rnti, 
-                      srslte_dci_msg_t *dci_msg);
+int ue_dl_find_dl_dci(srslte_ue_dl_t*            q,
+                             srslte_dl_sf_cfg_t* sf,
+                             srslte_ue_dl_cfg_t* cfg,
+                             uint16_t            rnti,
+                             srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG]);
 
 // get ul dci
-int ue_dl_find_ul_dci(srslte_ue_dl_t *q, 
-                      uint16_t rnti, 
-                      srslte_dci_msg_t *dci_msg);
+int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
+                      srslte_dl_sf_cfg_t* sf,
+                      srslte_ue_dl_cfg_t* cfg,
+                      uint16_t            rnti,
+                      srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG]);
 
-
-// convert ota grant to mac action
-void ue_dl_decode_pdsch(srsue::mac_interface_phy::tb_action_dl_t * dl_action,
-                        bool acks[SRSLTE_MAX_CODEWORDS]);
+// decode pdsch
+int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
+                       srslte_dl_sf_cfg_t* sf,
+                       srslte_pdsch_cfg_t* pdsch_cfg,
+                       srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS]);
 
 // get phich
-bool ue_dl_decode_phich(srslte_ue_dl_t * q,
-                        uint32_t sfn,
-                        uint16_t rnti,
-                        uint32_t n_prb_L,
-                        uint32_t n_dmrs);
+int ue_dl_decode_phich(srslte_ue_dl_t*       q,
+                       srslte_dl_sf_cfg_t*   sf,
+                       srslte_ue_dl_cfg_t*   cfg,
+                       srslte_phich_grant_t* grant,
+                       srslte_phich_res_t*   result,
+                       uint16_t rnti);
+
 
 // get pmch
-bool ue_dl_decode_pmch(srslte_ue_dl_t * q, 
-                       uint16_t areaid,
-                       uint8_t * payload);
+int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
+                      srslte_dl_sf_cfg_t* sf,
+                      srslte_pmch_cfg_t*  pmch_cfg,
+                      srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS]);
 
 
 // tx init
@@ -113,22 +117,11 @@ void ue_ul_tx_init();
 // send to mhal with sot
 void ue_ul_send_signal(time_t sot_secs, float frac_sec, const srslte_cell_t & cell);
 
-// mark end of transmission
-void ue_ul_tx_end();
-
 // set prach
-void ue_ul_put_prach(int index, uint32_t prach_freq_offset);
+void ue_ul_put_prach(int index);
 
-// set pucch
-bool ue_ul_put_pucch(srslte_ue_ul_t * q,
-                     srslte_uci_data_t * uci,
-                     uint32_t ncce);
-
-// set pusch
-bool ue_ul_put_pusch(uint16_t rnti,
-                     srslte_ra_ul_grant_t *grant,
-                     srslte_uci_data_t * uci,
-                     uint8_t *payload);
+// set pucch, pusch
+int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
 
 } // end namespace phy_adapter
 } // end namespace srsue

@@ -1,19 +1,14 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -71,7 +66,7 @@ public:
   void write_pdu(uint16_t rnti, uint32_t lcid, uint8_t *payload, uint32_t nof_bytes);
   void read_pdu_pcch(uint8_t *payload, uint32_t buffer_size); 
   
-  void get_metrics(srslte::rlc_metrics_t * mlist); // ALINK
+  void get_metrics(srslte::rlc_metrics_t * mlist);
 
 private: 
   
@@ -96,8 +91,6 @@ private:
   };
 
   void clear_user(user_interface *ue);
-
-  const static int RLC_TX_QUEUE_LEN = 512;
 
   pthread_rwlock_t rwlock;
 

@@ -1,5 +1,5 @@
 #
-# Copyright 2013-2017 Software Radio Systems Limited
+# Copyright 2013-2019 Software Radio Systems Limited
 #
 # This file is part of srsLTE
 #
@@ -10,7 +10,7 @@
 #
 # srsLTE is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Affero General Public License for more details.
 #
 # A copy of the GNU Affero General Public License can be found in
@@ -32,7 +32,7 @@ target_link_libraries(rrc_reconfig_test srsue_upper srslte_upper srslte_phy rrc_
 add_test(rrc_reconfig_test rrc_reconfig_test)
 
 add_executable(nas_test nas_test.cc)
-target_link_libraries(nas_test srsue_upper srslte_upper srslte_phy rrc_asn1)
+target_link_libraries(nas_test srsue_upper srslte_upper srslte_phy rrc_asn1 ${emanelte_LIBRARIES})
 add_test(nas_test nas_test)
 
 ########################################################################

@@ -1,19 +1,14 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -39,11 +34,15 @@ int prach_worker::init(srslte_cell_t *cell_, srslte_prach_cfg_t *prach_cfg_, mac
   mac   = mac_; 
   memcpy(&prach_cfg, prach_cfg_, sizeof(srslte_prach_cfg_t));
   memcpy(&cell, cell_, sizeof(srslte_cell_t));
-  
-  max_prach_offset_us = 50; 
-  
-  if (srslte_prach_init_cfg(&prach, &prach_cfg, cell.nof_prb)) {
-    fprintf(stderr, "Error initiating PRACH\n");
+
+  max_prach_offset_us = 50;
+
+  if (srslte_prach_init(&prach, srslte_symbol_sz(cell.nof_prb))) {
+    return -1;
+  }
+
+  if (srslte_prach_set_cfg(&prach, &prach_cfg, cell.nof_prb)) {
+    ERROR("Error initiating PRACH\n");
     return -1; 
   }
 
@@ -89,7 +88,7 @@ int prach_worker::new_tti(uint32_t tti_rx, cf_t* buffer_rx)
       return -1;
     }
     if (current_buffer->nof_samples+SRSLTE_SF_LEN_PRB(cell.nof_prb) < sf_buffer_sz) {
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE // MEMORY
       memcpy(&current_buffer->samples[sf_cnt*SRSLTE_SF_LEN_PRB(cell.nof_prb)], buffer_rx, sizeof(cf_t)*SRSLTE_SF_LEN_PRB(cell.nof_prb));
 #endif
       current_buffer->nof_samples += SRSLTE_SF_LEN_PRB(cell.nof_prb);
@@ -114,13 +113,7 @@ int prach_worker::run_tti(sf_buffer *b)
 {
   if (srslte_prach_tti_opportunity(&prach, b->tti, -1))
   {
-#ifdef PHY_ADAPTER_ENABLE
-    if(phy_adapter::enb_ul_get_prach(prach_indices, 
-                                     prach_offsets, 
-                                     prach_p2avg, 
-                                     sizeof(prach_indices) / sizeof(prach_indices[0]),
-                                     prach_nof_det))
-#else
+#ifndef PHY_ADAPTER_ENABLE
     // Detect possible PRACHs
     if (srslte_prach_detect_offset(&prach,
                                    prach_cfg.freq_offset,
@@ -130,6 +123,12 @@ int prach_worker::run_tti(sf_buffer *b)
                                    prach_offsets,
                                    prach_p2avg,
                                    &prach_nof_det)) 
+#else
+  if(phy_adapter::enb_ul_get_prach(prach_indices, 
+                                     prach_offsets, 
+                                     prach_p2avg, 
+                                     sizeof(prach_indices) / sizeof(prach_indices[0]),
+                                     prach_nof_det))
 #endif
     {
       log_h->error("Error detecting PRACH\n");

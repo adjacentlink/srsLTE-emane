@@ -1,12 +1,7 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
- *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsLTE library.
+ * This file is part of srsLTE.
  *
  * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -37,7 +32,6 @@
 #define SRSLTE_MODEM_TABLE_H
 
 #include <stdbool.h>
-#include <complex.h>
 #include <stdint.h>
 
 #include "srslte/phy/common/phy_common.h"

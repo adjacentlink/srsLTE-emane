@@ -2,7 +2,7 @@
  *
  * \section COPYRIGHT
  *
- * Copyright (c) 2019 - Adjacent Link LLC, Bridgewater, New Jersey
+ * Copyright 2013-2015 Software Radio Systems Limited
  *
  * \section LICENSE
  *
@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <unistd.h>
 
-static bool log_stdout = true;
+static bool log_stdout = false;
 
 #define LOG_FMT "%02d:%02d:%02d.%06ld [DMY] [%c] %s "
 
@@ -311,7 +311,7 @@ double rf_dummy_set_tx_srate(void *h, double rate)
  }
 
 
-double rf_dummy_set_rx_freq(void *h, double freq)
+double rf_dummy_set_rx_freq(void *h, uint32_t ch, double freq)
  {
    GET_DEV_INFO(h);
 
@@ -324,7 +324,7 @@ double rf_dummy_set_rx_freq(void *h, double freq)
  }
 
 
-double rf_dummy_set_tx_freq(void *h, double freq)
+double rf_dummy_set_tx_freq(void *h, uint32_t ch, double freq)
  {
    GET_DEV_INFO(h);
 
