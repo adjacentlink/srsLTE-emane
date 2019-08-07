@@ -1,5 +1,5 @@
 diff --git a/lib/examples/CMakeLists.txt b/lib/examples/CMakeLists.txt
-index dc98662..170862f 100644
+index e17b3b2..299f6a2 100644
 --- a/lib/examples/CMakeLists.txt
 +++ b/lib/examples/CMakeLists.txt
 @@ -32,10 +32,10 @@ target_link_libraries(synch_file srslte_phy)
@@ -15,7 +15,7 @@ index dc98662..170862f 100644
  else(RF_FOUND)
    add_definitions(-DDISABLE_RF)
  
-@@ -62,16 +62,16 @@ endif(SRSGUI_FOUND)
+@@ -60,16 +60,16 @@ endif(SRSGUI_FOUND)
  if(RF_FOUND)
  
    add_executable(cell_search cell_search.c)
@@ -37,10 +37,10 @@ index dc98662..170862f 100644
    message(STATUS "   examples will be installed.")
  
 diff --git a/lib/src/phy/phch/test/CMakeLists.txt b/lib/src/phy/phch/test/CMakeLists.txt
-index 2730b60..575bd45 100644
+index a2391c6..8b7c603 100644
 --- a/lib/src/phy/phch/test/CMakeLists.txt
 +++ b/lib/src/phy/phch/test/CMakeLists.txt
-@@ -358,5 +358,5 @@ add_test(prach_test_multi_n4 prach_test_multi -n 4)
+@@ -366,5 +366,5 @@ add_test(prach_test_multi_n4 prach_test_multi -n 4)
  
  if(UHD_FOUND)
    add_executable(prach_test_usrp prach_test_usrp.c)
@@ -99,10 +99,10 @@ index 388cede..39c7fae 100644
 +  INSTALL(TARGETS srslte_rf_emane DESTINATION ${LIBRARY_DIR})
  endif(RF_FOUND)
 diff --git a/lib/src/phy/sync/test/CMakeLists.txt b/lib/src/phy/sync/test/CMakeLists.txt
-index 1f6ccab..db54b47 100644
+index 77df8cf..05aec3d 100644
 --- a/lib/src/phy/sync/test/CMakeLists.txt
 +++ b/lib/src/phy/sync/test/CMakeLists.txt
-@@ -29,7 +29,7 @@ target_link_libraries(pss_file srslte_phy)
+@@ -27,7 +27,7 @@ target_link_libraries(pss_file srslte_phy)
  
  if(UHD_FOUND)
    add_executable(pss_usrp pss_usrp.c)
@@ -110,9 +110,9 @@ index 1f6ccab..db54b47 100644
 +  target_link_libraries(pss_usrp srslte_phy srslte_rf_emane)
  endif(UHD_FOUND)
  
- 
+ if(SRSGUI_FOUND)
 diff --git a/srsenb/src/CMakeLists.txt b/srsenb/src/CMakeLists.txt
-index 85738f3..fa84487 100644
+index c2ec595..bad19b2 100644
 --- a/srsenb/src/CMakeLists.txt
 +++ b/srsenb/src/CMakeLists.txt
 @@ -34,8 +34,8 @@ if (RPATH)
@@ -120,13 +120,13 @@ index 85738f3..fa84487 100644
  
  
 -add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
--target_link_libraries(srsenb  srsenb_upper
+-target_link_libraries(srsenb  srsenb_radio
 +add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
-+target_link_libraries(srsenb-emane  srsenb_upper
-                               srsenb_mac
++target_link_libraries(srsenb-emane  srsenb_radio
                                srsenb_phy
-                               srslte_common
-@@ -50,19 +50,19 @@ target_link_libraries(srsenb  srsenb_upper
+                               srsenb_stack
+                               srsenb_upper
+@@ -53,7 +53,7 @@ target_link_libraries(srsenb  srsenb_radio
                                ${SCTP_LIBRARIES})
  
  if (RPATH)
@@ -134,11 +134,8 @@ index 85738f3..fa84487 100644
 +  set_target_properties(srsenb-emane PROPERTIES INSTALL_RPATH ".")
  endif (RPATH)
  
--install(TARGETS srsenb DESTINATION ${RUNTIME_DIR})
-+install(TARGETS srsenb-emane DESTINATION ${RUNTIME_DIR})
- 
  ########################################################################
- # Option to run command after build (useful for remote builds)
+@@ -61,9 +61,9 @@ endif (RPATH)
  ########################################################################
  if (NOT ${BUILDENB_CMD} STREQUAL "")
    message(STATUS "Added custom post-build-ENB command: ${BUILDENB_CMD}")
@@ -200,21 +197,21 @@ index f7b9d2a..636a856 100644
 -install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
 +install(TARGETS srsepc-emane DESTINATION ${RUNTIME_DIR})
 diff --git a/srsue/src/CMakeLists.txt b/srsue/src/CMakeLists.txt
-index bb9892f..d3194aa 100644
+index 28e608d..90aece2 100644
 --- a/srsue/src/CMakeLists.txt
 +++ b/srsue/src/CMakeLists.txt
-@@ -31,8 +31,8 @@ if (RPATH)
+@@ -30,8 +30,8 @@ if (RPATH)
    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
  endif (RPATH)
  
--add_executable(srsue main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
--target_link_libraries(srsue   srsue_mac
-+add_executable(srsue-emane main.cc ue_base.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
-+target_link_libraries(srsue-emane   srsue_mac
-                               srsue_phy
+-add_executable(srsue main.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
+-target_link_libraries(srsue   srsue_phy
++add_executable(srsue-emane main.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
++target_link_libraries(srsue-emane   srsue_phy
+                               srsue_stack
                                srsue_upper
-                               srslte_common
-@@ -44,19 +44,19 @@ target_link_libraries(srsue   srsue_mac
+                               srsue_mac
+@@ -45,7 +45,7 @@ target_link_libraries(srsue   srsue_phy
                                ${Boost_LIBRARIES})
  
  if (RPATH)
@@ -222,11 +219,25 @@ index bb9892f..d3194aa 100644
 +  set_target_properties(srsue-emane PROPERTIES INSTALL_RPATH ".")
  endif (RPATH)
  
--install(TARGETS srsue DESTINATION ${RUNTIME_DIR})
-+install(TARGETS srsue-emane DESTINATION ${RUNTIME_DIR})
+ ########################################################################
+@@ -54,13 +54,13 @@ endif (RPATH)
+ 
+ if(NOT SRSGUI_FOUND)
+ # Make sure srsue returns 0 and it does not leak
+-add_test(srsue_version srsue --version)
+-add_test(srsue_help srsue --help)
++add_test(srsue_version srsue-emane --version)
++add_test(srsue_help srsue-emane --help)
+ endif(NOT SRSGUI_FOUND)
+ 
+ # Checks that ue.conf.example is valid and it does not leak memory if RF fails
+ if (ZEROMQ_FOUND)
+-  add_test(ue_rf_failure srsue ${CMAKE_SOURCE_DIR}/srsue/ue.conf.example --rf.device_name=zmq)
++  add_test(ue_rf_failure srsue-emane ${CMAKE_SOURCE_DIR}/srsue-emane/ue.conf.example --rf.device_name=zmq)
+ endif(ZEROMQ_FOUND)
  
  ########################################################################
- # Option to run command after build (useful for remote builds)
+@@ -68,9 +68,9 @@ endif(ZEROMQ_FOUND)
  ########################################################################
  if (NOT ${BUILDUE_CMD} STREQUAL "")
    message(STATUS "Added custom post-build-UE command: ${BUILDUE_CMD}")
