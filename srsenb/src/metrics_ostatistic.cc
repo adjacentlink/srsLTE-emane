@@ -35,94 +35,44 @@ void metrics_ostatistic::set_handle(enb_metrics_interface *enb_)
 
 void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
 {
-#warning "metrics to do"
-
-#if 0
-  ENBSTATS::setS1State(m.s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
-                       m.s1ap.status == S1AP_READY     ? "READY"     : "ERROR");
+  const auto & stack = m.stack;
+  const auto & rrc   = stack.rrc;
+  const auto & mac   = stack.mac;
+  const auto & s1ap  = stack.s1ap;
 
   ENBSTATS::MACMetrics macMetrics;
-  ENBSTATS::RLCMetrics rlcMetrics;
+
+  ENBSTATS::setS1State(s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
+                       s1ap.status == S1AP_READY     ? "READY"     : "ERROR");
 
   // track ue's
-  for(uint16_t ue = 0; ue < m.rrc.n_ues; ++ue)
+  for(uint16_t ue = 0; ue < stack.rrc.n_ues; ++ue)
    {
-     const std::string state = m.rrc.ues[ue].state == RRC_STATE_IDLE                            ? "IDLE" :
-                               m.rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE     ? "WAIT_SETUP_COMP" :
-                               m.rrc.ues[ue].state == RRC_STATE_WAIT_FOR_SECURITY_MODE_COMPLETE ? "WAIT_SECMD_COMP" :
-                               m.rrc.ues[ue].state == RRC_STATE_WAIT_FOR_UE_CAP_INFO            ? "WAIT_CAP_INFO"   :
-                               m.rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_RECONF_COMPLETE    ? "WAIT_CON_RECONF" :
-                               m.rrc.ues[ue].state == RRC_STATE_REGISTERED                      ? "REGISTERED"      :
-                               m.rrc.ues[ue].state == RRC_STATE_RELEASE_REQUEST                 ? "RELEASE_REQUEST" : "ERROR";
+     const std::string state = rrc.ues[ue].state == RRC_STATE_IDLE                            ? "IDLE" :
+                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE     ? "WAIT_SETUP_COMP" :
+                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_SECURITY_MODE_COMPLETE ? "WAIT_SECMD_COMP" :
+                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_UE_CAP_INFO            ? "WAIT_CAP_INFO"   :
+                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_RECONF_COMPLETE    ? "WAIT_CON_RECONF" :
+                               rrc.ues[ue].state == RRC_STATE_REGISTERED                      ? "REGISTERED"      :
+                               rrc.ues[ue].state == RRC_STATE_RELEASE_REQUEST                 ? "RELEASE_REQUEST" : "ERROR";
 
-     macMetrics.push_back(ENBSTATS::MACMetric(m.mac[ue].rnti,
-                                              m.mac[ue].tx_pkts,
-                                              m.mac[ue].tx_errors,
-                                              m.mac[ue].tx_brate,
-                                              m.mac[ue].rx_pkts,
-                                              m.mac[ue].rx_errors,
-                                              m.mac[ue].rx_brate,
-                                              m.mac[ue].ul_buffer,
-                                              m.mac[ue].dl_buffer,
-                                              m.mac[ue].dl_cqi,
-                                              m.mac[ue].dl_ri,
-                                              m.mac[ue].dl_pmi,
-                                              m.mac[ue].phr,
+     macMetrics.push_back(ENBSTATS::MACMetric(mac[ue].rnti,
+                                              mac[ue].tx_pkts,
+                                              mac[ue].tx_errors,
+                                              mac[ue].tx_brate,
+                                              mac[ue].rx_pkts,
+                                              mac[ue].rx_errors,
+                                              mac[ue].rx_brate,
+                                              mac[ue].ul_buffer,
+                                              mac[ue].dl_buffer,
+                                              mac[ue].dl_cqi,
+                                              mac[ue].dl_ri,
+                                              mac[ue].dl_pmi,
+                                              mac[ue].phr,
                                               state));
-
-     ENBSTATS::RLCMetric rlcMetric;
-
-     // for each bearer
-     for(uint16_t bearer = 0; bearer < SRSLTE_N_RADIO_BEARERS; ++bearer)
-      {
-        // use capacity to determine if lcid is active
-        if(m.rlc[ue].metrics[bearer].qmetrics.capacity)
-         {
-           const ENBSTATS::RLCQueueMetric queueMetric(m.rlc[ue].metrics[bearer].mode,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.capacity,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.currsize,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.highwater,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.num_cleared,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.num_push,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.num_push_fail,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.num_pop,
-                                                      m.rlc[ue].metrics[bearer].qmetrics.num_pop_fail);
-
-           rlcMetric.first.push_back(ENBSTATS::RLCBearerMetric(m.rlc[ue].dl_tput_mbps[bearer], 
-                                                               m.rlc[ue].ul_tput_mbps[bearer],
-                                                               queueMetric));
-         }
-      }
-
-     // for each mrb bearer
-     for(uint16_t bearer = 0; bearer < SRSLTE_N_MCH_LCIDS; ++bearer)
-      {
-        // use capacity to determine if lcid is active
-        if(m.rlc[ue].mrb_metrics[bearer].qmetrics.capacity)
-         {
-           ENBSTATS::RLCQueueMetric queueMetric(m.rlc[ue].mrb_metrics[bearer].mode,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.capacity,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.currsize,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.highwater,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.num_cleared,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.num_push,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.num_push_fail,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.num_pop,
-                                                m.rlc[ue].mrb_metrics[bearer].qmetrics.num_pop_fail);
-
-           rlcMetric.second.push_back(ENBSTATS::RLCMRBBearerMetric(m.rlc[ue].dl_tput_mrb_mbps[bearer], 
-                                                                   queueMetric));
-         }
-      }
-
-     // save entry on unique rnti
-     rlcMetrics[m.mac[ue].rnti] = rlcMetric;
    }
 
   ENBSTATS::setMACMetrics(macMetrics);
-  ENBSTATS::setRLCMetrics(rlcMetrics);
-
-#endif
 }
 
 } // end namespace srsenb
