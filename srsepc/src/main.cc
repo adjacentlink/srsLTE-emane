@@ -33,6 +33,7 @@
 #include <iostream>
 #include <signal.h>
 #include <sstream>
+
 #include "libemanelte/epcstatisticmanager.h"
 
 using namespace std;
@@ -162,10 +163,11 @@ void parse_args(all_args_t* args, int argc, char* argv[])
 
     ("log.filename", bpo::value<string>(&args->log_args.filename)->default_value("/tmp/epc.log"),"Log filename")
 
-    ("runtime.daemonize",   bpo::value<bool>(&args->runtime.daemonize)->default_value(false), "Run this process as a daemon")
+    ("runtime.daemonize",   
+      bpo::value<bool>(&args->runtime.daemonize)->default_value(false),
+       "Run this process as a daemon")
 
     ("mhal.statistic_service_endpoint",
-
       bpo::value<string>(&args->mhal.statistic_service_endpoint)->default_value("0.0.0.0:47100"),
        "Statistic service endpoint")
     ;

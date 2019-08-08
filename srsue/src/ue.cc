@@ -31,6 +31,7 @@
 #include <pthread.h>
 #include <sstream>
 #include <string>
+
 #include "srsue/hdr/phy/phy_adapter.h"
 #include "libemanelte/uestatisticmanager.h"
 
@@ -268,9 +269,8 @@ bool ue::get_metrics(ue_metrics_t* m)
   stack->get_metrics(&m->stack);
   gw_inst->get_metrics(m->gw);
 
-#warning "metric to do"
-//  UESTATS::setRRCState(rrc_state_text[rrc.get_state()]);
-//  UESTATS::setEMMState(emm_state_text[nas.get_state()]);
+  UESTATS::setRRCState(rrc_state_text[m->stack.rrc.state]);
+  UESTATS::setEMMState(emm_state_text[m->stack.nas.state]);
 
   return true;
 }

@@ -24,6 +24,7 @@
 
 #include "srslte/srslte.h"
 #include "srsue/hdr/phy/phy_common.h"
+
 #include "srsue/hdr/phy/phy_adapter.h"
 
 #define Error(fmt, ...)                                                                                                \

@@ -41,6 +41,7 @@
 #include "stack/ue_stack_base.h"
 
 #include "ue_metrics_interface.h"
+
 #include "libemanelte/mhalue.h"
 
 namespace srsue {

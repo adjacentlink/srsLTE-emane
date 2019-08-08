@@ -134,11 +134,8 @@ bool threads_new_rt_cpu(pthread_t *thread, void *(*start_routine) (void*), void 
 
   if(attr_enable) { // ALINK
       int policy = 0;
-
       struct sched_param sp = {0};
-
       pthread_attr_getschedpolicy(&attr, &policy);
-
       pthread_attr_getschedparam(&attr, &sp);
 
 #define THREAD_PRIORITY_CAP 50
@@ -146,7 +143,6 @@ bool threads_new_rt_cpu(pthread_t *thread, void *(*start_routine) (void*), void 
 #ifdef  THREAD_PRIORITY_CAP
       if(sp.sched_priority > THREAD_PRIORITY_CAP) {
           sp.sched_priority = THREAD_PRIORITY_CAP;
-
           pthread_attr_setschedparam(&attr, &sp);
         }
 #endif
