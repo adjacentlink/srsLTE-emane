@@ -44,6 +44,42 @@ void metrics_ostatistic::set_metrics(ue_metrics_t &m, const uint32_t)
   const auto & mac   = stack.mac;
   const auto & rlc   = stack.rlc;
 
+  for(size_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n)
+    {
+      // use capacity to determine if lcid is active
+      if(rlc.metrics[n].qmetrics.capacity > 0)
+       {
+         rlcQueueMetrics.emplace_back(
+            UESTATS::RLCQueueMetrics((int)rlc.metrics[n].mode,
+                                     rlc.metrics[n].qmetrics.capacity,
+                                     rlc.metrics[n].qmetrics.currsize,
+                                     rlc.metrics[n].qmetrics.highwater,
+                                     rlc.metrics[n].qmetrics.num_cleared,
+                                     rlc.metrics[n].qmetrics.num_push,
+                                     rlc.metrics[n].qmetrics.num_push_fail,
+                                     rlc.metrics[n].qmetrics.num_pop,
+                                     rlc.metrics[n].qmetrics.num_pop_fail));
+        }
+     }
+
+   for(size_t n = 0; n < SRSLTE_N_MCH_LCIDS; ++n)
+     {
+       // use capacity to determine if lcid is active
+       if(rlc.mrb_metrics[n].qmetrics.capacity > 0)
+        {
+          rlcMrbQueueMetrics.emplace_back(
+            UESTATS::RLCQueueMetrics((int)rlc.mrb_metrics[n].mode,
+                                     rlc.mrb_metrics[n].qmetrics.capacity,
+                                     rlc.mrb_metrics[n].qmetrics.currsize,
+                                     rlc.mrb_metrics[n].qmetrics.highwater,
+                                     rlc.mrb_metrics[n].qmetrics.num_cleared,
+                                     rlc.mrb_metrics[n].qmetrics.num_push,
+                                     rlc.mrb_metrics[n].qmetrics.num_push_fail,
+                                     rlc.mrb_metrics[n].qmetrics.num_pop,
+                                     rlc.mrb_metrics[n].qmetrics.num_pop_fail));
+        }
+     }
+
   UESTATS::setRLCMetrics(UESTATS::RLCMetrics(rlc.dl_tput_mbps, 
                                              rlc.ul_tput_mbps,
                                              rlcQueueMetrics,

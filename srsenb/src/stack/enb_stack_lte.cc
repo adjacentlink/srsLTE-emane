@@ -157,6 +157,7 @@ bool enb_stack_lte::get_metrics(stack_metrics_t* metrics)
   mac.get_metrics(metrics->mac);
   rrc.get_metrics(metrics->rrc);
   s1ap.get_metrics(metrics->s1ap);
+  rlc.get_metrics(metrics->rlc);
   return true;
 }
 

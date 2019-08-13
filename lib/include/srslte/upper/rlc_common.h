@@ -199,6 +199,8 @@ public:
   virtual int      read_pdu(uint8_t *payload, uint32_t nof_bytes) = 0;
   virtual void     write_pdu(uint8_t *payload, uint32_t nof_bytes) = 0;
 
+  virtual queue_metrics_t get_qmetrics(bool bReset = false) = 0;
+
 private:
   bool is_suspended = false;
 

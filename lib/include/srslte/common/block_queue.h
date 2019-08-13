@@ -39,6 +39,8 @@
 #include <unistd.h>
 #include <strings.h>
 
+#include "srslte/common/queue_metrics.h"
+
 namespace srslte {
 
 template<typename myobj>
@@ -62,6 +64,7 @@ public:
     mutexed_callback = NULL;
     enable = true;
     num_threads = 0;
+    qmetrics.capacity = capacity;
   }
   ~block_queue() {
     // Unlock threads waiting at push or pop
@@ -87,7 +90,10 @@ public:
     mutexed_callback = itf;
   }
   void resize(int new_capacity) {
+    pthread_mutex_lock(&mutex);
     capacity = new_capacity;
+    qmetrics.capacity = capacity;
+    pthread_mutex_unlock(&mutex);
   }
 
   void push(const myobj& value) {
@@ -121,31 +127,49 @@ public:
 
   void clear() { // remove all items
     myobj *item = NULL;
-    while (try_pop(item));
+    while (try_pop(item)) {
+      ++qmetrics.num_cleared;
+    }
   }
 
   const myobj& front() const { return q.front(); }
 
   size_t size() {
-    return q.size();
+    pthread_mutex_lock(&mutex);
+    size_t result = q.size();
+    pthread_mutex_unlock(&mutex);
+    return result;
   }
 
+  queue_metrics_t get_qmetrics(bool bReset = false) {
+    pthread_mutex_lock(&mutex);
+    const queue_metrics_t result = qmetrics;
+    if(bReset) {
+      qmetrics.reset();
+    }
+    pthread_mutex_unlock(&mutex);
+    return result;
+  }
+   
 private:
 
   bool pop_(myobj *value, bool block) {
     if (!enable) {
+      ++qmetrics.num_pop_fail;
       return false;
     }
     pthread_mutex_lock(&mutex);
     num_threads++;
     bool ret = false;
     if (q.empty() && !block) {
+      ++qmetrics.num_pop_fail;
       goto exit;
     }
     while (q.empty() && enable) {
       pthread_cond_wait(&cv_empty, &mutex);
     }
     if (!enable) {
+      ++qmetrics.num_pop_fail;
       goto exit;
     }
     if (value) {
@@ -156,6 +180,8 @@ private:
     }
     q.pop();
     ret = true;
+    ++qmetrics.num_pop;
+    qmetrics.currsize = q.size();
     pthread_cond_signal(&cv_full);
   exit:
     num_threads--;
@@ -198,6 +224,11 @@ private:
       }
       q.push(std::move(value));
       pthread_cond_signal(&cv_empty);
+      ++qmetrics.num_push;
+      qmetrics.currsize = q.size();
+      qmetrics.highwater = std::max(qmetrics.highwater, q.size());
+    } else {
+      ++qmetrics.num_push_fail;
     }
     pthread_mutex_unlock(&mutex);
     return std::make_pair(ret, std::move(value));
@@ -229,6 +260,7 @@ private:
   int capacity;
   bool enable;
   uint32_t num_threads;
+  queue_metrics_t qmetrics;
 };
 
 }
