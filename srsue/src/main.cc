@@ -550,6 +550,11 @@ int main(int argc, char* argv[])
     return ret;
   }
 
+  if(args.runtime.daemonize) {
+    cout << "Running as a daemon\n";
+    int ret = daemon(1, 0);
+  }
+
   srslte::logger_stdout logger_stdout;
   srslte::logger_file   logger_file;
 
@@ -560,11 +565,6 @@ int main(int argc, char* argv[])
   } else {
     logger_file.init(args.log.filename, args.log.file_max_size);
     logger = &logger_file;
-  }
-
-  if(args.runtime.daemonize) {
-    cout << "Running as a daemon\n";
-    int ret = daemon(1, 0);
   }
 
   // Create UE instance
