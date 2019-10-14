@@ -284,7 +284,7 @@ configure_file(
         ${CMAKE_SOURCE_DIR}/cmake/modules/SRSLTE_install_configs.sh.in
         ${CMAKE_BINARY_DIR}/srslte_install_configs.sh
 )
-#install(PROGRAMS ${CMAKE_BINARY_DIR}/srslte_install_configs.sh DESTINATION ${RUNTIME_DIR}) // MIN_INSTALL
+install(PROGRAMS ${CMAKE_BINARY_DIR}/srslte_install_configs.sh DESTINATION ${RUNTIME_DIR})
 
 ########################################################################
 # Compiler specific setup

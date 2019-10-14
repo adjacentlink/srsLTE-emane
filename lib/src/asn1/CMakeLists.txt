@@ -26,7 +26,7 @@ add_library(srslte_asn1 STATIC
   liblte_m2ap.cc
   gtpc.cc
 )
-#install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
+install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR})
 
 add_library(rrc_asn1 STATIC
         rrc_asn1.cc
@@ -36,4 +36,4 @@ add_library(rrc_asn1 STATIC
         )
 # Compile RRC ASN1 optimized for size
 target_compile_options(rrc_asn1 PRIVATE "-Os")
-# install(TARGETS rrc_asn1 DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
+install(TARGETS rrc_asn1 DESTINATION ${LIBRARY_DIR})

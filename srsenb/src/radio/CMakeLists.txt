@@ -20,4 +20,4 @@
 
 file(GLOB SOURCES "*.cc")
 add_library(srsenb_radio STATIC ${SOURCES})
-# install(TARGETS srsenb_radio DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
+install(TARGETS srsenb_radio DESTINATION ${LIBRARY_DIR})
