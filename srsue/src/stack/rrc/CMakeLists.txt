@@ -22,5 +22,5 @@ set(SOURCES rrc.cc)
 
 add_library(srsue_rrc STATIC ${SOURCES})
 
-install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR})
+# install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 

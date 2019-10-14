@@ -22,4 +22,4 @@ set(SOURCES rrc.cc)
 
 add_library(srsenb_rrc STATIC ${SOURCES})
 
-install(TARGETS srsenb_rrc DESTINATION ${LIBRARY_DIR})
+# install(TARGETS srsenb_rrc DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
