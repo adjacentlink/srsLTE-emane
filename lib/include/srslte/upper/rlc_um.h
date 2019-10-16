@@ -158,6 +158,7 @@ private:
     bool configure(rlc_config_t cfg, std::string rb_name);
     int  build_data_pdu(unique_byte_buffer_t pdu, uint8_t* payload, uint32_t nof_bytes);
 
+    queue_metrics_t get_qmetrics(bool bReset = false);
   private:
     uint32_t TX_Next = 0; // send state as defined in TS 38.322 v15.3 Section 7
 

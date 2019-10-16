@@ -977,7 +977,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
 }
 
 
-#warning "this need review"
+// XXX TODO this needs review
 // set the power scaling on a per rnti basis
 void enb_dl_set_power_allocation(uint32_t tti, uint16_t rnti, float rho_a_db, float rho_b_db)
 {
@@ -1652,7 +1652,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
            Info("PUCCH:%s sr %d, acks %d, ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
                 __func__, 
                 cfg->uci_cfg.is_scheduling_request_tti,
-                cfg->uci_cfg.ack.nof_acks,
+                srslte_uci_cfg_total_ack(&cfg->uci_cfg),
                 grant_message.rnti(), rnti, n+1, pucch_message.grant_size());
 
            std::string format;

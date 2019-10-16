@@ -367,6 +367,12 @@ const char* rlc_um::rlc_um_tx_base::get_rb_name()
   return rb_name.c_str();
 }
 
+queue_metrics_t rlc_um::rlc_um_tx_base::get_qmetrics(bool bReset)
+{
+  return tx_sdu_queue.get_qmetrics(bReset);
+}
+
+
 /****************************************************************************
  * Tx Subclass implementation for LTE
  ***************************************************************************/
@@ -489,6 +495,7 @@ void rlc_um::rlc_um_tx::debug_state()
   log->debug("%s vt_us = %d\n", get_rb_name(), vt_us);
 }
 
+
 /****************************************************************************
  * Tx Subclass implementation for NR
  ***************************************************************************/
@@ -510,11 +517,6 @@ bool rlc_um::rlc_um_tx_nr::configure(rlc_config_t cnfg_, std::string rb_name_)
   tx_enabled = true;
 
   return true;
-}
-
-queue_metrics_t rlc_um::rlc_um_tx::get_qmetrics(bool bReset)
-{
-  return tx_sdu_queue.get_qmetrics(bReset);
 }
 
 int rlc_um::rlc_um_tx_nr::build_data_pdu(unique_byte_buffer_t pdu, uint8_t* payload, uint32_t nof_bytes)
@@ -605,6 +607,11 @@ int rlc_um::rlc_um_tx_nr::build_data_pdu(unique_byte_buffer_t pdu, uint8_t* payl
 void rlc_um::rlc_um_tx_nr::debug_state()
 {
   log->debug("%s TX_Next = %d\n", get_rb_name(), TX_Next);
+}
+
+queue_metrics_t rlc_um::rlc_um_tx_nr::get_qmetrics(bool bReset)
+{
+  return tx_sdu_queue.get_qmetrics(bReset);
 }
 
 /****************************************************************************

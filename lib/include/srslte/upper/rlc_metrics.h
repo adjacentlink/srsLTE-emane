@@ -29,7 +29,7 @@ namespace srslte {
 
 struct rlc_queue_metrics_t { 
  queue_metrics_t qmetrics;
- rlc_mode_t      mode;
+ mode_t          mode;
 };
 
 struct rlc_metrics_t

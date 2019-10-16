@@ -172,7 +172,7 @@ private:
   uint32_t        timer_alignment = 0;
   void            setup_timers(int time_alignment_timer);
   void            timer_alignment_expire();
-  srslte::timers  timers;
+  srslte::timers* timers = nullptr;
 
   // pointer to MAC PCAP object
   srslte::mac_pcap* pcap              = nullptr;

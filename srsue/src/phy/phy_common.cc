@@ -558,12 +558,10 @@ void phy_common::worker_end(uint32_t           tti,
       if (ul_channel) {
         ul_channel->run(buffer[i], buffer[i], nof_samples[i], tx_time[i]);
       }
-
       radio_h->tx(i, buffer[i], nof_samples[i], tx_time[i]);
 #else
       phy_adapter::ue_ul_send_signal(tx_time[i].full_secs, tx_time[i].frac_secs, cell);
 #endif
-      is_first_of_burst[i] = false;
     } else {
       if (radio_h->is_continuous_tx()) {
         if (is_pending_tx_end) {
