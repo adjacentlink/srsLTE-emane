@@ -104,6 +104,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
 
     ("gui.enable",        bpo::value<bool>(&args->gui.enable)->default_value(false),          "Enable GUI plots")
 
+    ("log.rf_level",     bpo::value<string>(&args->rf.log_level),         "RF log level")
     ("log.phy_level",     bpo::value<string>(&args->phy.log.phy_level),   "PHY log level")
     ("log.phy_hex_limit", bpo::value<int>(&args->phy.log.phy_hex_limit),  "PHY log hex dump limit")
     ("log.phy_lib_level", bpo::value<string>(&args->phy.log.phy_lib_level)->default_value("none"), "PHY lib log level")
@@ -123,7 +124,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
     ("log.all_level",     bpo::value<string>(&args->log.all_level)->default_value("info"),   "ALL log level")
     ("log.all_hex_limit", bpo::value<int>(&args->log.all_hex_limit)->default_value(32),  "ALL log hex dump limit")
 
-    ("log.filename",      bpo::value<string>(&args->log.filename)->default_value("/tmp/enb.log"),"Log filename")
+    ("log.filename",      bpo::value<string>(&args->log.filename)->default_value("/tmp/ue.log"),"Log filename")
     ("log.file_max_size", bpo::value<int>(&args->log.file_max_size)->default_value(-1), "Maximum file size (in kilobytes). When passed, multiple files are created. Default -1 (single file)")
 
     /* MCS section */
@@ -289,6 +290,9 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
 
   // Apply all_level to any unset layers
   if (vm.count("log.all_level")) {
+    if (!vm.count("log.rf_level")) {
+      args->rf.log_level = args->log.all_level;
+    }
     if(!vm.count("log.phy_level")) {
       args->phy.log.phy_level = args->log.all_level;
     }
