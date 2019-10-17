@@ -39,7 +39,7 @@ git clone https://github.com/adjacentlink/srsLTE-emane.git
 cd srsLTE-emane
 mkdir build
 cd build
-cmake ..
+cmake -DUSE_GLIBC_IPV6=0 ..
 make package
 sudo yum install srslte-emane-18.12.1-x86_64.rpm
 ```
