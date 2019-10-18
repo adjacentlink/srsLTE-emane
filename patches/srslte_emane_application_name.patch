@@ -48,7 +48,7 @@ index a2391c6..8b7c603 100644
 +  target_link_libraries(prach_test_usrp srslte_rf_emane srslte_phy pthread)
  endif(UHD_FOUND)
 diff --git a/lib/src/phy/rf/CMakeLists.txt b/lib/src/phy/rf/CMakeLists.txt
-index 388cede..39c7fae 100644
+index 1b397ff..73d61ae 100644
 --- a/lib/src/phy/rf/CMakeLists.txt
 +++ b/lib/src/phy/rf/CMakeLists.txt
 @@ -20,8 +20,8 @@
@@ -63,7 +63,7 @@ index 388cede..39c7fae 100644
    # Include common RF files
    set(SOURCES_RF "")
 @@ -47,27 +47,27 @@ if(RF_FOUND)
-     list(APPEND SOURCES_RF rf_zmq_imp.c)
+     list(APPEND SOURCES_RF rf_zmq_imp.c rf_zmq_imp_tx.c rf_zmq_imp_rx.c)
    endif (ZEROMQ_FOUND)
  
 -  add_library(srslte_rf SHARED ${SOURCES_RF})
@@ -99,16 +99,24 @@ index 388cede..39c7fae 100644
 +  INSTALL(TARGETS srslte_rf_emane DESTINATION ${LIBRARY_DIR})
  endif(RF_FOUND)
 diff --git a/lib/src/phy/sync/test/CMakeLists.txt b/lib/src/phy/sync/test/CMakeLists.txt
-index 77df8cf..05aec3d 100644
+index 25035c1..cd75243 100644
 --- a/lib/src/phy/sync/test/CMakeLists.txt
 +++ b/lib/src/phy/sync/test/CMakeLists.txt
-@@ -27,7 +27,7 @@ target_link_libraries(pss_file srslte_phy)
+@@ -30,13 +30,13 @@ target_link_libraries(npss_file srslte_phy)
  
- if(UHD_FOUND)
+ if(RF_FOUND)
    add_executable(pss_usrp pss_usrp.c)
--  target_link_libraries(pss_usrp srslte_phy srslte_rf)
-+  target_link_libraries(pss_usrp srslte_phy srslte_rf_emane)
- endif(UHD_FOUND)
+-  target_link_libraries(pss_usrp srslte_rf srslte_phy)
++  target_link_libraries(pss_usrp srslte_rf_emane srslte_phy)
+ 
+   add_executable(npss_usrp npss_usrp.c)
+-  target_link_libraries(npss_usrp srslte_rf srslte_phy)
++  target_link_libraries(npss_usrp srslte_rf_emane srslte_phy)
+ 
+   add_executable(nsss_usrp nsss_usrp.c)
+-  target_link_libraries(nsss_usrp srslte_rf srslte_phy)
++  target_link_libraries(nsss_usrp srslte_rf_emane srslte_phy)
+ endif(RF_FOUND)
  
  if(SRSGUI_FOUND)
 diff --git a/srsenb/src/CMakeLists.txt b/srsenb/src/CMakeLists.txt
