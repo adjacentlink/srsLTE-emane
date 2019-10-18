@@ -295,7 +295,7 @@ index e8d85f2..c73786b 100644
  add_library(srsue_rrc STATIC ${SOURCES})
  
 -install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR})
-+install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
++# install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
 diff --git a/srsue/src/stack/upper/CMakeLists.txt b/srsue/src/stack/upper/CMakeLists.txt
 index 30a9c3e..40b7aad 100644
 --- a/srsue/src/stack/upper/CMakeLists.txt
