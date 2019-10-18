@@ -66,7 +66,7 @@ void srslte_debug_handle_crash(int argc, char **argv) {
   bt_argc = argc;
   bt_argv = argv;
 
-  //signal(SIGSEGV, crash_handler);
+  //signal(SIGSEGV, crash_handler); ALINK let sigsegv dump core
   signal(SIGABRT, crash_handler);
   signal(SIGILL, crash_handler);
   signal(SIGFPE, crash_handler);

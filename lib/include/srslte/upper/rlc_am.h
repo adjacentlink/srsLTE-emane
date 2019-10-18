@@ -323,5 +323,4 @@ bool        rlc_am_not_start_aligned(const uint8_t fi);
 
 } // namespace srslte
 
-
 #endif // SRSLTE_RLC_AM_H

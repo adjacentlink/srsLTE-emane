@@ -137,6 +137,8 @@ int ue::init(const all_args_t& args_, srslte::logger* logger_)
   phy->wait_initialize();
   log.console("done!\n");
 
+  log.set_level(srslte::LOG_LEVEL_WARNING);
+
   return SRSLTE_SUCCESS;
 }
 

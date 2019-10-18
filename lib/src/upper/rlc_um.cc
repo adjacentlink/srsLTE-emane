@@ -372,7 +372,6 @@ queue_metrics_t rlc_um::rlc_um_tx_base::get_qmetrics(bool bReset)
   return tx_sdu_queue.get_qmetrics(bReset);
 }
 
-
 /****************************************************************************
  * Tx Subclass implementation for LTE
  ***************************************************************************/
@@ -495,7 +494,6 @@ void rlc_um::rlc_um_tx::debug_state()
   log->debug("%s vt_us = %d\n", get_rb_name(), vt_us);
 }
 
-
 /****************************************************************************
  * Tx Subclass implementation for NR
  ***************************************************************************/
@@ -521,7 +519,6 @@ bool rlc_um::rlc_um_tx_nr::configure(rlc_config_t cnfg_, std::string rb_name_)
 
 int rlc_um::rlc_um_tx_nr::build_data_pdu(unique_byte_buffer_t pdu, uint8_t* payload, uint32_t nof_bytes)
 {
- 
   std::lock_guard<std::mutex> lock(mutex);
   rlc_um_nr_pdu_header_t      header = {};
   header.si                          = rlc_nr_si_field_t::full_sdu;
