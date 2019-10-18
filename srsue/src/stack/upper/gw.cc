@@ -314,7 +314,8 @@ void gw::run_thread()
             pdu->set_timestamp();
             ul_tput_bytes += pdu->N_bytes;
 #ifdef PHY_ADAPTER_ENABLE
-            UESTATS::updateUplinkTraffic(ip_pkt->saddr, ip_pkt->daddr, pdu->N_bytes);
+            if (ip_pkt->version == 4)
+              UESTATS::updateUplinkTraffic(ip_pkt->saddr, ip_pkt->daddr, pdu->N_bytes);
 #endif
             stack->write_sdu(lcid, std::move(pdu), false);
             do {
