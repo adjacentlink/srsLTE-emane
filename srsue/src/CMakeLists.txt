@@ -30,8 +30,8 @@ if (RPATH)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif (RPATH)
 
-add_executable(srsue main.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
-target_link_libraries(srsue   srsue_phy
+add_executable(srsue-emane main.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
+target_link_libraries(srsue-emane   srsue_phy
                               srsue_stack
                               srsue_upper
                               srsue_mac
@@ -45,7 +45,7 @@ target_link_libraries(srsue   srsue_phy
                               ${Boost_LIBRARIES})
 
 if (RPATH)
-  set_target_properties(srsue PROPERTIES INSTALL_RPATH ".")
+  set_target_properties(srsue-emane PROPERTIES INSTALL_RPATH ".")
 endif (RPATH)
 
 ########################################################################
@@ -54,13 +54,13 @@ endif (RPATH)
 
 if(NOT SRSGUI_FOUND)
 # Make sure srsue returns 0 and it does not leak
-add_test(srsue_version srsue --version)
-add_test(srsue_help srsue --help)
+add_test(srsue_version srsue-emane --version)
+add_test(srsue_help srsue-emane --help)
 endif(NOT SRSGUI_FOUND)
 
 # Checks that ue.conf.example is valid and it does not leak memory if RF fails
 if (ZEROMQ_FOUND)
-  add_test(ue_rf_failure srsue ${CMAKE_SOURCE_DIR}/srsue/ue.conf.example --rf.device_name=zmq)
+  add_test(ue_rf_failure srsue-emane ${CMAKE_SOURCE_DIR}/srsue-emane/ue.conf.example --rf.device_name=zmq)
 endif(ZEROMQ_FOUND)
 
 ########################################################################
@@ -68,9 +68,9 @@ endif(ZEROMQ_FOUND)
 ########################################################################
 if (NOT ${BUILDUE_CMD} STREQUAL "")
   message(STATUS "Added custom post-build-UE command: ${BUILDUE_CMD}")
-  add_custom_command(TARGET srsue POST_BUILD COMMAND ${BUILDUE_CMD})
+  add_custom_command(TARGET srsue-emane POST_BUILD COMMAND ${BUILDUE_CMD})
 else(NOT ${BUILDUE_CMD} STREQUAL "")
   message(STATUS "No post-build-UE command defined")
 endif (NOT ${BUILDUE_CMD} STREQUAL "")
 
-install(TARGETS srsue DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsue-emane DESTINATION ${RUNTIME_DIR})

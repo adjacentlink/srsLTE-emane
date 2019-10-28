@@ -32,10 +32,10 @@ target_link_libraries(synch_file srslte_phy)
 
 if(RF_FOUND)
   add_executable(pdsch_ue pdsch_ue.c)
-  target_link_libraries(pdsch_ue srslte_phy srslte_common srslte_rf pthread)
+  target_link_libraries(pdsch_ue srslte_phy srslte_common srslte_rf_emane pthread)
 
   add_executable(pdsch_enodeb pdsch_enodeb.c)
-  target_link_libraries(pdsch_enodeb srslte_phy srslte_common srslte_rf pthread)
+  target_link_libraries(pdsch_enodeb srslte_phy srslte_common srslte_rf_emane pthread)
 else(RF_FOUND)
   add_definitions(-DDISABLE_RF)
 
@@ -60,16 +60,16 @@ endif(SRSGUI_FOUND)
 if(RF_FOUND)
 
   add_executable(cell_search cell_search.c)
-  target_link_libraries(cell_search srslte_phy srslte_common srslte_rf)
+  target_link_libraries(cell_search srslte_phy srslte_common srslte_rf_emane)
 
   add_executable(usrp_capture usrp_capture.c)
-  target_link_libraries(usrp_capture srslte_phy srslte_rf)
+  target_link_libraries(usrp_capture srslte_phy srslte_rf_emane)
 
   add_executable(usrp_capture_sync usrp_capture_sync.c)
-  target_link_libraries(usrp_capture_sync srslte_phy srslte_rf)
+  target_link_libraries(usrp_capture_sync srslte_phy srslte_rf_emane)
 
   add_executable(usrp_txrx usrp_txrx.c)
-  target_link_libraries(usrp_txrx srslte_phy srslte_rf)
+  target_link_libraries(usrp_txrx srslte_phy srslte_rf_emane)
 
   message(STATUS "   examples will be installed.")
 
