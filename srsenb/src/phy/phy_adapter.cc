@@ -1629,8 +1629,12 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   }
 
   // see lib/src/phy/enb/enb_ul.c get_pucch()
+  // and lib/src/phy/ue/test/pucch_resource_test.c
   // this is needed to set cfg->format
-  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, NULL);
+  srslte_uci_value_t uci_value;
+  ZERO_OBJECT(uci_value);
+
+  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, &uci_value);
 
   const auto rnti = cfg->rnti;
 
