@@ -102,6 +102,10 @@ void rlc::get_metrics(rlc_metrics_t &m)
   for (rlc_map_t::iterator it = rlc_array.begin(); it != rlc_array.end(); ++it) {
     m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
     m.ul_tput_mbps[it->first] = (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs;
+
+    m.metrics[it->first].qmetrics = it->second->get_qmetrics();
+    m.metrics[it->first].mode     = it->second->get_mode();
+
     rlc_log->info("LCID=%d, RX throughput: %4.6f Mbps. TX throughput: %4.6f Mbps.\n",
                     it->first,
                     (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
@@ -111,6 +115,10 @@ void rlc::get_metrics(rlc_metrics_t &m)
   // Add multicast metrics
   for (rlc_map_t::iterator it = rlc_array_mrb.begin(); it != rlc_array_mrb.end(); ++it) {
     m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
+
+    m.metrics[it->first].qmetrics = it->second->get_qmetrics();
+    m.metrics[it->first].mode     = it->second->get_mode();
+
     rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps\n",
                   it->first,
                   (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs);
