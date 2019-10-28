@@ -47,6 +47,9 @@ ue::ue() : logger(nullptr)
   // load FFTW wisdom
   srslte_dft_load();
 
+  // save FFTW wisdom when UE exits
+  atexit(srslte_dft_exit);
+
   pool = byte_buffer_pool::get_instance();
 }
 
@@ -56,8 +59,6 @@ ue::~ue()
   stack.reset();
   byte_buffer_pool::cleanup();
 
-  // save FFTW wisdom
-  srslte_dft_exit();
 }
 
 int ue::init(const all_args_t& args_, srslte::logger* logger_)
@@ -135,9 +136,6 @@ int ue::init(const all_args_t& args_, srslte::logger* logger_)
   log.console("Waiting PHY to initialize ... ");
   phy->wait_initialize();
   log.console("done!\n");
-
-  // ALINK set log level to prevent info level logs srslte issue #393
-  log.set_level(srslte::LOG_LEVEL_WARNING); 
 
   return SRSLTE_SUCCESS;
 }

@@ -174,8 +174,8 @@ void srslte_enb_ul_fft(srslte_enb_ul_t *q)
 
 static int get_pucch(srslte_enb_ul_t* q, srslte_ul_sf_cfg_t* ul_sf, srslte_pucch_cfg_t* cfg, srslte_pucch_res_t* res)
 {
-
-  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, NULL);
+  srslte_uci_value_t uci_value_default = {};
+  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, &uci_value_default);
 
   // Prepare configuration
   if (srslte_chest_ul_estimate_pucch(&q->chest, ul_sf, cfg, q->sf_symbols, &q->chest_res)) {
@@ -217,7 +217,7 @@ int srslte_enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   // If we are looking for SR and ACK at the same time and ret=0, means there is no SR.
   // try again to decode ACK only
-  if (cfg->uci_cfg.is_scheduling_request_tti && cfg->uci_cfg.ack.nof_acks && !res->detected) {
+  if (cfg->uci_cfg.is_scheduling_request_tti && srslte_uci_cfg_total_ack(&cfg->uci_cfg) && !res->detected) {
     cfg->uci_cfg.is_scheduling_request_tti = false;
     if (get_pucch(q, ul_sf, cfg, res)) {
       return -1;

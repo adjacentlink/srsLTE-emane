@@ -27,4 +27,4 @@ endif(ENABLE_GUI AND SRSGUI_FOUND)
 
 target_link_libraries(srsue_phy ${emanelte_LIBRARIES} ${protobuf_LIBRARIES} ${ostatistic_LIBRARIES})
 
-#install(TARGETS srsue_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
+install(TARGETS srsue_phy DESTINATION ${LIBRARY_DIR})

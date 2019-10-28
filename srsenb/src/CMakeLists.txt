@@ -34,8 +34,8 @@ if (RPATH)
 endif (RPATH)
 
 
-add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
-target_link_libraries(srsenb-emane  srsenb_radio
+add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
+target_link_libraries(srsenb  srsenb_radio
                               srsenb_phy
                               srsenb_stack
                               srsenb_upper
@@ -53,7 +53,7 @@ target_link_libraries(srsenb-emane  srsenb_radio
                               ${SCTP_LIBRARIES})
 
 if (RPATH)
-  set_target_properties(srsenb-emane PROPERTIES INSTALL_RPATH ".")
+  set_target_properties(srsenb PROPERTIES INSTALL_RPATH ".")
 endif (RPATH)
 
 ########################################################################
@@ -61,9 +61,9 @@ endif (RPATH)
 ########################################################################
 if (NOT ${BUILDENB_CMD} STREQUAL "")
   message(STATUS "Added custom post-build-ENB command: ${BUILDENB_CMD}")
-  add_custom_command(TARGET srsenb-emane POST_BUILD COMMAND ${BUILDENB_CMD})
+  add_custom_command(TARGET srsenb POST_BUILD COMMAND ${BUILDENB_CMD})
 else(NOT ${BUILDENB_CMD} STREQUAL "")
   message(STATUS "No post-build-ENB command defined")
 endif (NOT ${BUILDENB_CMD} STREQUAL "")
 
-install(TARGETS srsenb-emane DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsenb DESTINATION ${RUNTIME_DIR})

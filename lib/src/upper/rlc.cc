@@ -53,12 +53,12 @@ rlc::~rlc()
 
 void rlc::init(srsue::pdcp_interface_rlc* pdcp_,
                srsue::rrc_interface_rlc*  rrc_,
-               mac_interface_timers*      mac_timers_,
+               srslte::timers*            timers_,
                uint32_t                   lcid_)
 {
-  pdcp    = pdcp_;
-  rrc     = rrc_;
-  mac_timers = mac_timers_;
+  pdcp         = pdcp_;
+  rrc          = rrc_;
+  timers       = timers_;
   default_lcid = lcid_;
 
   gettimeofday(&metrics_time[1], NULL);
@@ -99,31 +99,21 @@ void rlc::get_metrics(rlc_metrics_t &m)
   get_time_interval(metrics_time);
   double secs = (double)metrics_time[0].tv_sec + metrics_time[0].tv_usec*1e-6;
 
-  bzero(&m, sizeof(m));
-  for (auto it = rlc_array.begin(); it != rlc_array.end(); ++it) {
-    m.dl_tput_mbps[it->first]     = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
-    m.ul_tput_mbps[it->first]     = (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs;
-    m.metrics[it->first].qmetrics = it->second->get_qmetrics();
-    m.metrics[it->first].mode     = it->second->get_mode();
-    rlc_log->info("LCID=%d, RX throughput: %4.6f Mbps. TX throughput: %4.6f Mbps. mode %s, %s\n",
-                  it->first,
-                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
-                  (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs,
-                  to_string(it->second->get_mode(), false).c_str(),
-                  m.metrics[it->first].qmetrics.toString().c_str());
+  for (rlc_map_t::iterator it = rlc_array.begin(); it != rlc_array.end(); ++it) {
+    m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
+    m.ul_tput_mbps[it->first] = (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs;
+    rlc_log->info("LCID=%d, RX throughput: %4.6f Mbps. TX throughput: %4.6f Mbps.\n",
+                    it->first,
+                    (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
+                    (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs);
   }
 
   // Add multicast metrics
-  for (auto it = rlc_array_mrb.begin(); it != rlc_array_mrb.end(); ++it) {
-    m.dl_tput_mrb_mbps[it->first]     = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
-    m.mrb_metrics[it->first].qmetrics = it->second->get_qmetrics();
-    m.mrb_metrics[it->first].mode     = it->second->get_mode();
-
-    rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps. mode %s, %s\n",
+  for (rlc_map_t::iterator it = rlc_array_mrb.begin(); it != rlc_array_mrb.end(); ++it) {
+    m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
+    rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps\n",
                   it->first,
-                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
-                  to_string(it->second->get_mode(), false).c_str(),
-                  m.mrb_metrics[it->first].qmetrics.toString().c_str());
+                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs);
   }
 
   memcpy(&metrics_time[1], &metrics_time[2], sizeof(struct timeval));
@@ -394,13 +384,13 @@ void rlc::add_bearer(uint32_t lcid, rlc_config_t cnfg)
   if (not valid_lcid(lcid)) {
     switch (cnfg.rlc_mode) {
       case rlc_mode_t::tm:
-        rlc_entity = new rlc_tm(rlc_log, lcid, pdcp, rrc, mac_timers);
+        rlc_entity = new rlc_tm(rlc_log, lcid, pdcp, rrc, timers);
         break;
       case rlc_mode_t::am:
-        rlc_entity = new rlc_am(rlc_log, lcid, pdcp, rrc, mac_timers);
+        rlc_entity = new rlc_am(rlc_log, lcid, pdcp, rrc, timers);
         break;
       case rlc_mode_t::um:
-        rlc_entity = new rlc_um(rlc_log, lcid, pdcp, rrc, mac_timers);
+        rlc_entity = new rlc_um(rlc_log, lcid, pdcp, rrc, timers);
         break;
       default:
         rlc_log->error("Cannot add RLC entity - invalid mode\n");
@@ -438,10 +428,10 @@ unlock_and_exit:
 void rlc::add_bearer_mrb(uint32_t lcid)
 {
   pthread_rwlock_wrlock(&rwlock);
-  rlc_common *rlc_entity = NULL;
+  rlc_common* rlc_entity = NULL;
 
   if (not valid_lcid_mrb(lcid)) {
-    rlc_entity = new rlc_um(rlc_log, lcid, pdcp, rrc, mac_timers);
+    rlc_entity = new rlc_um(rlc_log, lcid, pdcp, rrc, timers);
     // configure and add to array
     if (not rlc_entity->configure(rlc_config_t::mch_config())) {
       rlc_log->error("Error configuring RLC entity\n.");
@@ -533,7 +523,7 @@ exit:
 
 void rlc::suspend_bearer(uint32_t lcid)
 {
-  pthread_rwlock_wrlock(&rwlock);
+  pthread_rwlock_rdlock(&rwlock);
 
   if (valid_lcid(lcid)) {
     if (rlc_array.at(lcid)->suspend()) {
@@ -550,7 +540,7 @@ void rlc::suspend_bearer(uint32_t lcid)
 
 void rlc::resume_bearer(uint32_t lcid)
 {
-  pthread_rwlock_wrlock(&rwlock);
+  pthread_rwlock_rdlock(&rwlock);
 
   rlc_log->info("Resuming radio bearer %s\n", rrc->get_rb_name(lcid).c_str());
   if (valid_lcid(lcid)) {

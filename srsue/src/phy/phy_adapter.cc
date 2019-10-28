@@ -1035,17 +1035,24 @@ typedef struct SRSLTE_API {
   srslte_dci_location_t location;
   srslte_dci_format_t   format;
   uint16_t              rnti;
-} srslte_dci_msg_t; */
+} srslte_dci_msg_t;
+
+typedef struct SRSLTE_API {
+  srslte_dl_cfg_t       cfg;
+  srslte_chest_dl_cfg_t chest_cfg;
+  uint32_t              last_ri;
+  float                 snr_to_cqi_offset;
+} srslte_ue_dl_cfg_t; */
 
 // see ue_dl_find_dl_dc
 // int srslte_ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
 //                              srslte_dl_sf_cfg_t* sf,
-//                              srslte_ue_dl_cfg_t* cfg,
+//                              srslte_ue_dl_cfg_t* dl_cfg,
 //                              uint16_t            rnti,
 //                              srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
 int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
                       srslte_dl_sf_cfg_t* sf,
-                      srslte_ue_dl_cfg_t* cfg,
+                      srslte_ue_dl_cfg_t* dl_cfg,
                       uint16_t            rnti,
                       srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
 
@@ -1100,7 +1107,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
 
           // Unpack DCI messages see lib/src/phy/phch/dci.c
           for (int i = 0; i < nof_msg; i++) {
-            if (srslte_dci_msg_unpack_pdsch(&q->cell, sf, &cfg->dci_cfg, &dci_msg[i], &dci_dl[i])) {
+            if (srslte_dci_msg_unpack_pdsch(&q->cell, sf, &dl_cfg->cfg.dci, &dci_msg[i], &dci_dl[i])) {
                Error("PDCCH:%s Unpacking DL DCI\n", __func__);
                return SRSLTE_ERROR;
             }
@@ -1149,7 +1156,7 @@ typedef struct SRSLTE_API {
 // see lib/src/phy/ue/ue_dl.c
 int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
                       srslte_dl_sf_cfg_t* sf,
-                      srslte_ue_dl_cfg_t* cfg,
+                      srslte_ue_dl_cfg_t* dl_cfg,
                       uint16_t            rnti,
                       srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG])
 {
@@ -1185,7 +1192,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
 
         // Unpack DCI messages
         for (int i = 0; i < nof_msg; i++) {
-          if (srslte_dci_msg_unpack_pusch(&q->cell, sf, &cfg->dci_cfg, &dci_msg[i], &dci_ul[i])) {
+          if (srslte_dci_msg_unpack_pusch(&q->cell, sf, &dl_cfg->cfg.dci, &dci_msg[i], &dci_ul[i])) {
             Error("PUCCH:%s Unpacking UL DCI\n", __func__);
             return SRSLTE_ERROR;
           }
@@ -1331,7 +1338,14 @@ typedef struct SRSLTE_API {
 typedef struct SRSLTE_API {
   bool  ack_value;
   float distance;
-} srslte_phich_res_t; */
+} srslte_phich_res_t;
+
+typedef struct SRSLTE_API {
+  srslte_dl_cfg_t       cfg;
+  srslte_chest_dl_cfg_t chest_cfg;
+  uint32_t              last_ri;
+  float                 snr_to_cqi_offset;
+} srslte_ue_dl_cfg_t; */
 
 // see lib/src/phy/ue/ue_dl.c
 int ue_dl_decode_phich(srslte_ue_dl_t*       q,
@@ -1931,7 +1945,7 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
   /* Convert DTX to NACK in channel-selection mode (Release 10 only)*/
   if(cfg->ul_cfg.pucch.ack_nack_feedback_mode != SRSLTE_PUCCH_ACK_NACK_FEEDBACK_MODE_NORMAL) {
     uint32_t dtx_count = 0;
-    for(uint32_t a = 0; a < cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks; a++) {
+    for(uint32_t a = 0; a < srslte_uci_cfg_total_ack(&cfg->ul_cfg.pusch.uci_cfg); a++) {
       if(data->uci.ack.ack_value[a] == 2) {
         data->uci.ack.ack_value[a] = 0;
         dtx_count++;
@@ -1939,13 +1953,15 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
     }
 
     /* If all bits are DTX, do not transmit HARQ */
-    if(dtx_count == cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks) {
-      cfg->ul_cfg.pusch.uci_cfg.ack.nof_acks = 0;
+    if(dtx_count == srslte_uci_cfg_total_ack(&cfg->ul_cfg.pusch.uci_cfg)) {
+      for (int i = 0; i < 2; i++) { // Format 1b-CS only supports 2 CC
+       cfg->ul_cfg.pusch.uci_cfg.ack[i].nof_acks = 0;
+      }
     }
   }
 
    // see lib/src/phy/ue/ue_ul.c
-#define uci_pending(cfg) (cfg.ack.nof_acks > 0 || cfg.cqi.data_enable || cfg.cqi.ri_len > 0)
+#define uci_pending(cfg) (srslte_uci_cfg_total_ack(&cfg) > 0 || cfg.cqi.data_enable || cfg.cqi.ri_len > 0)
    if(cfg->grant_available) 
     {
       return ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);

@@ -20,8 +20,8 @@
 
 if(RF_FOUND)
   # This library is only used by the examples 
-  add_library(srslte_rf_emane_utils STATIC rf_utils.c)
-  target_link_libraries(srslte_rf_emane_utils srslte_phy)
+  add_library(srslte_rf_utils STATIC rf_utils.c)
+  target_link_libraries(srslte_rf_utils srslte_phy)
 
   # Include common RF files
   set(SOURCES_RF "")
@@ -44,30 +44,30 @@ if(RF_FOUND)
 
   if (ZEROMQ_FOUND)
     add_definitions(-DENABLE_ZEROMQ)
-    list(APPEND SOURCES_RF rf_zmq_imp.c)
+    list(APPEND SOURCES_RF rf_zmq_imp.c rf_zmq_imp_tx.c rf_zmq_imp_rx.c)
   endif (ZEROMQ_FOUND)
 
-  add_library(srslte_rf_emane SHARED ${SOURCES_RF})
-  target_link_libraries(srslte_rf_emane srslte_rf_emane_utils srslte_phy)
+  add_library(srslte_rf SHARED ${SOURCES_RF})
+  target_link_libraries(srslte_rf srslte_rf_utils srslte_phy)
   
   if (UHD_FOUND)
-    target_link_libraries(srslte_rf_emane ${UHD_LIBRARIES})
+    target_link_libraries(srslte_rf ${UHD_LIBRARIES})
   endif (UHD_FOUND)
 
   if (BLADERF_FOUND)
-    target_link_libraries(srslte_rf_emane ${BLADERF_LIBRARIES})
+    target_link_libraries(srslte_rf ${BLADERF_LIBRARIES})
   endif (BLADERF_FOUND)
 
   if (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
-    target_link_libraries(srslte_rf_emane ${SOAPYSDR_LIBRARIES})
+    target_link_libraries(srslte_rf ${SOAPYSDR_LIBRARIES})
   endif (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
 
   if (ZEROMQ_FOUND)
-    target_link_libraries(srslte_rf_emane ${ZEROMQ_LIBRARIES})
+    target_link_libraries(srslte_rf ${ZEROMQ_LIBRARIES})
     add_executable(rf_zmq_test rf_zmq_test.c)
-    target_link_libraries(rf_zmq_test srslte_rf_emane)
+    target_link_libraries(rf_zmq_test srslte_rf)
     add_test(rf_zmq_test rf_zmq_test )
   endif (ZEROMQ_FOUND)
 
-  INSTALL(TARGETS srslte_rf_emane DESTINATION ${LIBRARY_DIR})
+  INSTALL(TARGETS srslte_rf DESTINATION ${LIBRARY_DIR})
 endif(RF_FOUND)

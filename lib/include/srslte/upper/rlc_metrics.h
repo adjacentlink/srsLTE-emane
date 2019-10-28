@@ -24,13 +24,12 @@
 
 #include "srslte/common/common.h"
 #include "srslte/common/queue_metrics.h"
-#include "srslte/interfaces/rrc_interface_types.h"
 
 namespace srslte {
 
 struct rlc_queue_metrics_t { 
  queue_metrics_t qmetrics;
- rlc_mode_t      mode;
+ mode_t          mode;
 };
 
 struct rlc_metrics_t
