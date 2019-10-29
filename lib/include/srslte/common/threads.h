@@ -53,7 +53,9 @@ public:
   thread(const thread&)     = delete;
   thread(thread&&) noexcept = default;
   thread& operator=(const thread&) = delete;
-  thread& operator=(thread&&) noexcept = default;
+  // ALINK noexcept signature does not compile on centos7 - glibc version 2.17-292
+  // thread& operator=(thread&&) noexcept = default;
+  thread& operator=(thread&&) = default;
   bool    start(int prio = -1) { return threads_new_rt_prio(&_thread, thread_function_entry, this, prio); }
   bool start_cpu(int prio, int cpu) {
     return threads_new_rt_cpu(&_thread, thread_function_entry, this, cpu, prio);    
