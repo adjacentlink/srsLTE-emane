@@ -1,6 +1,34 @@
 Change Log for Releases
 ==============================
 
+## 19.09
+  * Add initial support for NR in MAC/RLC/PDCP
+  * Add sync code for NB-IoT
+  * Add support for EIA3/EEA3 (i.e. ZUC)
+  * Add support for CSFB in srsENB
+  * Add adaptation layer to run TTCN-3 conformance tests for srsUE
+  * Add High Speed Train model to channel simulator
+  * Rework RRC and NAS layer and make them non-blocking
+  * Fixes in ZMQ, bladeRF and Soapy RF modules
+  * Other bug-fixes and improved stability and performance in all parts
+
+## 19.06
+  * Add QAM256 support in srsUE
+  * Add QoS support in srsUE
+  * Add UL channel emulator
+  * Refactor UE and eNB architecture
+  * Many bug-fixes and improved stability and performance in all parts
+
+## 19.03
+  * PHY library refactor
+  * TDD support for srsUE
+  * Carrier Aggregation support for srsUE
+  * Paging support for srsENB and srsEPC
+  * User-plane encryption for srsENB
+  * Channel simulator for EPA, EVA, and ETU 3GPP channels
+  * ZeroMQ-based fake RF driver for I/Q over IPC/network
+  * Many bug-fixes and improved stability and performance in all parts
+
 ## 18.12
   * Add new RRC ASN1 message pack/unpack library
   * Refactor EPC and add encryption support

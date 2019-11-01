@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -24,11 +19,11 @@
  *
  */
 
-#include <iostream>
-#include "srsue/hdr/upper/pcsc_usim.h"
-#include "srslte/common/log_filter.h"
 #include <assert.h>
-#include <srsue/hdr/upper/usim_base.h>
+#include <iostream>
+
+#include "srslte/common/log_filter.h"
+#include "srsue/hdr/stack/upper/pcsc_usim.h"
 
 using namespace srsue;
 using namespace std;
@@ -52,14 +47,23 @@ int main(int argc, char **argv)
   args.pin = "6129";
   args.imei = "353490069873319";
 
-  srsue::pcsc_usim usim;
-  if (usim.init(&args, &usim_log)) {
+  srsue::pcsc_usim usim(&usim_log);
+  if (usim.init(&args)) {
     printf("Error initializing PC/SC USIM.\n");
     return SRSLTE_ERROR;
   };
 
   std::string imsi = usim.get_imsi_str();
   cout << "IMSI: " << imsi << endl;
+
+  srslte::plmn_id_t home_plmn_id = {};
+  if (usim.get_home_plmn_id(&home_plmn_id) == false) {
+    printf("Error reading home PLMN\n");
+    return SRSLTE_ERROR;
+  }
+
+  cout << "Home PLMN: " << home_plmn_id.to_string() << endl;
+
   auth_result_t result = usim.generate_authentication_response(rand_enb, autn_enb, mcc, mnc, res, &res_len, k_asme);
 
   return SRSLTE_SUCCESS;

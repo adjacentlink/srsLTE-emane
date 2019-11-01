@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -188,6 +183,8 @@ public:
     log = NULL;
     pool = new buffer_pool<byte_buffer_t>(capacity);
   }
+  byte_buffer_pool(const byte_buffer_pool& other) = delete;
+  byte_buffer_pool& operator=(const byte_buffer_pool& other) = delete;
   ~byte_buffer_pool() {
     delete pool; 
   }
@@ -201,7 +198,7 @@ public:
     if(!b) {
       return;
     }
-    b->reset();
+    b->clear();
     if (!pool->deallocate(b)) {
       if (log) {
 #ifdef SRSLTE_BUFFER_POOL_LOG_ENABLED
@@ -227,7 +224,24 @@ private:
   buffer_pool<byte_buffer_t> *pool; 
 };
 
+inline void byte_buffer_deleter::operator()(byte_buffer_t* buf) const
+{
+  if (buf) {
+    pool->deallocate(buf);
+  }
+}
 
-} // namespace srsue
+inline unique_byte_buffer_t allocate_unique_buffer(byte_buffer_pool& pool, bool blocking = false)
+{
+  return std::move(unique_byte_buffer_t(pool.allocate(nullptr, blocking), byte_buffer_deleter(&pool)));
+}
+
+inline unique_byte_buffer_t
+allocate_unique_buffer(byte_buffer_pool& pool, const char* debug_name, bool blocking = false)
+{
+  return std::move(unique_byte_buffer_t(pool.allocate(debug_name, blocking), byte_buffer_deleter(&pool)));
+}
+
+} // namespace srslte
 
 #endif // SRSLTE_BUFFER_POOL_H

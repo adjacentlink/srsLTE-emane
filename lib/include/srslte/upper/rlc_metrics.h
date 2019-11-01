@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -29,15 +24,14 @@
 
 #include "srslte/common/common.h"
 #include "srslte/common/queue_metrics.h"
-#include "srslte/upper/rlc_interface.h"
+#include "srslte/interfaces/rrc_interface_types.h"
 
 namespace srslte {
 
 struct rlc_queue_metrics_t { 
  queue_metrics_t qmetrics;
- rlc_mode_t      mode;
+ rlc_mode_t          mode;
 };
-
 
 struct rlc_metrics_t
 {
@@ -45,8 +39,10 @@ struct rlc_metrics_t
   float ul_tput_mbps[SRSLTE_N_RADIO_BEARERS];
   float dl_tput_mrb_mbps[SRSLTE_N_MCH_LCIDS];
 
-  rlc_queue_metrics_t metrics[SRSLTE_N_MCH_LCIDS];
+  rlc_queue_metrics_t metrics[SRSLTE_N_RADIO_BEARERS];
   rlc_queue_metrics_t mrb_metrics[SRSLTE_N_MCH_LCIDS];
+
+  uint16_t rnti;
 };
 
 } // namespace srslte

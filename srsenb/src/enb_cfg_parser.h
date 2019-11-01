@@ -1,19 +1,14 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -35,7 +30,7 @@
 #include <iostream>
 #include "srsenb/hdr/parser.h"
 
-#include "srsenb/hdr/upper/rrc.h"
+#include "srsenb/hdr/stack/rrc/rrc.h"
 #include "srslte/asn1/asn1_utils.h"
 
 namespace srsenb {
@@ -82,6 +77,20 @@ public:
 
 private:
   asn1::rrc::sib_type4_s* data;
+};
+
+class field_carrier_freqs_info_list : public parser::field_itf
+{
+public:
+  field_carrier_freqs_info_list(asn1::rrc::sib_type7_s* data_) { data = data_; }
+  ~field_carrier_freqs_info_list(){}
+  int parse(Setting &root);
+  const char* get_name() {
+    return "carrier_freqs_info_list";
+  }
+
+private:
+  asn1::rrc::sib_type7_s* data;
 };
 
 class field_sf_mapping : public parser::field_itf

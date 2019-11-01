@@ -1,19 +1,14 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -67,7 +62,15 @@ void metrics_stdout::toggle_print(bool b)
 
 void metrics_stdout::set_metrics(enb_metrics_t &metrics, const uint32_t period_usec)
 {
-  if (!do_print || enb == NULL || metrics.rrc.n_ues == 0) {
+  if (!do_print || enb == nullptr) {
+    return;
+  }
+
+  if (metrics.rf.rf_error) {
+    printf("RF status: O=%d, U=%d, L=%d\n", metrics.rf.rf_o, metrics.rf.rf_u, metrics.rf.rf_l);
+  }
+
+  if (metrics.stack.rrc.n_ues == 0) {
     return;
   }
 
@@ -80,29 +83,30 @@ void metrics_stdout::set_metrics(enb_metrics_t &metrics, const uint32_t period_u
     cout << "rnti  cqi    ri   mcs  brate   bler   snr   phr   mcs  brate   bler    bsr" << endl;
   }
 
-  for (int i = 0; i < metrics.rrc.n_ues; i++) {
-    if (metrics.mac[i].tx_errors > metrics.mac[i].tx_pkts) {
-      printf("tx caution errors %d > %d\n", metrics.mac[i].tx_errors, metrics.mac[i].tx_pkts);
+  for (int i = 0; i < metrics.stack.rrc.n_ues; i++) {
+    if (metrics.stack.mac[i].tx_errors > metrics.stack.mac[i].tx_pkts) {
+      printf("tx caution errors %d > %d\n", metrics.stack.mac[i].tx_errors, metrics.stack.mac[i].tx_pkts);
     }
-    if (metrics.mac[i].rx_errors > metrics.mac[i].rx_pkts) {
-      printf("rx caution errors %d > %d\n", metrics.mac[i].rx_errors, metrics.mac[i].rx_pkts);
+    if (metrics.stack.mac[i].rx_errors > metrics.stack.mac[i].rx_pkts) {
+      printf("rx caution errors %d > %d\n", metrics.stack.mac[i].rx_errors, metrics.stack.mac[i].rx_pkts);
     }
 
-    cout << std::hex << metrics.mac[i].rnti << " ";
-    cout << float_to_string(SRSLTE_MAX(0.1, metrics.mac[i].dl_cqi), 2);
-    cout << float_to_string(metrics.mac[i].dl_ri, 1);
+    cout << std::hex << metrics.stack.mac[i].rnti << " ";
+    cout << float_to_string(SRSLTE_MAX(0.1, metrics.stack.mac[i].dl_cqi), 2);
+    cout << float_to_string(metrics.stack.mac[i].dl_ri, 1);
     if (not isnan(metrics.phy[i].dl.mcs)) {
       cout << float_to_string(SRSLTE_MAX(0.1, metrics.phy[i].dl.mcs), 2);
     } else {
       cout << float_to_string(0, 2);
     }
-    if (metrics.mac[i].tx_brate > 0) {
-      cout << float_to_eng_string(SRSLTE_MAX(0.1, (float)metrics.mac[i].tx_brate / period_usec * 1e6), 2);
+    if (metrics.stack.mac[i].tx_brate > 0) {
+      cout << float_to_eng_string(SRSLTE_MAX(0.1, (float)metrics.stack.mac[i].tx_brate / period_usec * 1e6), 2);
     } else {
       cout << float_to_string(0, 2) << "";
     }
-    if (metrics.mac[i].tx_pkts > 0 && metrics.mac[i].tx_errors) {
-      cout << float_to_string(SRSLTE_MAX(0.1, (float)100 * metrics.mac[i].tx_errors / metrics.mac[i].tx_pkts), 1)
+    if (metrics.stack.mac[i].tx_pkts > 0 && metrics.stack.mac[i].tx_errors) {
+      cout << float_to_string(
+                  SRSLTE_MAX(0.1, (float)100 * metrics.stack.mac[i].tx_errors / metrics.stack.mac[i].tx_pkts), 1)
            << "%";
     } else {
       cout << float_to_string(0, 1) << "%";
@@ -112,29 +116,26 @@ void metrics_stdout::set_metrics(enb_metrics_t &metrics, const uint32_t period_u
     } else {
       cout << float_to_string(0, 2);
     }
-    cout << float_to_string(metrics.mac[i].phr, 2);
+    cout << float_to_string(metrics.stack.mac[i].phr, 2);
     if (not isnan(metrics.phy[i].ul.mcs)) {
       cout << float_to_string(SRSLTE_MAX(0.1, metrics.phy[i].ul.mcs), 2);
     } else {
       cout << float_to_string(0, 2);
     }
-    if (metrics.mac[i].rx_brate > 0) {
-      cout << float_to_eng_string(SRSLTE_MAX(0.1, (float)metrics.mac[i].rx_brate / period_usec * 1e6), 2);
+    if (metrics.stack.mac[i].rx_brate > 0) {
+      cout << float_to_eng_string(SRSLTE_MAX(0.1, (float)metrics.stack.mac[i].rx_brate / period_usec * 1e6), 2);
     } else {
       cout << float_to_string(0, 2) << "";
     }
-    if (metrics.mac[i].rx_pkts > 0 && metrics.mac[i].rx_errors > 0) {
-      cout << float_to_string(SRSLTE_MAX(0.1, (float)100 * metrics.mac[i].rx_errors / metrics.mac[i].rx_pkts), 1)
+    if (metrics.stack.mac[i].rx_pkts > 0 && metrics.stack.mac[i].rx_errors > 0) {
+      cout << float_to_string(
+                  SRSLTE_MAX(0.1, (float)100 * metrics.stack.mac[i].rx_errors / metrics.stack.mac[i].rx_pkts), 1)
            << "%";
     } else {
       cout << float_to_string(0, 1) << "%";
     }
-    cout << float_to_eng_string(metrics.mac[i].ul_buffer, 2);
+    cout << float_to_eng_string(metrics.stack.mac[i].ul_buffer, 2);
     cout << endl;
-  }
-
-  if (metrics.rf.rf_error) {
-    printf("RF status: O=%d, U=%d, L=%d\n", metrics.rf.rf_o, metrics.rf.rf_u, metrics.rf.rf_l);
   }
 
   cout.flags(f); // For avoiding Coverity defect: Not restoring ostream format
@@ -144,7 +145,7 @@ std::string metrics_stdout::float_to_string(float f, int digits)
 {
   std::ostringstream os;
   int precision;
-  if(isnan(f) or abs(f) < 0.0001) {
+  if (isnan(f) or fabs(f) < 0.0001) {
     f = 0.0;
     precision = digits-1;
   }

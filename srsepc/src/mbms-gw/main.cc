@@ -1,8 +1,5 @@
-/**
- *
- * \section COPYRIGHT
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -30,9 +27,7 @@
 #include "srslte/common/config_file.h"
 #include "srsepc/hdr/mbms-gw/mbms-gw.h"
 
-#ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/mbmsstatisticmanager.h"
-#endif
 
 using namespace std;
 using namespace srsepc;
@@ -57,19 +52,15 @@ typedef struct {
   bool daemonize;
 } runtime_args_t;
 
-#ifdef PHY_ADAPTER_ENABLE
 typedef struct{
   std::string statistic_service_endpoint;
 }mhal_args_t;
-#endif
 
 typedef struct {
   mbms_gw_args_t mbms_gw_args;
   log_args_t     log_args;
   runtime_args_t runtime;
-#ifdef PHY_ADAPTER_ENABLE
   mhal_args_t   mhal;
-#endif
 }all_args_t;
 
 srslte::LOG_LEVEL_ENUM
@@ -132,13 +123,13 @@ parse_args(all_args_t *args, int argc, char* argv[]) {
 
     ("log.filename",      bpo::value<string>(&args->log_args.filename)->default_value("/tmp/mbms.log"),"Log filename")
 
-    ("runtime.daemonize", bpo::value<bool>(&args->runtime.daemonize)->default_value(false), "Run this process as a daemon")
+    ("runtime.daemonize", 
+      bpo::value<bool>(&args->runtime.daemonize)->default_value(false),
+       "Run this process as a daemon")
 
-#ifdef PHY_ADAPTER_ENABLE
     ("mhal.statistic_service_endpoint",
       bpo::value<string>(&args->mhal.statistic_service_endpoint)->default_value("0.0.0.0:47101"),
        "Statistic service endpoint")
-#endif
     ;
 
   // Positional options - config file location
@@ -239,7 +230,7 @@ main (int argc,char * argv[] )
     logger = &logger_stdout;
   } else {
     logger_file.init(args.log_args.filename);
-    logger_file.log("\n---  Software Radio Systems MBMS log ---\n\n");
+    logger_file.log_char("\n---  Software Radio Systems MBMS log ---\n\n");
     logger = &logger_file;
   }
 

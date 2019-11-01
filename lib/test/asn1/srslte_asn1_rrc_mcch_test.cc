@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -25,8 +20,10 @@
  */
 
 #include "srslte/asn1/rrc_asn1.h"
+#include "srslte/asn1/rrc_asn1_utils.h"
 #include "srslte/common/bcd_helpers.h"
 #include "srslte/common/log_filter.h"
+#include "srslte/interfaces/rrc_interface_types.h"
 #include <iostream>
 
 using namespace asn1::rrc;
@@ -89,9 +86,9 @@ int basic_test()
                  .mbms_session_info_list_r9[0]
                  .tmgi_r9.plmn_id_r9.explicit_value_r9()
                  .mcc_present);
-  std::string mccmnc_str = srslte::plmn_id_to_string(
+  srslte::plmn_id_t plmn = srslte::make_plmn_id_t(
       area_cfg_r9->pmch_info_list_r9[0].mbms_session_info_list_r9[0].tmgi_r9.plmn_id_r9.explicit_value_r9());
-  TESTASSERT(mccmnc_str == "987654");
+  TESTASSERT(plmn.to_string() == "987654");
   TESTASSERT(area_cfg_r9->pmch_info_list_r9[0].mbms_session_info_list_r9[0].tmgi_r9.service_id_r9.to_string() ==
              "000001");
   TESTASSERT(area_cfg_r9->pmch_info_list_r9[0].mbms_session_info_list_r9[0].session_id_r9.to_string() == "01");
@@ -112,9 +109,9 @@ int basic_test()
                  .mbms_session_info_list_r9[0]
                  .tmgi_r9.plmn_id_r9.explicit_value_r9()
                  .mcc_present);
-  mccmnc_str = srslte::plmn_id_to_string(
+  plmn = srslte::make_plmn_id_t(
       area_cfg_r9->pmch_info_list_r9[0].mbms_session_info_list_r9[0].tmgi_r9.plmn_id_r9.explicit_value_r9());
-  TESTASSERT(mccmnc_str == "987654");
+  TESTASSERT(plmn.to_string() == "987654");
   TESTASSERT(area_cfg_r9->pmch_info_list_r9[1].mbms_session_info_list_r9[0].tmgi_r9.service_id_r9.to_string() ==
              "000002");
   TESTASSERT(area_cfg_r9->pmch_info_list_r9[1].mbms_session_info_list_r9[0].session_id_r9.to_string() == "02");
@@ -123,6 +120,7 @@ int basic_test()
   //log1.info_hex(byte_buf.msg, byte_buf.N_bytes, "MCCH packed message:");
 
   uint8_t       rrc_msg2[known_reference_len];
+  bzero(rrc_msg2, sizeof(rrc_msg2));
   asn1::bit_ref bref2(&rrc_msg2[0], sizeof(rrc_msg2));
   mcch_msg.pack(bref2);
   TESTASSERT(bref.distance(bref0) == bref2.distance(&rrc_msg2[0]));

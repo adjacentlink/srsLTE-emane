@@ -1,0 +1,35 @@
+diff --git a/srsenb/src/metrics_stdout.cc b/srsenb/src/metrics_stdout.cc
+index ffd0b26..16a91b3 100644
+--- a/srsenb/src/metrics_stdout.cc
++++ b/srsenb/src/metrics_stdout.cc
+@@ -35,6 +35,7 @@
+ using namespace std;
+ 
+ namespace srsenb{
++bool do_print_;
+ 
+ char const * const prefixes[2][9] =
+ {
+@@ -48,6 +49,7 @@ metrics_stdout::metrics_stdout()
+     ,n_reports(10)
+     ,enb(NULL)
+ {
++  do_print_ = false;
+ }
+ 
+ void metrics_stdout::set_handle(enb_metrics_interface *enb_)
+@@ -57,12 +59,12 @@ void metrics_stdout::set_handle(enb_metrics_interface *enb_)
+ 
+ void metrics_stdout::toggle_print(bool b)
+ {
+-  do_print = b;
++  do_print_ = b;
+ }
+ 
+ void metrics_stdout::set_metrics(enb_metrics_t &metrics, const uint32_t period_usec)
+ {
+-  if (!do_print || enb == NULL || metrics.rrc.n_ues == 0) {
++  if (!do_print_ || enb == NULL || metrics.rrc.n_ues == 0) {
+     return;
+   }
+ 

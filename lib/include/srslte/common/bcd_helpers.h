@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -28,7 +23,6 @@
 #define SRSLTE_BCD_HELPERS_H
 
 #include <ctype.h>
-#include <srslte/asn1/rrc_asn1.h>
 #include <stdint.h>
 #include <string>
 
@@ -73,7 +67,7 @@ inline bool mcc_to_string(uint16_t mcc, std::string *str)
  * MCC 001 results in 0xF001
  *****************************************************************************/
 
-inline bool bytes_to_mcc(uint8_t* bytes, uint16_t* mcc)
+inline bool bytes_to_mcc(const uint8_t* bytes, uint16_t* mcc)
 {
   *mcc = 0xF000;
   *mcc |= (((uint16_t)bytes[0]) << 8u);
@@ -93,7 +87,7 @@ inline bool mcc_to_bytes(uint16_t mcc, uint8_t* bytes)
   return true;
 }
 
-inline std::string mcc_bytes_to_string(asn1::rrc::mcc_l mcc_bytes)
+inline std::string mcc_bytes_to_string(uint8_t* mcc_bytes)
 {
   std::string mcc_str;
   uint16_t    mcc;
@@ -157,19 +151,17 @@ inline bool mnc_to_string(uint16_t mnc, std::string *str)
  * MNC 001 results in 0xF001
  * MNC 01 results in 0xFF01
  *****************************************************************************/
-inline bool bytes_to_mnc(uint8_t* bytes, uint16_t* mnc, uint8_t len)
+inline bool bytes_to_mnc(const uint8_t* bytes, uint16_t* mnc, uint8_t len)
 {
   if (len != 3 && len != 2) {
     *mnc = 0;
     return false;
-  }
-  if (len == 3) {
+  } else if (len == 3) {
     *mnc = 0xF000;
     *mnc |= ((uint16_t)bytes[0]) << 8u;
     *mnc |= ((uint16_t)bytes[1]) << 4u;
     *mnc |= ((uint16_t)bytes[2]) << 0u;
-  }
-  if (len == 2) {
+  } else if (len == 2) {
     *mnc = 0xFF00;
     *mnc |= ((uint16_t)bytes[0]) << 4u;
     *mnc |= ((uint16_t)bytes[1]) << 0u;
@@ -204,45 +196,21 @@ bool mnc_to_bytes(uint16_t mnc, Vec& vec)
   return ret;
 }
 
-inline std::string mnc_bytes_to_string(asn1::rrc::mnc_l mnc_bytes)
+inline std::string mnc_bytes_to_string(uint8_t* mnc_bytes, uint32_t nof_bytes)
 {
   std::string mnc_str;
   uint16_t    mnc;
-  bytes_to_mnc(&mnc_bytes[0], &mnc, mnc_bytes.size());
+  bytes_to_mnc(&mnc_bytes[0], &mnc, nof_bytes);
   if (!mnc_to_string(mnc, &mnc_str)) {
     mnc_str = "000";
   }
   return mnc_str;
 }
 
-inline std::string plmn_id_to_string(asn1::rrc::plmn_id_s plmn_id)
+template <class Vec>
+std::string mnc_bytes_to_string(Vec mnc_bytes)
 {
-  std::string mcc_str, mnc_str;
-  uint16_t    mnc, mcc;
-  bytes_to_mnc(&plmn_id.mnc[0], &mnc, plmn_id.mnc.size());
-  bytes_to_mcc(&plmn_id.mcc[0], &mcc);
-  mnc_to_string(mnc, &mnc_str);
-  mcc_to_string(mcc, &mcc_str);
-  return mcc_str + mnc_str;
-}
-
-inline bool string_to_plmn_id(asn1::rrc::plmn_id_s& plmn, std::string mccmnc_str)
-{
-  if (mccmnc_str.size() < 5 or mccmnc_str.size() > 6) {
-    return false;
-  }
-  uint16_t mnc, mcc;
-  if (not string_to_mcc(std::string(mccmnc_str.begin(), mccmnc_str.begin() + 3), &mcc)) {
-    return false;
-  }
-  if (not string_to_mnc(std::string(mccmnc_str.begin() + 3, mccmnc_str.end()), &mnc)) {
-    return false;
-  }
-  plmn.mcc_present = true;
-  if (not mcc_to_bytes(mcc, &plmn.mcc[0])) {
-    return false;
-  }
-  return mnc_to_bytes(mnc, plmn.mnc);
+  return mnc_bytes_to_string(&mnc_bytes[0], mnc_bytes.size());
 }
 
 /******************************************************************************

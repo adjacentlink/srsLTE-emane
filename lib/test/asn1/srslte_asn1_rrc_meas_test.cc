@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -25,8 +20,10 @@
  */
 
 #include "srslte/asn1/rrc_asn1.h"
+#include "srslte/asn1/rrc_asn1_utils.h"
 #include "srslte/common/bcd_helpers.h"
 #include "srslte/common/log_filter.h"
+#include "srslte/interfaces/rrc_interface_types.h"
 #include <iostream>
 #include <srslte/srslte.h>
 
@@ -80,8 +77,8 @@ int basic_test()
   TESTASSERT(meas_list[0].cgi_info_present);
   TESTASSERT(meas_list[0].cgi_info.plmn_id_list_present);
   TESTASSERT(meas_list[0].cgi_info.cell_global_id.plmn_id.mcc_present);
-  std::string mccmnc_str = srslte::plmn_id_to_string(meas_list[0].cgi_info.cell_global_id.plmn_id);
-  TESTASSERT(mccmnc_str == "89878");
+  srslte::plmn_id_t plmn = srslte::make_plmn_id_t(meas_list[0].cgi_info.cell_global_id.plmn_id);
+  TESTASSERT(plmn.to_string() == "89878");
   TESTASSERT(meas_list[0].cgi_info.cell_global_id.cell_id.to_number() == 0x1084104);
   TESTASSERT(meas_list[0].cgi_info.tac.to_number() == 0x1042);
   TESTASSERT(meas_list[0].cgi_info.plmn_id_list.size() == 1);
@@ -93,6 +90,7 @@ int basic_test()
   TESTASSERT(meas_list[0].meas_result.rsrq_result == 18);
 
   uint8_t rrc_msg2[rrc_msg_len];
+  bzero(rrc_msg2, rrc_msg_len);
   bit_ref bref2(&rrc_msg2[0], sizeof(rrc_msg2));
   ul_dcch_msg.pack(bref2);
   TESTASSERT(bref.distance(bref0) == bref2.distance(&rrc_msg2[0]));

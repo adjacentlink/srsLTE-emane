@@ -1,12 +1,7 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
- *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsLTE library.
+ * This file is part of srsLTE.
  *
  * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -48,8 +43,8 @@
   #define input_is_interleaved (h->current_dec > 0)
 #define type_name _16bit
   #else
-  #warning "Unsupported LLR mode"
-  #endif
+#pragma message "Unsupported LLR mode"
+#endif
 #endif
 
 #define debug_enabled_iter 0
@@ -142,7 +137,7 @@ void MAKE_CALL(run_tdec_iteration)(srslte_tdec_t * h, llr_t * input)
 
     h->n_iter++;
   } else {
-    fprintf(stderr, "Error CB index not set (call srslte_tdec_new_cb() first\n");
+    ERROR("Error CB index not set (call srslte_tdec_new_cb() first\n");
   }
 }
 

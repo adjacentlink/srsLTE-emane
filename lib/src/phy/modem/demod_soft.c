@@ -1,12 +1,7 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
- *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsLTE library.
+ * This file is part of srsLTE.
  *
  * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -24,14 +19,14 @@
  *
  */
 
-
 #include <stdlib.h>
 #include <strings.h>
+#include <complex.h>
 
-#include "srslte/phy/utils/vector.h"
-#include "srslte/phy/utils/bit.h"
 #include "srslte/phy/modem/demod_soft.h"
-
+#include "srslte/phy/utils/bit.h"
+#include "srslte/phy/utils/debug.h"
+#include "srslte/phy/utils/vector.h"
 
 #ifdef LV_HAVE_SSE
 #include <smmintrin.h>
@@ -41,10 +36,12 @@ void demod_16qam_lte_s_sse(const cf_t *symbols, short *llr, int nsymbols);
 #define SCALE_SHORT_CONV_QPSK  100
 #define SCALE_SHORT_CONV_QAM16 400
 #define SCALE_SHORT_CONV_QAM64 700
+#define SCALE_SHORT_CONV_QAM256 1000
 
 #define SCALE_BYTE_CONV_QPSK  20
 #define SCALE_BYTE_CONV_QAM16 30
 #define SCALE_BYTE_CONV_QAM64 40
+#define SCALE_BYTE_CONV_QAM256 50
 
 void demod_bpsk_lte_b(const cf_t *symbols, int8_t *llr, int nsymbols) {
   for (int i=0;i<nsymbols;i++) {
@@ -413,6 +410,72 @@ void demod_64qam_lte_b(const cf_t *symbols, int8_t *llr, int nsymbols)
 #endif
 }
 
+void demod_256qam_lte(const cf_t* symbols, float* llr, int nsymbols)
+{
+  for (int i = 0; i < nsymbols; i++) {
+    float real = -__real__ symbols[i];
+    float imag = -__imag__ symbols[i];
+    *(llr++)   = real;
+    *(llr++)   = imag;
+    real       = fabsf(real) - 8.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 8.0f / sqrtf(170.0f);
+    *(llr++)   = real;
+    *(llr++)   = imag;
+    real       = fabsf(real) - 4.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 4.0f / sqrtf(170.0f);
+    *(llr++)   = real;
+    *(llr++)   = imag;
+    real       = fabsf(real) - 2.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 2.0f / sqrtf(170.0f);
+    *(llr++)   = real;
+    *(llr++)   = imag;
+  }
+}
+
+void demod_256qam_lte_b(const cf_t* symbols, int8_t* llr, int nsymbols)
+{
+  for (int i = 0; i < nsymbols; i++) {
+    float real = -__real__ symbols[i];
+    float imag = -__imag__ symbols[i];
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * real;
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * imag;
+    real       = fabsf(real) - 8.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 8.0f / sqrtf(170.0f);
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * real;
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * imag;
+    real       = fabsf(real) - 4.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 4.0f / sqrtf(170.0f);
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * real;
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * imag;
+    real       = fabsf(real) - 2.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 2.0f / sqrtf(170.0f);
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * real;
+    *(llr++)   = SCALE_BYTE_CONV_QAM256 * imag;
+  }
+}
+
+void demod_256qam_lte_s(const cf_t* symbols, short* llr, int nsymbols)
+{
+  for (int i = 0; i < nsymbols; i++) {
+    float real = -__real__ symbols[i];
+    float imag = -__imag__ symbols[i];
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * real;
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * imag;
+    real       = fabsf(real) - 8.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 8.0f / sqrtf(170.0f);
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * real;
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * imag;
+    real       = fabsf(real) - 4.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 4.0f / sqrtf(170.0f);
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * real;
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * imag;
+    real       = fabsf(real) - 2.0f / sqrtf(170.0f);
+    imag       = fabsf(imag) - 2.0f / sqrtf(170.0f);
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * real;
+    *(llr++)   = SCALE_SHORT_CONV_QAM256 * imag;
+  }
+}
+
 int srslte_demod_soft_demodulate(srslte_mod_t modulation, const cf_t* symbols, float* llr, int nsymbols) {
   switch(modulation) {
     case SRSLTE_MOD_BPSK:
@@ -427,9 +490,12 @@ int srslte_demod_soft_demodulate(srslte_mod_t modulation, const cf_t* symbols, f
     case SRSLTE_MOD_64QAM:
       demod_64qam_lte(symbols, llr, nsymbols);
       break;
-    default: 
-      fprintf(stderr, "Invalid modulation %d\n", modulation);
-      return -1; 
+    case SRSLTE_MOD_256QAM:
+      demod_256qam_lte(symbols, llr, nsymbols);
+      break;
+    default:
+      ERROR("Invalid modulation %d\n", modulation);
+      return -1;
   } 
   return 0; 
 }
@@ -448,9 +514,12 @@ int srslte_demod_soft_demodulate_s(srslte_mod_t modulation, const cf_t* symbols,
     case SRSLTE_MOD_64QAM:
       demod_64qam_lte_s(symbols, llr, nsymbols);
       break;
-    default: 
-      fprintf(stderr, "Invalid modulation %d\n", modulation);
-      return -1; 
+    case SRSLTE_MOD_256QAM:
+      demod_256qam_lte_s(symbols, llr, nsymbols);
+      break;
+    default:
+      ERROR("Invalid modulation %d\n", modulation);
+      return -1;
   } 
   return 0; 
 }
@@ -469,8 +538,11 @@ int srslte_demod_soft_demodulate_b(srslte_mod_t modulation, const cf_t* symbols,
     case SRSLTE_MOD_64QAM:
       demod_64qam_lte_b(symbols, llr, nsymbols);
       break;
+    case SRSLTE_MOD_256QAM:
+      demod_256qam_lte_b(symbols, llr, nsymbols);
+      break;
     default:
-      fprintf(stderr, "Invalid modulation %d\n", modulation);
+      ERROR("Invalid modulation %d\n", modulation);
       return -1;
   }
   return 0;

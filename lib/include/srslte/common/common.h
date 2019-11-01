@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -31,6 +26,7 @@
                               INCLUDES
 *******************************************************************************/
 
+#include <memory>
 #include <stdint.h>
 #include <string.h>
 
@@ -46,37 +42,42 @@
 
 #define SRSLTE_N_MCH_LCIDS     32
 
-#define HARQ_DELAY_MS   4
-#define MSG3_DELAY_MS   2 // Delay added to HARQ_DELAY_MS
-#define TTI_RX(tti)     (tti>HARQ_DELAY_MS?((tti-HARQ_DELAY_MS)%10240):(10240+tti-HARQ_DELAY_MS))
-#define TTI_TX(tti)     ((tti+HARQ_DELAY_MS)%10240)
-#define TTI_RX_ACK(tti) ((tti+(2*HARQ_DELAY_MS))%10240)
+#define TX_DELAY 4
+#define MSG3_DELAY_MS 2 // Delay added to TX_DELAY
 
-#define UL_PIDOF(tti)   (tti%(2*HARQ_DELAY_MS))
+#define TTI_SUB(a, b) ((((a) + 10240) - (b)) % 10240)
 
-#define TTIMOD_SZ       (((2*HARQ_DELAY_MS) < 10)?10:20)
+#define TTI_TX(tti) ((tti + TX_DELAY) % 10240)
+
+// Use only in FDD mode!!
+#define FDD_HARQ_DELAY_MS 4
+#define TTI_RX(tti) (TTI_SUB(tti, FDD_HARQ_DELAY_MS))
+#define TTI_RX_ACK(tti) ((tti + (2 * FDD_HARQ_DELAY_MS)) % 10240)
+
+#define TTIMOD_SZ 20
 #define TTIMOD(tti)     (tti%TTIMOD_SZ)
 
-#define ASYNC_DL_SCHED  (HARQ_DELAY_MS <= 4)
+#define PHICH_MAX_SF 6 // Maximum PHICH in a subframe (1 in FDD, > 1 in TDD, see table 9.1.2-1 36.213)
+
+#define ASYNC_DL_SCHED (FDD_HARQ_DELAY_MS <= 4)
 
 // Cat 4 UE - Max number of DL-SCH transport block bits received within a TTI
-// 3GPP 36.306 Table 4.1.1
-#define SRSLTE_MAX_BUFFER_SIZE_BITS  150752
-#define SRSLTE_MAX_BUFFER_SIZE_BYTES (SRSLTE_MAX_BUFFER_SIZE_BITS/8)
+// 3GPP 36.306 v15.4.0 Table 4.1.1 for Category 11 with 2 layers and 256QAM
+#define SRSLTE_MAX_TBSIZE_BITS 97896
 #define SRSLTE_BUFFER_HEADER_OFFSET  1020
+#define SRSLTE_MAX_BUFFER_SIZE_BITS (SRSLTE_MAX_TBSIZE_BITS + SRSLTE_BUFFER_HEADER_OFFSET)
+#define SRSLTE_MAX_BUFFER_SIZE_BYTES (SRSLTE_MAX_TBSIZE_BITS / 8 + SRSLTE_BUFFER_HEADER_OFFSET)
 
 //#define SRSLTE_BUFFER_POOL_LOG_ENABLED
 
 #ifdef SRSLTE_BUFFER_POOL_LOG_ENABLED
-#define pool_allocate (pool->allocate(__PRETTY_FUNCTION__))
-#define pool_allocate_blocking (pool->allocate(__PRETTY_FUNCTION__, true))
+#define pool_allocate (srslte::allocate_unique_buffer(*pool, __PRETTY_FUNCTION__))
+#define pool_allocate_blocking (srslte::allocate_unique_buffer(*pool, __PRETTY_FUNCTION__, true))
 #define SRSLTE_BUFFER_POOL_LOG_NAME_LEN 128
 #else
-#define pool_allocate (pool->allocate())
-#define pool_allocate_blocking (pool->allocate(NULL, true))
+#define pool_allocate (srslte::allocate_unique_buffer(*pool))
+#define pool_allocate_blocking (srslte::allocate_unique_buffer(*pool, true))
 #endif
-
-#define ZERO_OBJECT(x) memset(&(x), 0x0, sizeof((x)))
 
 #include "srslte/srslte.h"
 
@@ -85,22 +86,6 @@
 *******************************************************************************/
 
 namespace srslte {
-
-typedef enum{
-  ERROR_NONE = 0,
-  ERROR_INVALID_PARAMS,
-  ERROR_INVALID_COMMAND,
-  ERROR_OUT_OF_BOUNDS,
-  ERROR_CANT_START,
-  ERROR_ALREADY_STARTED,
-  ERROR_N_ITEMS,
-}error_t;
-static const char error_text[ERROR_N_ITEMS][20] = { "None",
-                                                    "Invalid parameters",
-                                                    "Invalid command",
-                                                    "Out of bounds",
-                                                    "Can't start",
-                                                    "Already started"};
 
 //#define ENABLE_TIMESTAMP
 
@@ -153,7 +138,7 @@ public:
       memcpy(msg, buf.msg, N_bytes);
       return *this;
     }
-    void reset()
+    void clear()
     {
       msg       = &buffer[SRSLTE_BUFFER_HEADER_OFFSET];
       N_bytes   = 0;
@@ -229,7 +214,7 @@ struct bit_buffer_t{
       memcpy(msg, buf.msg, N_bits);
       return *this;
     }
-    void reset()
+    void clear()
     {
       msg       = &buffer[SRSLTE_BUFFER_HEADER_OFFSET];
       N_bits    = 0;
@@ -266,6 +251,18 @@ private:
     bool           timestamp_is_set; 
 #endif
 };
+
+// Create a Managed Life-Time Byte Buffer
+class byte_buffer_pool;
+class byte_buffer_deleter
+{
+public:
+  explicit byte_buffer_deleter(byte_buffer_pool* pool_ = nullptr) : pool(pool_) {}
+  void              operator()(byte_buffer_t* buf) const;
+  byte_buffer_pool* pool;
+};
+
+typedef std::unique_ptr<byte_buffer_t, byte_buffer_deleter> unique_byte_buffer_t;
 
 } // namespace srslte
 

@@ -1,15 +1,29 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2016 Software Radio Systems Limited
+ * srsLTE is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
  *
+ * srsLTE is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * A copy of the GNU Affero General Public License can be found in
+ * the LICENSE file in the top-level directory of this distribution
+ * and at http://www.gnu.org/licenses/.
  *
  */
 
-#include "srsenb/hdr/upper/common_enb.h"
+#include "srsenb/hdr/stack/upper/common_enb.h"
 #include "srslte/asn1/rrc_asn1.h"
+#include "srslte/asn1/rrc_asn1_utils.h"
 #include "srslte/common/bcd_helpers.h"
+#include "srslte/interfaces/rrc_interface_types.h"
 #include <iostream>
 
 using namespace asn1::rrc;
@@ -50,8 +64,8 @@ int rrc_plmn_test()
   TESTASSERT(plmn_in.mnc == plmn_out.mnc);
 
   // Test plmn --> string
-  std::string mccmnc_str = srslte::plmn_id_to_string(plmn_in);
-  TESTASSERT(mccmnc_str == "12345");
+  srslte::plmn_id_t srsplmn_out = srslte::make_plmn_id_t(plmn_out);
+  TESTASSERT(srsplmn_out.to_string() == "12345");
 
   asn1::bit_ref bref_in(&byte_buf[0], sizeof(byte_buf));
   asn1::bit_ref bref_in0(&byte_buf[0], sizeof(byte_buf));

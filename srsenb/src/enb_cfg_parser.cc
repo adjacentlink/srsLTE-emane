@@ -1,19 +1,14 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -24,14 +19,11 @@
  *
  */
 
-//#include <srsenb/hdr/upper/rrc.h>
-//#include <srsenb/hdr/enb.h>
-//#include <srsenb/hdr/upper/s1ap.h>
-//#include <srsenb/hdr/phy/phy.h>
-#include "srsenb/hdr/cfg_parser.h"
-#include "srslte/srslte.h"
-
 #include "enb_cfg_parser.h"
+#include "srsenb/hdr/cfg_parser.h"
+#include "srslte/phy/common/phy_common.h"
+#include "srslte/srslte.h"
+#include "srslte/asn1/rrc_asn1_utils.h"
 
 using namespace asn1::rrc;
 
@@ -39,10 +31,11 @@ namespace srsenb {
 
 int enb::parse_cell_cfg(all_args_t* args, srslte_cell_t* cell)
 {
-  cell->id        = args->enb.pci;
-  cell->cp        = SRSLTE_CP_NORM;
-  cell->nof_ports = args->enb.nof_ports;
-  cell->nof_prb   = args->enb.n_prb;
+  cell->frame_type = SRSLTE_FDD;
+  cell->id         = args->enb.pci;
+  cell->cp         = SRSLTE_CP_NORM;
+  cell->nof_ports  = args->enb.nof_ports;
+  cell->nof_prb    = args->enb.n_prb;
 
   phich_cfg_s phichcfg;
 
@@ -54,10 +47,10 @@ int enb::parse_cell_cfg(all_args_t* args, srslte_cell_t* cell)
   parser::parse_section(args->enb_files.rr_config, &phy_cnfg);
 
   cell->phich_length    = (srslte_phich_length_t)(int)phichcfg.phich_dur;
-  cell->phich_resources = (srslte_phich_resources_t)(int)phichcfg.phich_res;
+  cell->phich_resources = (srslte_phich_r_t)(int)phichcfg.phich_res;
 
   if (!srslte_cell_isvalid(cell)) {
-    fprintf(stderr, "Invalid cell parameters: nof_prb=%d, cell_id=%d\n", args->enb.n_prb, args->enb.s1ap.cell_id);
+    fprintf(stderr, "Invalid cell parameters: nof_prb=%d, cell_id=%d\n", args->enb.n_prb, args->stack.s1ap.cell_id);
     return -1;
   }
 
@@ -136,6 +129,97 @@ int field_intra_black_cell_list::parse(libconfig::Setting& root)
   return 0;
 }
 
+int field_carrier_freqs_info_list::parse(libconfig::Setting& root)
+{
+  data->carrier_freqs_info_list.resize((uint32_t)root.getLength());
+  data->carrier_freqs_info_list_present = data->carrier_freqs_info_list.size() > 0;
+  if (data->carrier_freqs_info_list.size() > ASN1_RRC_MAX_GNFG) {
+    ERROR("CarrierFreqsInfoGERAN cannot have more than %d entries\n", ASN1_RRC_MAX_GNFG);
+    return -1;
+  }
+  for (uint32_t i = 0; i < data->carrier_freqs_info_list.size(); i++) {
+
+    int cell_resel_prio;
+    if (root[i].lookupValue("cell_resel_prio", cell_resel_prio)) {
+      data->carrier_freqs_info_list[i].common_info.cell_resel_prio_present = true;
+      data->carrier_freqs_info_list[i].common_info.cell_resel_prio = cell_resel_prio;
+    }
+
+    int p_max_geran;
+    if (root[i].lookupValue("p_max_geran", p_max_geran)) {
+      data->carrier_freqs_info_list[i].common_info.p_max_geran_present = true;
+      data->carrier_freqs_info_list[i].common_info.p_max_geran = p_max_geran;
+    }
+
+    field_asn1_bitstring_number<asn1::fixed_bitstring<8>, uint8_t> ncc_permitted("ncc_permitted",
+                                    &data->carrier_freqs_info_list[i].common_info.ncc_permitted);
+    if (ncc_permitted.parse(root[i])) {
+      ERROR("Error parsing `ncc_permitted` in carrier_freqs_info_lsit=%d\n", i);
+      return -1;
+    }
+
+    int q_rx_lev_min = 0;
+    if (!root[i].lookupValue("q_rx_lev_min", q_rx_lev_min)) {
+      ERROR("Missing field `q_rx_lev_min` in carrier_freqs_info_list=%d\n", i);
+      return -1;
+    }
+    data->carrier_freqs_info_list[i].common_info.q_rx_lev_min = q_rx_lev_min;
+
+    int thresh_x_high = 0;
+    if (!root[i].lookupValue("thresh_x_high", thresh_x_high)) {
+      ERROR("Missing field `thresh_x_high` in carrier_freqs_info_list=%d\n", i);
+      return -1;
+    }
+    data->carrier_freqs_info_list[i].common_info.thresh_x_high = thresh_x_high;
+
+    int thresh_x_low = 0;
+    if (!root[i].lookupValue("thresh_x_low", thresh_x_low)) {
+      ERROR("Missing field `thresh_x_low` in carrier_freqs_info_list=%d\n", i);
+      return -1;
+    }
+    data->carrier_freqs_info_list[i].common_info.thresh_x_low = thresh_x_low;
+
+    int start_arfcn = 0;
+    if (root[i].lookupValue("start_arfcn", start_arfcn)) {
+      data->carrier_freqs_info_list[i].carrier_freqs.start_arfcn = start_arfcn;
+    }
+
+    field_asn1_enum_str<asn1::rrc::band_ind_geran_e> band_ind("band_ind",
+                                        &data->carrier_freqs_info_list[i].carrier_freqs.band_ind);
+    if (band_ind.parse(root[i])) {
+      ERROR("Error parsing `band_ind` in carrier_freqs_info_list=%d\n", i);
+      return -1;
+    }
+
+    data->carrier_freqs_info_list[i].carrier_freqs.following_arfcns.set_explicit_list_of_arfcns();
+
+    explicit_list_of_arfcns_l &exp_l =
+	      data->carrier_freqs_info_list[i].carrier_freqs.following_arfcns.explicit_list_of_arfcns();
+    if (root[i].exists("explicit_list_of_arfcns")) {
+      exp_l.resize((uint32_t)root[i]["explicit_list_of_arfcns"].getLength());
+      if (exp_l.size() < 31) { /* SEQUENCE (SIZE (0..31)) OF ARFCN-ValueGERAN */
+        for (uint32_t j = 0; j < exp_l.size(); j++) {
+          int arfcn = root[i]["explicit_list_of_arfcns"][j];
+	  if (arfcn >= 0 && arfcn <= 1024) {
+            exp_l[j] = (short unsigned int)arfcn;
+          } else {
+            fprintf(stderr, "Invalid ARFCN %d in for carrier_freqs_info_list=%d explicit_list_of_arfcns\n", i, j);
+            return -1;
+          }
+        }
+      } else {
+        fprintf(stderr, "Number of ARFCN in explicit_list_of_arfcns exceeds maximum (%d)\n", 31);
+        return -1;
+      }
+    } else {
+      exp_l.resize(0);
+    }
+
+  }
+  return 0;
+}
+
+
 int enb::parse_sib1(std::string filename, sib_type1_s* data)
 {
   parser::section sib1("sib1");
@@ -205,6 +289,7 @@ int mbsfn_sf_cfg_list_parser::parse(Setting& root)
   parser::field<uint8_t> f("radioframeAllocationOffset", &(*mbsfn_list)[0].radioframe_alloc_offset);
   f.parse(root["mbsfnSubframeConfigList"]);
 
+  (*mbsfn_list)[0].radioframe_alloc_period.value = mbsfn_sf_cfg_s::radioframe_alloc_period_opts::n1;
   field_asn1_enum_number<mbsfn_sf_cfg_s::radioframe_alloc_period_e_> e("radioframeAllocationPeriod",
                                                                        &(*mbsfn_list)[0].radioframe_alloc_period);
   e.parse(root["mbsfnSubframeConfigList"]);
@@ -489,6 +574,24 @@ int enb::parse_sib4(std::string filename, sib_type4_s* data)
   return parser::parse_section(filename, &sib4);
 }
 
+int enb::parse_sib7(std::string filename, sib_type7_s* data)
+{
+  parser::section sib7("sib7");
+
+  sib7.add_field(new parser::field<uint8>("t_resel_geran", &data->t_resel_geran));
+  // TODO: t_resel_geran_sf
+
+  data->carrier_freqs_info_list_present = true;
+  parser::section geran_neigh("carrier_freqs_info_list");
+  sib7.add_subsection(&geran_neigh);
+
+  bool dummy_bool = false;
+  geran_neigh.set_optional(&dummy_bool);
+  geran_neigh.add_field(new field_carrier_freqs_info_list(data));
+
+  return parser::parse_section(filename, &sib7);
+}
+
 int enb::parse_sib9(std::string filename, sib_type9_s* data)
 {
   parser::section sib9("sib9");
@@ -616,18 +719,12 @@ int mbsfn_area_info_list_parser::parse(Setting& root)
 int enb::parse_sibs(all_args_t* args, rrc_cfg_t* rrc_cfg, phy_cfg_t* phy_config_common)
 {
   // FIXME: Leave 0 blank for now
-  rrc_cfg->sibs[1].set(asn1::rrc::sys_info_r8_ies_s::sib_type_and_info_item_c_::types::sib2);
-  rrc_cfg->sibs[2].set(asn1::rrc::sys_info_r8_ies_s::sib_type_and_info_item_c_::types::sib3);
-  rrc_cfg->sibs[3].set(asn1::rrc::sys_info_r8_ies_s::sib_type_and_info_item_c_::types::sib4);
-  rrc_cfg->sibs[8].set(asn1::rrc::sys_info_r8_ies_s::sib_type_and_info_item_c_::types::sib9);
-  rrc_cfg->sibs[12].set(
-      asn1::rrc::sys_info_r8_ies_s::sib_type_and_info_item_c_::types::sib13_v920); // TODO: Confirm it matches with old
-                                                                                   // LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13
-  sib_type2_s*     sib2  = &rrc_cfg->sibs[1].sib2();
-  sib_type3_s*     sib3  = &rrc_cfg->sibs[2].sib3();
-  sib_type4_s*     sib4  = &rrc_cfg->sibs[3].sib4();
-  sib_type9_s*     sib9  = &rrc_cfg->sibs[8].sib9();
-  sib_type13_r9_s* sib13 = &rrc_cfg->sibs[12].sib13_v920();
+  sib_type2_s*     sib2  = &rrc_cfg->sibs[1].set_sib2();
+  sib_type3_s*     sib3  = &rrc_cfg->sibs[2].set_sib3();
+  sib_type4_s*     sib4  = &rrc_cfg->sibs[3].set_sib4();
+  sib_type7_s*     sib7  = &rrc_cfg->sibs[6].set_sib7();
+  sib_type9_s*     sib9  = &rrc_cfg->sibs[8].set_sib9();
+  sib_type13_r9_s* sib13 = &rrc_cfg->sibs[12].set_sib13_v920();
 
   sib_type1_s* sib1 = &rrc_cfg->sib1;
   if (parse_sib1(args->enb_files.sib_config, sib1)) {
@@ -636,24 +733,26 @@ int enb::parse_sibs(all_args_t* args, rrc_cfg_t* rrc_cfg, phy_cfg_t* phy_config_
 
   // Fill rest of data from enb config
   sib_type1_s::cell_access_related_info_s_* cell_access = &sib1->cell_access_related_info;
-  cell_access->cell_id.from_number((args->enb.s1ap.enb_id << 8u) + args->enb.s1ap.cell_id);
-  cell_access->tac.from_number(args->enb.s1ap.tac);
-  sib1->freq_band_ind = (uint8_t)srslte_band_get_band(args->rf.dl_earfcn);
+  cell_access->cell_id.from_number((args->stack.s1ap.enb_id << 8u) + args->stack.s1ap.cell_id);
+  cell_access->tac.from_number(args->stack.s1ap.tac);
+  sib1->freq_band_ind = (uint8_t)srslte_band_get_band(args->enb.dl_earfcn);
   std::string mnc_str;
-  if (not srslte::mnc_to_string(args->enb.s1ap.mnc, &mnc_str)) {
-    ERROR("The provided mnc=%d is not valid", args->enb.s1ap.mnc);
+  if (not srslte::mnc_to_string(args->stack.s1ap.mnc, &mnc_str)) {
+    ERROR("The provided mnc=%d is not valid", args->stack.s1ap.mnc);
     return -1;
   }
   std::string mcc_str;
-  if (not srslte::mcc_to_string(args->enb.s1ap.mcc, &mcc_str)) {
-    ERROR("The provided mnc=%d is not valid", args->enb.s1ap.mcc);
+  if (not srslte::mcc_to_string(args->stack.s1ap.mcc, &mcc_str)) {
+    ERROR("The provided mnc=%d is not valid", args->stack.s1ap.mcc);
     return -1;
   }
   cell_access->plmn_id_list.resize(1);
-  if (not srslte::string_to_plmn_id(cell_access->plmn_id_list[0].plmn_id, mcc_str + mnc_str)) {
+  srslte::plmn_id_t plmn;
+  if (plmn.from_string(mcc_str + mnc_str) == SRSLTE_ERROR) {
     ERROR("Could not convert %s to a plmn_id\n", (mcc_str + mnc_str).c_str());
     return -1;
   }
+  srslte::to_asn1(&cell_access->plmn_id_list[0].plmn_id, plmn);
   cell_access->plmn_id_list[0].cell_reserved_for_oper = plmn_id_info_s::cell_reserved_for_oper_e_::not_reserved;
   sib1->cell_sel_info.q_rx_lev_min_offset             = 0;
 
@@ -668,11 +767,11 @@ int enb::parse_sibs(all_args_t* args, rrc_cfg_t* rrc_cfg, phy_cfg_t* phy_config_
     asn1::number_to_enum(sib2->freq_info.ul_bw, args->enb.n_prb);
   }
   if (sib2->freq_info.ul_carrier_freq_present) {
-    sib2->freq_info.ul_carrier_freq = (uint16_t)args->rf.ul_earfcn;
+    sib2->freq_info.ul_carrier_freq = (uint16_t)args->enb.ul_earfcn;
   }
 
   // Update MBSFN list counter. Only 1 supported
-  if (not args->expert.enable_mbsfn) {
+  if (not args->stack.embms.enable) {
     sib2->mbsfn_sf_cfg_list_present = false;
     sib2->mbsfn_sf_cfg_list.resize(0);
   } else {
@@ -693,6 +792,13 @@ int enb::parse_sibs(all_args_t* args, rrc_cfg_t* rrc_cfg, phy_cfg_t* phy_config_
   // Generate SIB4 if defined in mapping info
   if (sib_is_present(sib1->sched_info_list, sib_type_e::sib_type4)) {
     if (parse_sib4(args->enb_files.sib_config, sib4)) {
+      return -1;
+    }
+  }
+
+  // Generate SIB7 if defined in mapping info
+  if (sib_is_present(sib1->sched_info_list, sib_type_e::sib_type7)) {
+    if (parse_sib7(args->enb_files.sib_config, sib7)) {
       return -1;
     }
   }
@@ -751,21 +857,30 @@ int enb::parse_rr(all_args_t* args, rrc_cfg_t* rrc_cfg)
 
   rrc_cfg->antenna_info.tx_mode = (ant_info_ded_s::tx_mode_e_::options)(args->enb.transmission_mode - 1);
 
-  rrc_cfg->antenna_info.ue_tx_ant_sel.set(ant_info_ded_s::ue_tx_ant_sel_c_::types::setup);
-  if (rrc_cfg->antenna_info.tx_mode == ant_info_ded_s::tx_mode_e_::tm3) {
-    rrc_cfg->antenna_info.ue_tx_ant_sel.setup().value = ant_info_ded_s::ue_tx_ant_sel_c_::setup_e_::open_loop;
+  rrc_cfg->antenna_info.ue_tx_ant_sel.set_setup();
+  switch (rrc_cfg->antenna_info.tx_mode) {
+    case ant_info_ded_s::tx_mode_e_::tm1:
+    case ant_info_ded_s::tx_mode_e_::tm2:
+      rrc_cfg->antenna_info.ue_tx_ant_sel.set(setup_e::release);
+      rrc_cfg->antenna_info.codebook_subset_restrict_present = false;
+      break;
+    case ant_info_ded_s::tx_mode_e_::tm3:
+      rrc_cfg->antenna_info.ue_tx_ant_sel.setup().value = ant_info_ded_s::ue_tx_ant_sel_c_::setup_e_::open_loop;
 
-    rrc_cfg->antenna_info.codebook_subset_restrict_present = true;
-    rrc_cfg->antenna_info.codebook_subset_restrict.set(
-        ant_info_ded_s::codebook_subset_restrict_c_::types::n2_tx_ant_tm3);
-    rrc_cfg->antenna_info.codebook_subset_restrict.n2_tx_ant_tm3().from_number(0b11);
-  } else if (rrc_cfg->antenna_info.tx_mode == ant_info_ded_s::tx_mode_e_::tm4) {
-    rrc_cfg->antenna_info.ue_tx_ant_sel.setup().value = ant_info_ded_s::ue_tx_ant_sel_c_::setup_e_::closed_loop;
+      rrc_cfg->antenna_info.codebook_subset_restrict_present = true;
+      rrc_cfg->antenna_info.codebook_subset_restrict.set_n2_tx_ant_tm3();
+      rrc_cfg->antenna_info.codebook_subset_restrict.n2_tx_ant_tm3().from_number(0b11);
+      break;
+    case ant_info_ded_s::tx_mode_e_::tm4:
+      rrc_cfg->antenna_info.ue_tx_ant_sel.setup().value = ant_info_ded_s::ue_tx_ant_sel_c_::setup_e_::closed_loop;
 
-    rrc_cfg->antenna_info.codebook_subset_restrict_present = true;
-    rrc_cfg->antenna_info.codebook_subset_restrict.set(
-        ant_info_ded_s::codebook_subset_restrict_c_::types::n2_tx_ant_tm4);
-    rrc_cfg->antenna_info.codebook_subset_restrict.n2_tx_ant_tm4().from_number(0b111111);
+      rrc_cfg->antenna_info.codebook_subset_restrict_present = true;
+      rrc_cfg->antenna_info.codebook_subset_restrict.set_n2_tx_ant_tm4();
+      rrc_cfg->antenna_info.codebook_subset_restrict.n2_tx_ant_tm4().from_number(0b111111);
+      break;
+    default:
+      ERROR("Unsupported transmission mode %d\n", rrc_cfg->antenna_info.tx_mode.to_number());
+      return SRSLTE_ERROR;
   }
 
   /* Parse power allocation */
@@ -820,6 +935,7 @@ int enb::parse_rr(all_args_t* args, rrc_cfg_t* rrc_cfg)
   cqi_report_cnfg.add_field(new parser::field_enum_str<rrc_cfg_cqi_mode_t>(
       "mode", &rrc_cfg->cqi_cfg.mode, rrc_cfg_cqi_mode_text, RRC_CFG_CQI_MODE_N_ITEMS));
   cqi_report_cnfg.add_field(new parser::field<uint32>("period", &rrc_cfg->cqi_cfg.period));
+  cqi_report_cnfg.add_field(new parser::field<uint32>("m_ri", &rrc_cfg->cqi_cfg.m_ri));
   cqi_report_cnfg.add_field(new parser::field<uint32>("nof_prb", &rrc_cfg->cqi_cfg.nof_prb));
   cqi_report_cnfg.add_field(new parser::field<bool>("simultaneousAckCQI", &rrc_cfg->cqi_cfg.simultaneousAckCQI));
   cqi_report_cnfg.add_field(new field_sf_mapping(rrc_cfg->cqi_cfg.sf_mapping, &rrc_cfg->cqi_cfg.nof_subframes));
@@ -846,7 +962,7 @@ int phr_cnfg_parser::parse(libconfig::Setting& root)
     phr_cfg->set(mac_main_cfg_s::phr_cfg_c_::types::release);
     return 0;
   }
-  phr_cfg->set(mac_main_cfg_s::phr_cfg_c_::types::setup);
+  phr_cfg->set_setup();
   mac_main_cfg_s::phr_cfg_c_::setup_s_& s = phr_cfg->setup();
 
   if (not parse_enum_by_str(s.dl_pathloss_change, "dl_pathloss_change", root["phr_cnfg"])) {
@@ -905,13 +1021,13 @@ int field_qci::parse(libconfig::Setting& root)
     // Parse RLC section
     rlc_cfg_c* rlc_cfg = &cfg[qci].rlc_cfg;
     if (q["rlc_config"].exists("ul_am")) {
-      rlc_cfg->set(rlc_cfg_c::types::am);
+      rlc_cfg->set_am();
     } else if (q["rlc_config"].exists("ul_um") && q["rlc_config"].exists("dl_um")) {
-      rlc_cfg->set(rlc_cfg_c::types::um_bi_dir);
+      rlc_cfg->set_um_bi_dir();
     } else if (q["rlc_config"].exists("ul_um") && !q["rlc_config"].exists("dl_um")) {
-      rlc_cfg->set(rlc_cfg_c::types::um_uni_dir_ul);
+      rlc_cfg->set_um_uni_dir_ul();
     } else if (!q["rlc_config"].exists("ul_um") && q["rlc_config"].exists("dl_um")) {
-      rlc_cfg->set(rlc_cfg_c::types::um_uni_dir_dl);
+      rlc_cfg->set_um_uni_dir_dl();
     } else {
       fprintf(stderr, "Invalid combination of UL/DL UM/AM for qci=%d\n", qci);
       return -1;
@@ -929,7 +1045,7 @@ int field_qci::parse(libconfig::Setting& root)
 
       field_asn1_enum_number<sn_field_len_e> sn_field_len("sn_field_length", &um_rlc->sn_field_len);
       if (sn_field_len.parse(q["rlc_config"]["ul_um"])) {
-        fprintf(stderr, "Error can't find sn_field_length in section ul_um\n");
+        ERROR("Error can't find sn_field_length in section ul_um\n");
       }
     }
 
@@ -944,12 +1060,12 @@ int field_qci::parse(libconfig::Setting& root)
 
       field_asn1_enum_number<sn_field_len_e> sn_field_len("sn_field_length", &um_rlc->sn_field_len);
       if (sn_field_len.parse(q["rlc_config"]["dl_um"])) {
-        fprintf(stderr, "Error can't find sn_field_length in section dl_um\n");
+        ERROR("Error can't find sn_field_length in section dl_um\n");
       }
 
       field_asn1_enum_number<t_reordering_e> t_reordering("t_reordering", &um_rlc->t_reordering);
       if (t_reordering.parse(q["rlc_config"]["dl_um"])) {
-        fprintf(stderr, "Error can't find t_reordering in section dl_um\n");
+        ERROR("Error can't find t_reordering in section dl_um\n");
       }
     }
 
@@ -959,23 +1075,23 @@ int field_qci::parse(libconfig::Setting& root)
 
       field_asn1_enum_number<t_poll_retx_e> t_poll_retx("t_poll_retx", &am_rlc->t_poll_retx);
       if (t_poll_retx.parse(q["rlc_config"]["ul_am"])) {
-        fprintf(stderr, "Error can't find t_poll_retx in section ul_am\n");
+        ERROR("Error can't find t_poll_retx in section ul_am\n");
       }
 
       field_asn1_enum_number<poll_pdu_e> poll_pdu("poll_pdu", &am_rlc->poll_pdu);
       if (poll_pdu.parse(q["rlc_config"]["ul_am"])) {
-        fprintf(stderr, "Error can't find poll_pdu in section ul_am\n");
+        ERROR("Error can't find poll_pdu in section ul_am\n");
       }
 
       field_asn1_enum_number<poll_byte_e> poll_byte("poll_byte", &am_rlc->poll_byte);
       if (poll_byte.parse(q["rlc_config"]["ul_am"])) {
-        fprintf(stderr, "Error can't find poll_byte in section ul_am\n");
+        ERROR("Error can't find poll_byte in section ul_am\n");
       }
 
       field_asn1_enum_number<ul_am_rlc_s::max_retx_thres_e_> max_retx_thresh("max_retx_thresh",
                                                                              &am_rlc->max_retx_thres);
       if (max_retx_thresh.parse(q["rlc_config"]["ul_am"])) {
-        fprintf(stderr, "Error can't find max_retx_thresh in section ul_am\n");
+        ERROR("Error can't find max_retx_thresh in section ul_am\n");
       }
     }
 
@@ -984,12 +1100,12 @@ int field_qci::parse(libconfig::Setting& root)
 
       field_asn1_enum_number<t_reordering_e> t_reordering("t_reordering", &am_rlc->t_reordering);
       if (t_reordering.parse(q["rlc_config"]["dl_am"])) {
-        fprintf(stderr, "Error can't find t_reordering in section dl_am\n");
+        ERROR("Error can't find t_reordering in section dl_am\n");
       }
 
       field_asn1_enum_number<t_status_prohibit_e> t_status_prohibit("t_status_prohibit", &am_rlc->t_status_prohibit);
       if (t_status_prohibit.parse(q["rlc_config"]["dl_am"])) {
-        fprintf(stderr, "Error can't find t_status_prohibit in section dl_am\n");
+        ERROR("Error can't find t_status_prohibit in section dl_am\n");
       }
     }
 
@@ -1003,7 +1119,7 @@ int field_qci::parse(libconfig::Setting& root)
 
     parser::field<uint8> priority("priority", &lc_cfg->prio);
     if (priority.parse(q["logical_channel_config"])) {
-      fprintf(stderr, "Error can't find logical_channel_config in section priority\n");
+      ERROR("Error can't find logical_channel_config in section priority\n");
     }
 
     field_asn1_enum_number<lc_ch_cfg_s::ul_specific_params_s_::prioritised_bit_rate_e_> prioritised_bit_rate(
@@ -1015,7 +1131,7 @@ int field_qci::parse(libconfig::Setting& root)
     field_asn1_enum_number<lc_ch_cfg_s::ul_specific_params_s_::bucket_size_dur_e_> bucket_size_duration(
         "bucket_size_duration", &lc_cfg->bucket_size_dur);
     if (bucket_size_duration.parse(q["logical_channel_config"])) {
-      fprintf(stderr, "Error can't find bucket_size_duration in section logical_channel_config\n");
+      ERROR("Error can't find bucket_size_duration in section logical_channel_config\n");
     }
 
     parser::field<uint8> log_chan_group("log_chan_group", &lc_cfg->lc_ch_group);

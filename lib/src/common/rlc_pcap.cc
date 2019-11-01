@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -23,7 +18,6 @@
  * and at http://www.gnu.org/licenses/.
  *
  */
-
 
 #include <stdint.h>
 #include "srslte/srslte.h"
@@ -38,8 +32,8 @@ void rlc_pcap::enable(bool en)
 }
 void rlc_pcap::open(const char* filename, uint32_t ue_id)
 {
-  fprintf(stdout, "Opening RLC PCAP with DLT=%d\n", RLC_LTE_DLT);
-  pcap_file = LTE_PCAP_Open(RLC_LTE_DLT, filename);
+  fprintf(stdout, "Opening RLC PCAP with DLT=%d\n", UDP_DLT);
+  pcap_file    = LTE_PCAP_Open(UDP_DLT, filename);
   this->ue_id = ue_id;
   enable_write = true;
 }

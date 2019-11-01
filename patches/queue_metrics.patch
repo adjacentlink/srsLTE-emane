@@ -1,0 +1,724 @@
+diff --git a/lib/include/srslte/common/block_queue.h b/lib/include/srslte/common/block_queue.h
+index 241ffb5..7192489 100644
+--- a/lib/include/srslte/common/block_queue.h
++++ b/lib/include/srslte/common/block_queue.h
+@@ -39,6 +39,8 @@
+ #include <unistd.h>
+ #include <strings.h>
+ 
++#include "srslte/common/queue_metrics.h"
++
+ namespace srslte {
+ 
+ template<typename myobj>
+@@ -62,6 +64,7 @@ public:
+     mutexed_callback = NULL;
+     enable = true;
+     num_threads = 0;
++    qmetrics.capacity = capacity;
+   }
+   ~block_queue() {
+     // Unlock threads waiting at push or pop
+@@ -87,7 +90,10 @@ public:
+     mutexed_callback = itf;
+   }
+   void resize(int new_capacity) {
++    pthread_mutex_lock(&mutex);
+     capacity = new_capacity;
++    qmetrics.capacity = capacity;
++    pthread_mutex_unlock(&mutex);
+   }
+ 
+   void push(const myobj& value) {
+@@ -121,31 +127,49 @@ public:
+ 
+   void clear() { // remove all items
+     myobj *item = NULL;
+-    while (try_pop(item));
++    while (try_pop(item)) {
++      ++qmetrics.num_cleared;
++    }
+   }
+ 
+   const myobj& front() const { return q.front(); }
+ 
+   size_t size() {
+-    return q.size();
++    pthread_mutex_lock(&mutex);
++    size_t result = q.size();
++    pthread_mutex_unlock(&mutex);
++    return result;
+   }
+ 
++  queue_metrics_t get_qmetrics(bool bReset = false) {
++    pthread_mutex_lock(&mutex);
++    const queue_metrics_t result = qmetrics;
++    if(bReset) {
++      qmetrics.reset();
++    }
++    pthread_mutex_unlock(&mutex);
++    return result;
++  }
++   
+ private:
+ 
+   bool pop_(myobj *value, bool block) {
+     if (!enable) {
++      ++qmetrics.num_pop_fail;
+       return false;
+     }
+     pthread_mutex_lock(&mutex);
+     num_threads++;
+     bool ret = false;
+     if (q.empty() && !block) {
++      ++qmetrics.num_pop_fail;
+       goto exit;
+     }
+     while (q.empty() && enable) {
+       pthread_cond_wait(&cv_empty, &mutex);
+     }
+     if (!enable) {
++      ++qmetrics.num_pop_fail;
+       goto exit;
+     }
+     if (value) {
+@@ -156,6 +180,8 @@ private:
+     }
+     q.pop();
+     ret = true;
++    ++qmetrics.num_pop;
++    qmetrics.currsize = q.size();
+     pthread_cond_signal(&cv_full);
+   exit:
+     num_threads--;
+@@ -198,6 +224,11 @@ private:
+       }
+       q.push(std::move(value));
+       pthread_cond_signal(&cv_empty);
++      ++qmetrics.num_push;
++      qmetrics.currsize = q.size();
++      qmetrics.highwater = std::max(qmetrics.highwater, q.size());
++    } else {
++      ++qmetrics.num_push_fail;
+     }
+     pthread_mutex_unlock(&mutex);
+     return std::make_pair(ret, std::move(value));
+@@ -229,6 +260,7 @@ private:
+   int capacity;
+   bool enable;
+   uint32_t num_threads;
++  queue_metrics_t qmetrics;
+ };
+ 
+ }
+diff --git a/lib/include/srslte/common/queue_metrics.h b/lib/include/srslte/common/queue_metrics.h
+new file mode 100644
+index 0000000..15727f8
+--- /dev/null
++++ b/lib/include/srslte/common/queue_metrics.h
+@@ -0,0 +1,120 @@
++/**
++ *
++ * \section COPYRIGHT
++ *
++ * Copyright (c) 2019 - Adjacent Link LLC, Bridgewater, New Jersey
++ *
++ * \section LICENSE
++ *
++ * This file is part of the srsLTE library.
++ *
++ * srsLTE is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU Affero General Public License as
++ * published by the Free Software Foundation, either version 3 of
++ * the License, or (at your option) any later version.
++ *
++ * srsLTE is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU Affero General Public License for more details.
++ *
++ * A copy of the GNU Affero General Public License can be found in
++ * the LICENSE file in the top-level directory of this distribution
++ * and at http://www.gnu.org/licenses/.
++ *
++ */
++
++/**
++ *
++ * \section COPYRIGHT
++ *
++ * Copyright 2015 The srsUE Developers. See the
++ * COPYRIGHT file at the top-level directory of this distribution.
++ *
++ * \section LICENSE
++ *
++ * This file is part of the srsUE library.
++ *
++ * srsUE is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU Affero General Public License as
++ * published by the Free Software Foundation, either version 3 of
++ * the License, or (at your option) any later version.
++ *
++ * srsUE is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU Affero General Public License for more details.
++ *
++ * A copy of the GNU Affero General Public License can be found in
++ * the LICENSE file in the top-level directory of this distribution
++ * and at http://www.gnu.org/licenses/.
++ *
++ */
++
++/******************************************************************************
++ *  File:         qmetrics.h
++ *  Description:  Generic queue metrics
++ *               
++ *              
++ *****************************************************************************/
++
++
++#ifndef QUEUE_METRICS_H
++#define QUEUE_METRICS_H
++
++#include <sstream>
++
++namespace srslte {
++
++  struct queue_metrics_t {
++   int    capacity;
++   size_t currsize;
++   size_t highwater;
++   size_t num_cleared;
++   size_t num_push;
++   size_t num_push_fail;
++   size_t num_pop;
++   size_t num_pop_fail;
++
++   queue_metrics_t() { 
++     reset();
++   }
++
++   void reset() {
++    capacity = 0;
++    currsize = 0;
++    highwater = 0;
++    num_cleared = 0;
++    num_push = 0;
++    num_push_fail = 0;
++    num_pop = 0;
++    num_pop_fail = 0;
++   }
++
++   std::string toString() const
++    {
++      std::stringstream ss;
++
++      ss << "cs=" 
++         << currsize
++         << ", hw="
++         << highwater
++         << ", cap="
++         << capacity
++         << ", nc="
++         << num_cleared
++         << ", npu="
++         << num_push
++         << ", npuf="
++         << num_push_fail
++         << ", npo="
++         << num_pop
++         << ", npof="
++         << num_pop_fail;
++
++       return ss.str();
++    }
++ };
++}
++
++#endif // QUEUE_METRICS_H
+diff --git a/lib/include/srslte/interfaces/enb_metrics_interface.h b/lib/include/srslte/interfaces/enb_metrics_interface.h
+index 38a8782..675d41c 100644
+--- a/lib/include/srslte/interfaces/enb_metrics_interface.h
++++ b/lib/include/srslte/interfaces/enb_metrics_interface.h
+@@ -40,6 +40,7 @@ struct stack_metrics_t {
+   mac_metrics_t  mac[ENB_METRICS_MAX_USERS];
+   rrc_metrics_t  rrc;
+   s1ap_metrics_t s1ap;
++  srslte::rlc_metrics_t rlc[ENB_METRICS_MAX_USERS];
+ };
+ 
+ typedef struct {
+diff --git a/lib/include/srslte/upper/rlc_am.h b/lib/include/srslte/upper/rlc_am.h
+index e41a3d7..fcc4db9 100644
+--- a/lib/include/srslte/upper/rlc_am.h
++++ b/lib/include/srslte/upper/rlc_am.h
+@@ -92,6 +92,8 @@ public:
+   uint32_t get_num_rx_bytes();
+   void reset_metrics();
+ 
++  queue_metrics_t get_qmetrics(bool bReset = false);
++
+ private:
+ 
+   // Transmitter sub-class
+@@ -121,6 +123,8 @@ private:
+     // Interface for Rx subclass
+     void handle_control_pdu(uint8_t *payload, uint32_t nof_bytes);
+ 
++    queue_metrics_t get_qmetrics(bool bReset = false);
++
+   private:
+ 
+     int  build_status_pdu(uint8_t *payload, uint32_t nof_bytes);
+diff --git a/lib/include/srslte/upper/rlc_common.h b/lib/include/srslte/upper/rlc_common.h
+index 4ab308f..0a0416c 100644
+--- a/lib/include/srslte/upper/rlc_common.h
++++ b/lib/include/srslte/upper/rlc_common.h
+@@ -199,6 +199,8 @@ public:
+   virtual int      read_pdu(uint8_t *payload, uint32_t nof_bytes) = 0;
+   virtual void     write_pdu(uint8_t *payload, uint32_t nof_bytes) = 0;
+ 
++  virtual queue_metrics_t get_qmetrics(bool bReset = false) = 0;
++
+ private:
+   bool is_suspended = false;
+ 
+diff --git a/lib/include/srslte/upper/rlc_metrics.h b/lib/include/srslte/upper/rlc_metrics.h
+index 5e2d69c..765a07d 100644
+--- a/lib/include/srslte/upper/rlc_metrics.h
++++ b/lib/include/srslte/upper/rlc_metrics.h
+@@ -23,14 +23,26 @@
+ #define SRSLTE_RLC_METRICS_H
+ 
+ #include "srslte/common/common.h"
++#include "srslte/common/queue_metrics.h"
++#include "srslte/interfaces/rrc_interface_types.h"
+ 
+ namespace srslte {
+ 
++struct rlc_queue_metrics_t { 
++ queue_metrics_t qmetrics;
++ rlc_mode_t      mode;
++};
++
+ struct rlc_metrics_t
+ {
+   float dl_tput_mbps[SRSLTE_N_RADIO_BEARERS];
+   float ul_tput_mbps[SRSLTE_N_RADIO_BEARERS];
+   float dl_tput_mrb_mbps[SRSLTE_N_MCH_LCIDS];
++
++  rlc_queue_metrics_t metrics[SRSLTE_N_RADIO_BEARERS];
++  rlc_queue_metrics_t mrb_metrics[SRSLTE_N_MCH_LCIDS];
++
++  uint16_t rnti;
+ };
+ 
+ } // namespace srslte
+diff --git a/lib/include/srslte/upper/rlc_tm.h b/lib/include/srslte/upper/rlc_tm.h
+index 107b131..3ec3cb9 100644
+--- a/lib/include/srslte/upper/rlc_tm.h
++++ b/lib/include/srslte/upper/rlc_tm.h
+@@ -62,6 +62,8 @@ public:
+   int      read_pdu(uint8_t *payload, uint32_t nof_bytes);
+   void     write_pdu(uint8_t *payload, uint32_t nof_bytes);
+ 
++  queue_metrics_t get_qmetrics(bool bReset = false);
++
+ private:
+   byte_buffer_pool*          pool = nullptr;
+   srslte::log*               log  = nullptr;
+diff --git a/lib/include/srslte/upper/rlc_tx_queue.h b/lib/include/srslte/upper/rlc_tx_queue.h
+index b9451e7..43f6d47 100644
+--- a/lib/include/srslte/upper/rlc_tx_queue.h
++++ b/lib/include/srslte/upper/rlc_tx_queue.h
+@@ -95,6 +95,10 @@ public:
+     return queue.empty();
+   }
+ 
++  queue_metrics_t get_qmetrics(bool bReset = false) {
++    return queue.get_qmetrics(bReset);
++  }
++
+ private:
+   block_queue<unique_byte_buffer_t> queue;
+   uint32_t                    unread_bytes;
+diff --git a/lib/include/srslte/upper/rlc_um.h b/lib/include/srslte/upper/rlc_um.h
+index 26cc41f..d54d1fc 100644
+--- a/lib/include/srslte/upper/rlc_um.h
++++ b/lib/include/srslte/upper/rlc_um.h
+@@ -72,6 +72,8 @@ public:
+   uint32_t get_num_rx_bytes();
+   void reset_metrics();
+ 
++  queue_metrics_t get_qmetrics(bool bReset = false);
++
+ private:
+ 
+   // Transmitter sub-class
+@@ -92,6 +94,8 @@ private:
+     bool has_data();
+     uint32_t get_buffer_state();
+ 
++    queue_metrics_t get_qmetrics(bool bReset = false);
++
+   private:
+     byte_buffer_pool*       pool = nullptr;
+     srslte::log*            log  = nullptr;
+diff --git a/lib/src/upper/rlc.cc b/lib/src/upper/rlc.cc
+index f682736..1c4428b 100644
+--- a/lib/src/upper/rlc.cc
++++ b/lib/src/upper/rlc.cc
+@@ -99,21 +99,31 @@ void rlc::get_metrics(rlc_metrics_t &m)
+   get_time_interval(metrics_time);
+   double secs = (double)metrics_time[0].tv_sec + metrics_time[0].tv_usec*1e-6;
+ 
+-  for (rlc_map_t::iterator it = rlc_array.begin(); it != rlc_array.end(); ++it) {
+-    m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
+-    m.ul_tput_mbps[it->first] = (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs;
+-    rlc_log->info("LCID=%d, RX throughput: %4.6f Mbps. TX throughput: %4.6f Mbps.\n",
+-                    it->first,
+-                    (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
+-                    (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs);
++  bzero(&m, sizeof(m));
++  for (auto it = rlc_array.begin(); it != rlc_array.end(); ++it) {
++    m.dl_tput_mbps[it->first]     = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
++    m.ul_tput_mbps[it->first]     = (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs;
++    m.metrics[it->first].qmetrics = it->second->get_qmetrics();
++    m.metrics[it->first].mode     = it->second->get_mode();
++    rlc_log->info("LCID=%d, RX throughput: %4.6f Mbps. TX throughput: %4.6f Mbps. mode %s, %s\n",
++                  it->first,
++                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
++                  (it->second->get_num_tx_bytes()*8/static_cast<double>(1e6))/secs,
++                  to_string(it->second->get_mode(), false).c_str(),
++                  m.metrics[it->first].qmetrics.toString().c_str());
+   }
+ 
+   // Add multicast metrics
+-  for (rlc_map_t::iterator it = rlc_array_mrb.begin(); it != rlc_array_mrb.end(); ++it) {
+-    m.dl_tput_mbps[it->first] = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
+-    rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps\n",
++  for (auto it = rlc_array_mrb.begin(); it != rlc_array_mrb.end(); ++it) {
++    m.dl_tput_mrb_mbps[it->first]     = (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs;
++    m.mrb_metrics[it->first].qmetrics = it->second->get_qmetrics();
++    m.mrb_metrics[it->first].mode     = it->second->get_mode();
++
++    rlc_log->info("MCH_LCID=%d, RX throughput: %4.6f Mbps. mode %s, %s\n",
+                   it->first,
+-                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs);
++                  (it->second->get_num_rx_bytes()*8/static_cast<double>(1e6))/secs,
++                  to_string(it->second->get_mode(), false).c_str(),
++                  m.mrb_metrics[it->first].qmetrics.toString().c_str());
+   }
+ 
+   memcpy(&metrics_time[1], &metrics_time[2], sizeof(struct timeval));
+diff --git a/lib/src/upper/rlc_am.cc b/lib/src/upper/rlc_am.cc
+index cf188cb..086dc7a 100644
+--- a/lib/src/upper/rlc_am.cc
++++ b/lib/src/upper/rlc_am.cc
+@@ -128,6 +128,11 @@ void rlc_am::reset_metrics()
+   rx.reset_metrics();
+ }
+ 
++queue_metrics_t rlc_am::get_qmetrics(bool bReset)
++{
++  return tx.get_qmetrics(bReset);
++}
++
+ /****************************************************************************
+  * PDCP interface
+  ***************************************************************************/
+@@ -1113,7 +1118,10 @@ bool rlc_am::rlc_am_tx::retx_queue_has_sn(uint32_t sn)
+   return false;
+ }
+ 
+-
++queue_metrics_t rlc_am::rlc_am_tx::get_qmetrics(bool bReset)
++{
++  return tx_sdu_queue.get_qmetrics(bReset);
++}
+ 
+ /****************************************************************************
+  * Rx subclass implementation
+diff --git a/lib/src/upper/rlc_tm.cc b/lib/src/upper/rlc_tm.cc
+index bcc6757..1dad887 100644
+--- a/lib/src/upper/rlc_tm.cc
++++ b/lib/src/upper/rlc_tm.cc
+@@ -193,4 +193,9 @@ void rlc_tm::write_pdu(uint8_t *payload, uint32_t nof_bytes)
+   }
+ }
+ 
++queue_metrics_t rlc_tm::get_qmetrics(bool bReset)
++{
++  return ul_queue.get_qmetrics(bReset);
++}
++
+ } // namespace srsue
+diff --git a/lib/src/upper/rlc_um.cc b/lib/src/upper/rlc_um.cc
+index aa059d2..4571df4 100644
+--- a/lib/src/upper/rlc_um.cc
++++ b/lib/src/upper/rlc_um.cc
+@@ -183,6 +183,10 @@ void rlc_um::reset_metrics()
+   rx.reset_metrics();
+ }
+ 
++queue_metrics_t rlc_um::get_qmetrics(bool bReset)
++{
++  return tx.get_qmetrics(bReset);
++}
+ 
+ /****************************************************************************
+  * Helper functions
+@@ -475,6 +479,11 @@ void rlc_um::rlc_um_tx::debug_state()
+   log->debug("%s vt_us = %d\n", get_rb_name(), vt_us);
+ }
+ 
++queue_metrics_t rlc_um::rlc_um_tx::get_qmetrics(bool bReset)
++{
++  return tx_sdu_queue.get_qmetrics(bReset);
++}
++
+ /****************************************************************************
+  * Rx subclass implementation
+  ***************************************************************************/
+diff --git a/srsenb/hdr/stack/upper/rlc.h b/srsenb/hdr/stack/upper/rlc.h
+index 2a93e05..aff439e 100644
+--- a/srsenb/hdr/stack/upper/rlc.h
++++ b/srsenb/hdr/stack/upper/rlc.h
+@@ -24,6 +24,8 @@
+ #include "srslte/interfaces/enb_interfaces.h"
+ #include "srslte/upper/rlc.h"
+ 
++#include "srslte/upper/rlc_metrics.h"
++
+ #ifndef SRSENB_RLC_H
+ #define SRSENB_RLC_H
+ 
+@@ -64,6 +66,8 @@ public:
+   void write_pdu(uint16_t rnti, uint32_t lcid, uint8_t *payload, uint32_t nof_bytes);
+   void read_pdu_pcch(uint8_t *payload, uint32_t buffer_size); 
+   
++  void get_metrics(srslte::rlc_metrics_t * mlist);
++
+ private:
+   class user_interface : public srsue::pdcp_interface_rlc, public srsue::rrc_interface_rlc
+   {
+diff --git a/srsenb/src/metrics_ostatistic.cc b/srsenb/src/metrics_ostatistic.cc
+index da99a0f..b39685c 100644
+--- a/srsenb/src/metrics_ostatistic.cc
++++ b/srsenb/src/metrics_ostatistic.cc
+@@ -37,42 +37,109 @@ void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
+ {
+   const auto & stack = m.stack;
+   const auto & rrc   = stack.rrc;
++  const auto & rlc   = stack.rlc;
+   const auto & mac   = stack.mac;
+   const auto & s1ap  = stack.s1ap;
+ 
+-  ENBSTATS::MACMetrics macMetrics;
++  ENBSTATS::MACMetrics    macMetrics;
++  ENBSTATS::RLCMetrics    rlcMetrics;
++  ENBSTATS::RLCMRBMetrics rlcMRBMetrics;
+ 
+   ENBSTATS::setS1State(s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
+                        s1ap.status == S1AP_READY     ? "READY"     : "ERROR");
+ 
+-  // track ue's
+-  for(uint16_t ue = 0; ue < stack.rrc.n_ues; ++ue)
++  for(uint16_t user = 0; user < ENB_METRICS_MAX_USERS; ++user)
+    {
+-     const std::string state = rrc.ues[ue].state == RRC_STATE_IDLE                            ? "IDLE" :
+-                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE     ? "WAIT_SETUP_COMP" :
+-                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_SECURITY_MODE_COMPLETE ? "WAIT_SECMD_COMP" :
+-                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_UE_CAP_INFO            ? "WAIT_CAP_INFO"   :
+-                               rrc.ues[ue].state == RRC_STATE_WAIT_FOR_CON_RECONF_COMPLETE    ? "WAIT_CON_RECONF" :
+-                               rrc.ues[ue].state == RRC_STATE_REGISTERED                      ? "REGISTERED"      :
+-                               rrc.ues[ue].state == RRC_STATE_RELEASE_REQUEST                 ? "RELEASE_REQUEST" : "ERROR";
+-
+-     macMetrics.push_back(ENBSTATS::MACMetric(mac[ue].rnti,
+-                                              mac[ue].tx_pkts,
+-                                              mac[ue].tx_errors,
+-                                              mac[ue].tx_brate,
+-                                              mac[ue].rx_pkts,
+-                                              mac[ue].rx_errors,
+-                                              mac[ue].rx_brate,
+-                                              mac[ue].ul_buffer,
+-                                              mac[ue].dl_buffer,
+-                                              mac[ue].dl_cqi,
+-                                              mac[ue].dl_ri,
+-                                              mac[ue].dl_pmi,
+-                                              mac[ue].phr,
+-                                              state));
++     // track ue's
++     if(user < stack.rrc.n_ues)
++      {
++        const std::string state = rrc.ues[user].state == RRC_STATE_IDLE                            ? "IDLE" :
++                                  rrc.ues[user].state == RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE     ? "WAIT_SETUP_COMP" :
++                                  rrc.ues[user].state == RRC_STATE_WAIT_FOR_SECURITY_MODE_COMPLETE ? "WAIT_SECMD_COMP" :
++                                  rrc.ues[user].state == RRC_STATE_WAIT_FOR_UE_CAP_INFO            ? "WAIT_CAP_INFO"   :
++                                  rrc.ues[user].state == RRC_STATE_WAIT_FOR_CON_RECONF_COMPLETE    ? "WAIT_CON_RECONF" :
++                                  rrc.ues[user].state == RRC_STATE_REGISTERED                      ? "REGISTERED"      :
++                                  rrc.ues[user].state == RRC_STATE_RELEASE_REQUEST                 ? "RELEASE_REQUEST" : "ERROR";
++
++        macMetrics.emplace_back(ENBSTATS::MACMetric(mac[user].rnti,
++                                                    mac[user].tx_pkts,
++                                                    mac[user].tx_errors,
++                                                    mac[user].tx_brate,
++                                                    mac[user].rx_pkts,
++                                                    mac[user].rx_errors,
++                                                    mac[user].rx_brate,
++                                                    mac[user].ul_buffer,
++                                                    mac[user].dl_buffer,
++                                                    mac[user].dl_cqi,
++                                                    mac[user].dl_ri,
++                                                    mac[user].dl_pmi,
++                                                    mac[user].phr,
++                                                    state));
++      }
++
++     ENBSTATS::RLCBearerMetrics rlcBearerMetrics;
++
++     // for each bearer
++     for(uint16_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n)
++      {
++        // use capacity to determine if lcid is active
++        if(rlc[user].metrics[n].qmetrics.capacity > 0)
++         {
++           const ENBSTATS::RLCQueueMetric queueMetric((int)rlc[user].metrics[n].mode,
++                                                      rlc[user].metrics[n].qmetrics.capacity,
++                                                      rlc[user].metrics[n].qmetrics.currsize,
++                                                      rlc[user].metrics[n].qmetrics.highwater,
++                                                      rlc[user].metrics[n].qmetrics.num_cleared,
++                                                      rlc[user].metrics[n].qmetrics.num_push,
++                                                      rlc[user].metrics[n].qmetrics.num_push_fail,
++                                                      rlc[user].metrics[n].qmetrics.num_pop,
++                                                      rlc[user].metrics[n].qmetrics.num_pop_fail);
++
++           rlcBearerMetrics.emplace_back(ENBSTATS::RLCBearerMetric(rlc[user].dl_tput_mbps[n], 
++                                                                   rlc[user].ul_tput_mbps[n],
++                                                                   queueMetric));
++         }
++      }
++
++     if(! rlcBearerMetrics.empty())
++      {
++        // save entry on unique rnti
++        rlcMetrics[rlc[user].rnti] = rlcBearerMetrics;
++      }
++
++     ENBSTATS::RLCMRBBearerMetrics rlcMRBBearerMetrics;
++
++     // for each mrb bearer
++     for(uint16_t n = 0; n < SRSLTE_N_MCH_LCIDS; ++n)
++      {
++        // use capacity to determine if lcid is active
++        if(rlc[user].mrb_metrics[n].qmetrics.capacity > 0)
++         {
++           ENBSTATS::RLCQueueMetric queueMetric((int)rlc[user].mrb_metrics[n].mode,
++                                                rlc[user].mrb_metrics[n].qmetrics.capacity,
++                                                rlc[user].mrb_metrics[n].qmetrics.currsize,
++                                                rlc[user].mrb_metrics[n].qmetrics.highwater,
++                                                rlc[user].mrb_metrics[n].qmetrics.num_cleared,
++                                                rlc[user].mrb_metrics[n].qmetrics.num_push,
++                                                rlc[user].mrb_metrics[n].qmetrics.num_push_fail,
++                                                rlc[user].mrb_metrics[n].qmetrics.num_pop,
++                                                rlc[user].mrb_metrics[n].qmetrics.num_pop_fail);
++
++           rlcMRBBearerMetrics.emplace_back(ENBSTATS::RLCMRBBearerMetric(rlc[user].dl_tput_mrb_mbps[n], 
++                                                                         queueMetric));
++         }
++      }
++
++     if(! rlcMRBBearerMetrics.empty())
++      {
++        // save entry on unique rnti
++        rlcMRBMetrics[rlc[user].rnti] = rlcMRBBearerMetrics;
++      }
+    }
+ 
+   ENBSTATS::setMACMetrics(macMetrics);
++  ENBSTATS::setRLCMetrics(rlcMetrics);
++  ENBSTATS::setRLCMetrics(rlcMRBMetrics);
+ }
+ 
+ } // end namespace srsenb
+diff --git a/srsenb/src/stack/enb_stack_lte.cc b/srsenb/src/stack/enb_stack_lte.cc
+index af5719d..38d9dc3 100644
+--- a/srsenb/src/stack/enb_stack_lte.cc
++++ b/srsenb/src/stack/enb_stack_lte.cc
+@@ -157,6 +157,7 @@ bool enb_stack_lte::get_metrics(stack_metrics_t* metrics)
+   mac.get_metrics(metrics->mac);
+   rrc.get_metrics(metrics->rrc);
+   s1ap.get_metrics(metrics->s1ap);
++  rlc.get_metrics(metrics->rlc);
+   return true;
+ }
+ 
+diff --git a/srsenb/src/stack/upper/rlc.cc b/srsenb/src/stack/upper/rlc.cc
+index 4b63db6..7632c2b 100644
+--- a/srsenb/src/stack/upper/rlc.cc
++++ b/srsenb/src/stack/upper/rlc.cc
+@@ -228,4 +228,16 @@ std::string rlc::user_interface::get_rb_name(uint32_t lcid)
+   return std::string(rb_id_text[lcid]);
+ }
+ 
++void rlc::get_metrics(srslte::rlc_metrics_t *mlist)
++{
++  pthread_rwlock_rdlock(&rwlock);
++
++  size_t n = 0;
++  for(auto iter = users.begin(); iter != users.end(); ++iter, ++n) {
++    iter->second.rlc->get_metrics(mlist[n]);
++    mlist[n].rnti = iter->first;
++  }
++
++  pthread_rwlock_unlock(&rwlock);
++}
+ }
+diff --git a/srsue/src/metrics_ostatistic.cc b/srsue/src/metrics_ostatistic.cc
+index 0eb262c..23e8e98 100644
+--- a/srsue/src/metrics_ostatistic.cc
++++ b/srsue/src/metrics_ostatistic.cc
+@@ -44,6 +44,42 @@ void metrics_ostatistic::set_metrics(ue_metrics_t &m, const uint32_t)
+   const auto & mac   = stack.mac;
+   const auto & rlc   = stack.rlc;
+ 
++  for(size_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n)
++    {
++      // use capacity to determine if lcid is active
++      if(rlc.metrics[n].qmetrics.capacity > 0)
++       {
++         rlcQueueMetrics.emplace_back(
++            UESTATS::RLCQueueMetrics((int)rlc.metrics[n].mode,
++                                     rlc.metrics[n].qmetrics.capacity,
++                                     rlc.metrics[n].qmetrics.currsize,
++                                     rlc.metrics[n].qmetrics.highwater,
++                                     rlc.metrics[n].qmetrics.num_cleared,
++                                     rlc.metrics[n].qmetrics.num_push,
++                                     rlc.metrics[n].qmetrics.num_push_fail,
++                                     rlc.metrics[n].qmetrics.num_pop,
++                                     rlc.metrics[n].qmetrics.num_pop_fail));
++        }
++     }
++
++   for(size_t n = 0; n < SRSLTE_N_MCH_LCIDS; ++n)
++     {
++       // use capacity to determine if lcid is active
++       if(rlc.mrb_metrics[n].qmetrics.capacity > 0)
++        {
++          rlcMrbQueueMetrics.emplace_back(
++            UESTATS::RLCQueueMetrics((int)rlc.mrb_metrics[n].mode,
++                                     rlc.mrb_metrics[n].qmetrics.capacity,
++                                     rlc.mrb_metrics[n].qmetrics.currsize,
++                                     rlc.mrb_metrics[n].qmetrics.highwater,
++                                     rlc.mrb_metrics[n].qmetrics.num_cleared,
++                                     rlc.mrb_metrics[n].qmetrics.num_push,
++                                     rlc.mrb_metrics[n].qmetrics.num_push_fail,
++                                     rlc.mrb_metrics[n].qmetrics.num_pop,
++                                     rlc.mrb_metrics[n].qmetrics.num_pop_fail));
++        }
++     }
++
+   UESTATS::setRLCMetrics(UESTATS::RLCMetrics(rlc.dl_tput_mbps, 
+                                              rlc.ul_tput_mbps,
+                                              rlcQueueMetrics,

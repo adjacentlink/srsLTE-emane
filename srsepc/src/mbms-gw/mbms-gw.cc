@@ -1,10 +1,5 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -37,9 +32,7 @@
 #include "srsepc/hdr/mbms-gw/mbms-gw.h"
 #include "srslte/upper/gtpu.h"
 
-#ifdef PHY_ADAPTER_ENABLE
 #include "libemanelte/mbmsstatisticmanager.h"
-#endif
 
 namespace srsepc{
 
@@ -48,9 +41,7 @@ pthread_mutex_t mbms_gw_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 const uint16_t MBMS_GW_BUFFER_SIZE = 2500;
 
-mbms_gw::mbms_gw():
-  m_running(false),
-  m_sgi_mb_up(false)
+mbms_gw::mbms_gw() : m_running(false), m_sgi_mb_up(false), thread("MBMS_GW")
 {
   return;
 }
@@ -85,29 +76,29 @@ mbms_gw::cleanup(void)
 int
 mbms_gw::init(mbms_gw_args_t* args, srslte::log_filter *mbms_gw_log)
 {
-  srslte::error_t err;
+  int err;
   m_pool = srslte::byte_buffer_pool::get_instance();
 
   //Init log
   m_mbms_gw_log = mbms_gw_log;
 
   err = init_sgi_mb_if(args);
-  if (err != srslte::ERROR_NONE)
+  if (err != SRSLTE_SUCCESS)
   {
     m_mbms_gw_log->console("Error initializing SGi-MB.\n");
     m_mbms_gw_log->error("Error initializing SGi-MB.\n");
-    return -1;
+    return SRSLTE_ERROR_CANT_START;
   }
   err = init_m1_u(args);
-  if (err != srslte::ERROR_NONE)
+  if (err != SRSLTE_SUCCESS)
   {
     m_mbms_gw_log->console("Error initializing SGi-MB.\n");
     m_mbms_gw_log->error("Error initializing SGi-MB.\n");
-    return -1;
+    return SRSLTE_ERROR_CANT_START;
   }
   m_mbms_gw_log->info("MBMS GW Initiated\n");
   m_mbms_gw_log->console("MBMS GW Initiated\n");
-  return 0;
+  return SRSLTE_SUCCESS;
 }
 
 void
@@ -127,14 +118,14 @@ mbms_gw::stop()
   return;
 }
 
-srslte::error_t
+int
 mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
 {
   struct ifreq ifr;
 
   if(m_sgi_mb_up)
   {
-    return(srslte::ERROR_ALREADY_STARTED);
+    return SRSLTE_ERROR_ALREADY_STARTED;
   }
 
 
@@ -143,7 +134,7 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
   m_mbms_gw_log->info("TUN file descriptor = %d\n", m_sgi_mb_if);
   if (m_sgi_mb_if < 0) {
       m_mbms_gw_log->error("Failed to open TUN device: %s\n", strerror(errno));
-      return(srslte::ERROR_CANT_START);
+      return SRSLTE_ERROR_CANT_START;
   }
 
   memset(&ifr, 0, sizeof(ifr));
@@ -154,7 +145,7 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
   if (ioctl(m_sgi_mb_if, TUNSETIFF, &ifr) < 0) {
     m_mbms_gw_log->error("Failed to set TUN device name: %s\n", strerror(errno));
     close(m_sgi_mb_if);
-    return(srslte::ERROR_CANT_START);
+    return SRSLTE_ERROR_CANT_START;
   } else {
     m_mbms_gw_log->debug("Set TUN device name: %s\n", args->sgi_mb_if_name.c_str());
   }
@@ -165,7 +156,7 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
   {
     m_mbms_gw_log->error("Failed to bring up socket: %s\n", strerror(errno));
     close(m_sgi_mb_if);
-    return(srslte::ERROR_CANT_START);
+    return SRSLTE_ERROR_CANT_START;
   }
 
   if(ioctl(sgi_mb_sock, SIOCGIFFLAGS, &ifr) < 0)
@@ -173,7 +164,7 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
       m_mbms_gw_log->error("Failed to bring up interface: %s\n", strerror(errno));
       close(m_sgi_mb_if);
       close(sgi_mb_sock);
-      return(srslte::ERROR_CANT_START);
+      return SRSLTE_ERROR_CANT_START;
   }
 
   ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
@@ -182,7 +173,7 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
       m_mbms_gw_log->error("Failed to set socket flags: %s\n", strerror(errno));
       close(sgi_mb_sock);
       close(m_sgi_mb_if);
-      return(srslte::ERROR_CANT_START);
+      return SRSLTE_ERROR_CANT_START;
   }
 
   //Set IP of the interface
@@ -195,7 +186,7 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
     m_mbms_gw_log->error("Failed to set TUN interface IP. Address: %s, Error: %s\n", args->sgi_mb_if_addr.c_str(), strerror(errno));
     close(m_sgi_mb_if);
     close(sgi_mb_sock);
-    return srslte::ERROR_CANT_START;
+    return SRSLTE_ERROR_CANT_START;
   }
 
   ifr.ifr_netmask.sa_family                                 = AF_INET;
@@ -204,32 +195,30 @@ mbms_gw::init_sgi_mb_if(mbms_gw_args_t *args)
     m_mbms_gw_log->error("Failed to set TUN interface Netmask. Error: %s\n", strerror(errno));
     close(m_sgi_mb_if);
     close(sgi_mb_sock);
-    return srslte::ERROR_CANT_START;
+    return SRSLTE_ERROR_CANT_START;
   }
 
   m_sgi_mb_up = true;
   close(sgi_mb_sock);
-  return(srslte::ERROR_NONE);
+  return SRSLTE_SUCCESS;
 }
 
-srslte::error_t
-mbms_gw::init_m1_u(mbms_gw_args_t *args)
+int mbms_gw::init_m1_u(mbms_gw_args_t* args)
 {
-  int addrlen;
+  int                addrlen;
   struct sockaddr_in addr;
   m_m1u = socket(AF_INET, SOCK_DGRAM, 0);
-  if(m_m1u<0)
-  {
+  if (m_m1u < 0) {
     m_mbms_gw_log->error("Failed to open socket: %s\n", strerror(errno));
-    return srslte::ERROR_CANT_START;
+    return SRSLTE_ERROR_CANT_START;
   }
   m_m1u_up = true;
 
   /* set no loopback */
   char loopch = 0;
-  if(setsockopt(m_m1u, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&loopch, sizeof(char))<0){
+  if (setsockopt(m_m1u, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&loopch, sizeof(char)) < 0) {
     m_mbms_gw_log->error("Failed to disable loopback: %s\n", strerror(errno));
-    return srslte::ERROR_CANT_START;
+    return SRSLTE_ERROR_CANT_START;
   } else {
     m_mbms_gw_log->debug("Loopback disabled\n");
   }
@@ -238,26 +227,26 @@ mbms_gw::init_m1_u(mbms_gw_args_t *args)
   /* The IP must be associated with a local multicast capable interface */
   struct in_addr local_if;
   local_if.s_addr = inet_addr(args->m1u_multi_if.c_str());
-  if(setsockopt(m_m1u, IPPROTO_IP, IP_MULTICAST_IF, (char*)&local_if, sizeof(struct in_addr))<0){
+  if (setsockopt(m_m1u, IPPROTO_IP, IP_MULTICAST_IF, (char*)&local_if, sizeof(struct in_addr)) < 0) {
     m_mbms_gw_log->error("Error %s setting multicast interface %s.\n", strerror(errno), args->m1u_multi_if.c_str());
-    return srslte::ERROR_CANT_START;
+    return SRSLTE_ERROR_CANT_START;
   } else {
     printf("Multicast interface specified. Address: %s\n", args->m1u_multi_if.c_str());
   }
 
   /*Set Multicast TTL*/
-  if ( setsockopt(m_m1u, IPPROTO_IP,IP_MULTICAST_TTL,&args->m1u_multi_ttl,sizeof(args->m1u_multi_ttl)) <0 ) {
+  if (setsockopt(m_m1u, IPPROTO_IP, IP_MULTICAST_TTL, &args->m1u_multi_ttl, sizeof(args->m1u_multi_ttl)) < 0) {
     perror("Error setting multicast ttl.\n");
-    return srslte::ERROR_CANT_START;
+    return SRSLTE_ERROR_CANT_START;
   }
 
-  bzero(&m_m1u_multi_addr,sizeof(m_m1u_multi_addr));
-  m_m1u_multi_addr.sin_family = AF_INET;
-  m_m1u_multi_addr.sin_port = htons(GTPU_RX_PORT+1);
+  bzero(&m_m1u_multi_addr, sizeof(m_m1u_multi_addr));
+  m_m1u_multi_addr.sin_family      = AF_INET;
+  m_m1u_multi_addr.sin_port        = htons(GTPU_RX_PORT + 1);
   m_m1u_multi_addr.sin_addr.s_addr = inet_addr(args->m1u_multi_addr.c_str());
   m_mbms_gw_log->info("Initialized M1-U\n");
 
-  return srslte::ERROR_NONE;
+  return SRSLTE_SUCCESS;
 }
 
 void
@@ -272,7 +261,7 @@ mbms_gw::run_thread()
   uint8_t seq = 0;
   while(m_running)
   {
-    msg->reset();
+    msg->clear();
     int n;
     do{
       n = read(m_sgi_mb_if, msg->msg, SRSLTE_MAX_BUFFER_SIZE_BYTES);

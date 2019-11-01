@@ -1,7 +1,7 @@
 Source: srslte
 Section: universe/misc
 Priority: optional
-Maintainer: Andre Puschmann <andre@softwareradiosystems.com>
+Maintainer: srsLTE Packagers <packagers@softwareradiosystems.com>
 Build-Depends:
     debhelper (>= 9),
     dh-exec,

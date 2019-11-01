@@ -1,10 +1,5 @@
-/**
- *
- * \section COPYRIGHT
- *
- * Copyright 2013-2017 Software Radio Systems Limited
- *
- * \section LICENSE
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -33,13 +28,14 @@
 #ifndef MBMS_GW_H
 #define MBMS_GW_H
 
-#include <cstddef>
-#include "srslte/common/log.h"
-#include "srslte/common/logger_file.h"
-#include "srslte/common/log_filter.h"
-#include "srslte/common/buffer_pool.h"
-#include "srslte/common/threads.h"
 #include "srslte/asn1/gtpc.h"
+#include "srslte/common/buffer_pool.h"
+#include "srslte/common/log.h"
+#include "srslte/common/log_filter.h"
+#include "srslte/common/logger_file.h"
+#include "srslte/common/threads.h"
+#include "srslte/srslte.h"
+#include <cstddef>
 
 namespace srsepc{
 
@@ -82,8 +78,8 @@ private:
   virtual ~mbms_gw();
   static mbms_gw *m_instance;
 
-  srslte::error_t init_sgi_mb_if(mbms_gw_args_t *args);
-  srslte::error_t init_m1_u(mbms_gw_args_t *args);
+  int init_sgi_mb_if(mbms_gw_args_t *args);
+  int init_m1_u(mbms_gw_args_t *args);
   void handle_sgi_md_pdu(srslte::byte_buffer_t *msg);
   uint16_t in_cksum(uint16_t *iphdr, int count);
 

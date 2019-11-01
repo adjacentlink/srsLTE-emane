@@ -1,0 +1,259 @@
+diff --git a/lib/examples/CMakeLists.txt b/lib/examples/CMakeLists.txt
+index e17b3b2..299f6a2 100644
+--- a/lib/examples/CMakeLists.txt
++++ b/lib/examples/CMakeLists.txt
+@@ -32,10 +32,10 @@ target_link_libraries(synch_file srslte_phy)
+ 
+ if(RF_FOUND)
+   add_executable(pdsch_ue pdsch_ue.c)
+-  target_link_libraries(pdsch_ue srslte_phy srslte_common srslte_rf pthread)
++  target_link_libraries(pdsch_ue srslte_phy srslte_common srslte_rf_emane pthread)
+ 
+   add_executable(pdsch_enodeb pdsch_enodeb.c)
+-  target_link_libraries(pdsch_enodeb srslte_phy srslte_common srslte_rf pthread)
++  target_link_libraries(pdsch_enodeb srslte_phy srslte_common srslte_rf_emane pthread)
+ else(RF_FOUND)
+   add_definitions(-DDISABLE_RF)
+ 
+@@ -60,16 +60,16 @@ endif(SRSGUI_FOUND)
+ if(RF_FOUND)
+ 
+   add_executable(cell_search cell_search.c)
+-  target_link_libraries(cell_search srslte_phy srslte_common srslte_rf)
++  target_link_libraries(cell_search srslte_phy srslte_common srslte_rf_emane)
+ 
+   add_executable(usrp_capture usrp_capture.c)
+-  target_link_libraries(usrp_capture srslte_phy srslte_rf)
++  target_link_libraries(usrp_capture srslte_phy srslte_rf_emane)
+ 
+   add_executable(usrp_capture_sync usrp_capture_sync.c)
+-  target_link_libraries(usrp_capture_sync srslte_phy srslte_rf)
++  target_link_libraries(usrp_capture_sync srslte_phy srslte_rf_emane)
+ 
+   add_executable(usrp_txrx usrp_txrx.c)
+-  target_link_libraries(usrp_txrx srslte_phy srslte_rf)
++  target_link_libraries(usrp_txrx srslte_phy srslte_rf_emane)
+ 
+   message(STATUS "   examples will be installed.")
+ 
+diff --git a/lib/src/phy/phch/test/CMakeLists.txt b/lib/src/phy/phch/test/CMakeLists.txt
+index a2391c6..8b7c603 100644
+--- a/lib/src/phy/phch/test/CMakeLists.txt
++++ b/lib/src/phy/phch/test/CMakeLists.txt
+@@ -366,5 +366,5 @@ add_test(prach_test_multi_n4 prach_test_multi -n 4)
+ 
+ if(UHD_FOUND)
+   add_executable(prach_test_usrp prach_test_usrp.c)
+-  target_link_libraries(prach_test_usrp srslte_rf srslte_phy pthread)
++  target_link_libraries(prach_test_usrp srslte_rf_emane srslte_phy pthread)
+ endif(UHD_FOUND)
+diff --git a/lib/src/phy/rf/CMakeLists.txt b/lib/src/phy/rf/CMakeLists.txt
+index 1b397ff..73d61ae 100644
+--- a/lib/src/phy/rf/CMakeLists.txt
++++ b/lib/src/phy/rf/CMakeLists.txt
+@@ -20,8 +20,8 @@
+ 
+ if(RF_FOUND)
+   # This library is only used by the examples 
+-  add_library(srslte_rf_utils STATIC rf_utils.c)
+-  target_link_libraries(srslte_rf_utils srslte_phy)
++  add_library(srslte_rf_emane_utils STATIC rf_utils.c)
++  target_link_libraries(srslte_rf_emane_utils srslte_phy)
+ 
+   # Include common RF files
+   set(SOURCES_RF "")
+@@ -47,27 +47,27 @@ if(RF_FOUND)
+     list(APPEND SOURCES_RF rf_zmq_imp.c rf_zmq_imp_tx.c rf_zmq_imp_rx.c)
+   endif (ZEROMQ_FOUND)
+ 
+-  add_library(srslte_rf SHARED ${SOURCES_RF})
+-  target_link_libraries(srslte_rf srslte_rf_utils srslte_phy)
++  add_library(srslte_rf_emane SHARED ${SOURCES_RF})
++  target_link_libraries(srslte_rf_emane srslte_rf_emane_utils srslte_phy)
+   
+   if (UHD_FOUND)
+-    target_link_libraries(srslte_rf ${UHD_LIBRARIES})
++    target_link_libraries(srslte_rf_emane ${UHD_LIBRARIES})
+   endif (UHD_FOUND)
+ 
+   if (BLADERF_FOUND)
+-    target_link_libraries(srslte_rf ${BLADERF_LIBRARIES})
++    target_link_libraries(srslte_rf_emane ${BLADERF_LIBRARIES})
+   endif (BLADERF_FOUND)
+ 
+   if (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
+-    target_link_libraries(srslte_rf ${SOAPYSDR_LIBRARIES})
++    target_link_libraries(srslte_rf_emane ${SOAPYSDR_LIBRARIES})
+   endif (SOAPYSDR_FOUND AND ENABLE_SOAPYSDR)
+ 
+   if (ZEROMQ_FOUND)
+-    target_link_libraries(srslte_rf ${ZEROMQ_LIBRARIES})
++    target_link_libraries(srslte_rf_emane ${ZEROMQ_LIBRARIES})
+     add_executable(rf_zmq_test rf_zmq_test.c)
+-    target_link_libraries(rf_zmq_test srslte_rf)
++    target_link_libraries(rf_zmq_test srslte_rf_emane)
+     add_test(rf_zmq_test rf_zmq_test )
+   endif (ZEROMQ_FOUND)
+ 
+-  INSTALL(TARGETS srslte_rf DESTINATION ${LIBRARY_DIR})
++  INSTALL(TARGETS srslte_rf_emane DESTINATION ${LIBRARY_DIR})
+ endif(RF_FOUND)
+diff --git a/lib/src/phy/sync/test/CMakeLists.txt b/lib/src/phy/sync/test/CMakeLists.txt
+index 25035c1..cd75243 100644
+--- a/lib/src/phy/sync/test/CMakeLists.txt
++++ b/lib/src/phy/sync/test/CMakeLists.txt
+@@ -30,13 +30,13 @@ target_link_libraries(npss_file srslte_phy)
+ 
+ if(RF_FOUND)
+   add_executable(pss_usrp pss_usrp.c)
+-  target_link_libraries(pss_usrp srslte_rf srslte_phy)
++  target_link_libraries(pss_usrp srslte_rf_emane srslte_phy)
+ 
+   add_executable(npss_usrp npss_usrp.c)
+-  target_link_libraries(npss_usrp srslte_rf srslte_phy)
++  target_link_libraries(npss_usrp srslte_rf_emane srslte_phy)
+ 
+   add_executable(nsss_usrp nsss_usrp.c)
+-  target_link_libraries(nsss_usrp srslte_rf srslte_phy)
++  target_link_libraries(nsss_usrp srslte_rf_emane srslte_phy)
+ endif(RF_FOUND)
+ 
+ if(SRSGUI_FOUND)
+diff --git a/srsenb/src/CMakeLists.txt b/srsenb/src/CMakeLists.txt
+index c2ec595..bad19b2 100644
+--- a/srsenb/src/CMakeLists.txt
++++ b/srsenb/src/CMakeLists.txt
+@@ -34,8 +34,8 @@ if (RPATH)
+ endif (RPATH)
+ 
+ 
+-add_executable(srsenb main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
+-target_link_libraries(srsenb  srsenb_radio
++add_executable(srsenb-emane main.cc enb.cc parser.cc enb_cfg_parser.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
++target_link_libraries(srsenb-emane  srsenb_radio
+                               srsenb_phy
+                               srsenb_stack
+                               srsenb_upper
+@@ -53,7 +53,7 @@ target_link_libraries(srsenb  srsenb_radio
+                               ${SCTP_LIBRARIES})
+ 
+ if (RPATH)
+-  set_target_properties(srsenb PROPERTIES INSTALL_RPATH ".")
++  set_target_properties(srsenb-emane PROPERTIES INSTALL_RPATH ".")
+ endif (RPATH)
+ 
+ ########################################################################
+@@ -61,9 +61,9 @@ endif (RPATH)
+ ########################################################################
+ if (NOT ${BUILDENB_CMD} STREQUAL "")
+   message(STATUS "Added custom post-build-ENB command: ${BUILDENB_CMD}")
+-  add_custom_command(TARGET srsenb POST_BUILD COMMAND ${BUILDENB_CMD})
++  add_custom_command(TARGET srsenb-emane POST_BUILD COMMAND ${BUILDENB_CMD})
+ else(NOT ${BUILDENB_CMD} STREQUAL "")
+   message(STATUS "No post-build-ENB command defined")
+ endif (NOT ${BUILDENB_CMD} STREQUAL "")
+ 
+-install(TARGETS srsenb DESTINATION ${RUNTIME_DIR})
++install(TARGETS srsenb-emane DESTINATION ${RUNTIME_DIR})
+diff --git a/srsepc/src/CMakeLists.txt b/srsepc/src/CMakeLists.txt
+index f7b9d2a..636a856 100644
+--- a/srsepc/src/CMakeLists.txt
++++ b/srsepc/src/CMakeLists.txt
+@@ -34,8 +34,8 @@ if (RPATH)
+ endif (RPATH)
+ 
+ 
+-add_executable(srsepc main.cc)
+-target_link_libraries( srsepc  srsepc_mme
++add_executable(srsepc-emane main.cc)
++target_link_libraries( srsepc-emane  srsepc_mme
+                                srsepc_hss
+                                srsepc_sgw
+                                srslte_upper
+@@ -48,8 +48,8 @@ target_link_libraries( srsepc  srsepc_mme
+                                ${emanelte_LIBRARIES}
+                                ${ostatistic_LIBRARIES})
+ 
+-add_executable(srsmbms mbms-gw/main.cc )
+-target_link_libraries(srsmbms   srsepc_mbms_gw
++add_executable(srsmbms-emane mbms-gw/main.cc )
++target_link_libraries(srsmbms-emane   srsepc_mbms_gw
+                                 srslte_upper
+                                 srslte_common
+                                 ${CMAKE_THREAD_LIBS_INIT} 
+@@ -61,12 +61,12 @@ target_link_libraries(srsmbms   srsepc_mbms_gw
+                                 ${ostatistic_LIBRARIES})
+ 
+ if (RPATH)
+-  set_target_properties(srsepc PROPERTIES INSTALL_RPATH ".")
+-  set_target_properties(srsmbms PROPERTIES INSTALL_RPATH ".")
++  set_target_properties(srsepc-emane PROPERTIES INSTALL_RPATH ".")
++  set_target_properties(srsmbms-emane PROPERTIES INSTALL_RPATH ".")
+ endif (RPATH)
+ 
+-install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
+-install(TARGETS srsmbms DESTINATION ${RUNTIME_DIR})
++install(TARGETS srsepc-emane DESTINATION ${RUNTIME_DIR})
++install(TARGETS srsmbms-emane DESTINATION ${RUNTIME_DIR})
+ 
+ ########################################################################
+ # Option to run command after build (useful for remote builds)
+@@ -78,4 +78,4 @@ else(NOT ${BUILDEPC_CMD} STREQUAL "")
+   message(STATUS "No post-build-EPC command defined")
+ endif (NOT ${BUILDEPC_CMD} STREQUAL "")
+ 
+-install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
++install(TARGETS srsepc-emane DESTINATION ${RUNTIME_DIR})
+diff --git a/srsue/src/CMakeLists.txt b/srsue/src/CMakeLists.txt
+index 28e608d..90aece2 100644
+--- a/srsue/src/CMakeLists.txt
++++ b/srsue/src/CMakeLists.txt
+@@ -30,8 +30,8 @@ if (RPATH)
+   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+ endif (RPATH)
+ 
+-add_executable(srsue main.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
+-target_link_libraries(srsue   srsue_phy
++add_executable(srsue-emane main.cc ue.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
++target_link_libraries(srsue-emane   srsue_phy
+                               srsue_stack
+                               srsue_upper
+                               srsue_mac
+@@ -45,7 +45,7 @@ target_link_libraries(srsue   srsue_phy
+                               ${Boost_LIBRARIES})
+ 
+ if (RPATH)
+-  set_target_properties(srsue PROPERTIES INSTALL_RPATH ".")
++  set_target_properties(srsue-emane PROPERTIES INSTALL_RPATH ".")
+ endif (RPATH)
+ 
+ ########################################################################
+@@ -54,13 +54,13 @@ endif (RPATH)
+ 
+ if(NOT SRSGUI_FOUND)
+ # Make sure srsue returns 0 and it does not leak
+-add_test(srsue_version srsue --version)
+-add_test(srsue_help srsue --help)
++add_test(srsue_version srsue-emane --version)
++add_test(srsue_help srsue-emane --help)
+ endif(NOT SRSGUI_FOUND)
+ 
+ # Checks that ue.conf.example is valid and it does not leak memory if RF fails
+ if (ZEROMQ_FOUND)
+-  add_test(ue_rf_failure srsue ${CMAKE_SOURCE_DIR}/srsue/ue.conf.example --rf.device_name=zmq)
++  add_test(ue_rf_failure srsue-emane ${CMAKE_SOURCE_DIR}/srsue-emane/ue.conf.example --rf.device_name=zmq)
+ endif(ZEROMQ_FOUND)
+ 
+ ########################################################################
+@@ -68,9 +68,9 @@ endif(ZEROMQ_FOUND)
+ ########################################################################
+ if (NOT ${BUILDUE_CMD} STREQUAL "")
+   message(STATUS "Added custom post-build-UE command: ${BUILDUE_CMD}")
+-  add_custom_command(TARGET srsue POST_BUILD COMMAND ${BUILDUE_CMD})
++  add_custom_command(TARGET srsue-emane POST_BUILD COMMAND ${BUILDUE_CMD})
+ else(NOT ${BUILDUE_CMD} STREQUAL "")
+   message(STATUS "No post-build-UE command defined")
+ endif (NOT ${BUILDUE_CMD} STREQUAL "")
+ 
+-install(TARGETS srsue DESTINATION ${RUNTIME_DIR})
++install(TARGETS srsue-emane DESTINATION ${RUNTIME_DIR})

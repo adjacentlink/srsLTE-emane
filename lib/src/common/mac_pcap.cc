@@ -1,19 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2013-2015 Software Radio Systems Limited
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -24,16 +19,20 @@
  *
  */
 
-
 #include <stdint.h>
 #include "srslte/srslte.h"
 #include "srslte/common/pcap.h"
 #include "srslte/common/mac_pcap.h"
 
-
-
 namespace srslte {
- 
+
+mac_pcap::mac_pcap() : enable_write(false), ue_id(0), pcap_file(nullptr) {}
+
+mac_pcap::~mac_pcap()
+{
+  close();
+}
+
 void mac_pcap::enable(bool en)
 {
   enable_write = true; 
@@ -46,8 +45,12 @@ void mac_pcap::open(const char* filename, uint32_t ue_id)
 }
 void mac_pcap::close()
 {
-  fprintf(stdout, "Saving MAC PCAP file\n");
-  LTE_PCAP_Close(pcap_file);
+  enable_write = false;
+  if (pcap_file != nullptr) {
+    fprintf(stdout, "Saving MAC PCAP file\n");
+    LTE_PCAP_Close(pcap_file);
+    pcap_file = nullptr;
+  }
 }
 
 void mac_pcap::set_ue_id(uint16_t ue_id) {

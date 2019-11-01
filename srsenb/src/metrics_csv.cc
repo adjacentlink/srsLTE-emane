@@ -1,20 +1,14 @@
-/**
+/*
+ * Copyright 2013-2019 Software Radio Systems Limited
  *
- * \section COPYRIGHT
+ * This file is part of srsLTE.
  *
- * Copyright 2015 The srsUE Developers. See the
- * COPYRIGHT file at the top-level directory of this distribution.
- *
- * \section LICENSE
- *
- * This file is part of the srsUE library.
- *
- * srsUE is free software: you can redistribute it and/or modify
+ * srsLTE is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
  *
- * srsUE is distributed in the hope that it will be useful,
+ * srsLTE is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
@@ -79,13 +73,13 @@ void metrics_csv::set_metrics(enb_metrics_t &metrics, const uint32_t period_usec
     file << (metrics_report_period*n_reports) << ";";
 
     // UEs
-    file << (metrics.rrc.n_ues) << ";";
+    file << (metrics.stack.rrc.n_ues) << ";";
 
     // Sum up rates for all UEs
     float dl_rate_sum = 0.0, ul_rate_sum = 0.0;
-    for (int i = 0; i < metrics.rrc.n_ues; i++) {
-      dl_rate_sum += metrics.mac[i].tx_brate;
-      ul_rate_sum += metrics.mac[i].rx_brate;
+    for (int i = 0; i < metrics.stack.rrc.n_ues; i++) {
+      dl_rate_sum += metrics.stack.mac[i].tx_brate;
+      ul_rate_sum += metrics.stack.mac[i].rx_brate;
     }
 
     // DL rate
