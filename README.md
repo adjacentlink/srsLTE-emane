@@ -16,7 +16,7 @@ via the `ostatistic` application, or collected automatically using
 [OpenTestPoint LTE Probe](https://github.com/adjacentlink/opentestpoint-probe-lte).
 
 srsLTE-emane is released under the AGPLv3 license. The current stable
-version is 19.06, the second release based on srsLTE 19.06
+version is 19.09, the first release based on srsLTE 19.09
 
 ---
 ## Build Instructions
@@ -27,7 +27,7 @@ version is 19.06, the second release based on srsLTE 19.06
 
 3. Build and install srsLTE-emane:
    * [Centos 7](#centos-7)
-   * [Fedora 28 and 29](#fedora-28-and-29)
+   * [Fedora 31](#fedora-31)
    * [Ubuntu 16.04 and 18.04](#ubuntu-1604-and-1804)
 
 
@@ -41,10 +41,10 @@ mkdir build
 cd build
 cmake -DUSE_GLIBC_IPV6=0 ..
 make package
-sudo yum install srslte-emane-18.12.1-x86_64.rpm
+sudo yum install srslte-emane-*-x86_64.rpm
 ```
 
-### Fedora 28 and 29
+### Fedora 31
 
 ```
 sudo dnf install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core
@@ -54,7 +54,7 @@ mkdir build
 cd build
 cmake ..
 make package
-sudo dnf install srslte-emane-18.12.1-x86_64.rpm
+sudo dnf install srslte-emane-*-x86_64.rpm
 ```
 
 ### Ubuntu 16.04 and 18.04
@@ -67,7 +67,7 @@ mkdir build
 cd build
 cmake ..
 make package
-sudo dpkg -i srslte-emane-18.12.1-x86_64.deb; sudo apt-get install -f
+sudo dpkg -i srslte-emane-*-x86_64.deb; sudo apt-get install -f
 ```
 
 ---
