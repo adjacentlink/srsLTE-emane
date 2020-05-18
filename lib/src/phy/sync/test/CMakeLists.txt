@@ -30,13 +30,13 @@ target_link_libraries(npss_file srslte_phy)
 
 if(RF_FOUND)
   add_executable(pss_usrp pss_usrp.c)
-  target_link_libraries(pss_usrp srslte_rf_emane srslte_phy)
+  target_link_libraries(pss_usrp srslte_rf srslte_phy)
 
   add_executable(npss_usrp npss_usrp.c)
-  target_link_libraries(npss_usrp srslte_rf_emane srslte_phy)
+  target_link_libraries(npss_usrp srslte_rf srslte_phy)
 
   add_executable(nsss_usrp nsss_usrp.c)
-  target_link_libraries(nsss_usrp srslte_rf_emane srslte_phy)
+  target_link_libraries(nsss_usrp srslte_rf srslte_phy)
 endif(RF_FOUND)
 
 if(SRSGUI_FOUND)
