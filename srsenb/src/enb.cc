@@ -137,19 +137,33 @@ int enb::parse_args(const all_args_t& args_)
   int result = enb_conf_sections::parse_cfg_files(&args, &rrc_cfg, &phy_cfg);
 
 #ifdef PHY_ADAPTER_ENABLE
-  ENBSTATS::initialize(args.general.metrics_period_secs);
+  if(result != SRSLTE_ERROR)
+   {
+     // XXX TODO multiple cell cfg
+     if(phy_cfg.phy_cell_cfg.size() == 1)
+      {
+        ENBSTATS::initialize(args.general.metrics_period_secs);
 
-#if 0 // XXX FIXME
-  phy_adapter::enb_initialize(&log, 
-                              1, 
-                              phy_cfg.cell.id, 
-                              phy_cfg.cell.cp, 
-                              args.rf.ul_freq, 
-                              args.rf.dl_freq, 
-                              cell_cfg.nof_prb, 
-                              args.mhal, 
-                              &rrc_cfg);
-#endif
+        const auto & cell_cfg = phy_cfg.phy_cell_cfg.front();
+
+        phy_adapter::enb_initialize(&log, 
+                                    1, 
+                                    cell_cfg.cell.id, 
+                                    cell_cfg.cell.cp, 
+                                    cell_cfg.ul_freq_hz, 
+                                    cell_cfg.dl_freq_hz, 
+                                    cell_cfg.cell.nof_prb, 
+                                    args.mhal, 
+                                    &rrc_cfg);
+      }
+     else
+      {
+        log.console("XXX TODO, only 1 phy_cell_cfg supported, found %zu phy_cell_cfg entries\n", 
+                    phy_cfg.phy_cell_cfg.size());
+
+        result = SRSLTE_ERROR;
+      }
+   }
 #endif
 
  return result;
