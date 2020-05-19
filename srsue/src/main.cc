@@ -650,7 +650,7 @@ int main(int argc, char* argv[])
 
   pthread_t input = {0};
   if(! args.runtime.daemonize) {
-  pthread_create(&input, nullptr, &input_loop, &args);
+    pthread_create(&input, nullptr, &input_loop, &args);
   }
 
   cout << "Attaching UE..." << endl;
@@ -665,8 +665,10 @@ int main(int argc, char* argv[])
   }
 
   ue.switch_off();
-  pthread_cancel(input);
-  pthread_join(input, nullptr);
+  if(input) {
+    pthread_cancel(input);
+    pthread_join(input, nullptr);
+  }
   metricshub.stop();
   metrics_file.stop();
   ue.stop();

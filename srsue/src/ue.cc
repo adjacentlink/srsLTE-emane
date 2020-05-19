@@ -222,6 +222,7 @@ int ue::parse_args(const all_args_t& args_)
 
 #ifdef PHY_ADAPTER_ENABLE
   UESTATS::initialize(args.general.metrics_period_secs);
+
   phy_adapter::ue_initialize(&log, 1, args.mhal);
   phy_adapter::ue_start();
 #endif

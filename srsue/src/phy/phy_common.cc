@@ -548,7 +548,7 @@ void phy_common::worker_end(void*                tx_sem_id,
 
     radio_h->tx(buffer, nof_samples, tx_time);
 #else
-      phy_adapter::ue_ul_send_signal(tx_time.full_secs, tx_time.frac_secs, cell);
+    phy_adapter::ue_ul_send_signal(tx_time.full_secs, tx_time.frac_secs, cell);
 #endif
   } else {
     if (radio_h->is_continuous_tx()) {

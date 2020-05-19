@@ -196,7 +196,7 @@ void sf_worker::work_imp()
   ul_sf.tti = tti_rx;
 
   // Process UL
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE // XXX TODO
   for (uint32_t cc = 0; cc < cc_workers.size(); cc++) {
     cc_workers[cc]->work_ul(ul_sf, ul_grants[cc]);
   }

@@ -383,6 +383,7 @@ int cc_worker::decode_pdcch_dl()
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (ue_dl_cfg.cfg.dci.cif_present ? 2 : 1) && !nof_grants; i++) {
       Debug("PDCCH looking for rnti=0x%x\n", dl_rnti);
+      ue_dl_cfg.cfg.dci.cif_enabled = i > 0;
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #else
