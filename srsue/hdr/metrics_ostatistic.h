@@ -36,7 +36,7 @@ class metrics_ostatistic : public srslte::metrics_listener<ue_metrics_t>
 public:
   metrics_ostatistic();
 
-  void set_metrics(ue_metrics_t &m, const uint32_t period_usec);
+  void set_metrics(const ue_metrics_t &m, const uint32_t period_usec);
   void set_ue_handle(ue_metrics_interface *ue_);
   void stop() {};
 

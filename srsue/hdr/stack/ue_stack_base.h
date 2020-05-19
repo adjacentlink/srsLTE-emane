@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -47,6 +47,7 @@ typedef struct {
   std::string gw_level;
   std::string nas_level;
   std::string usim_level;
+  std::string stack_level;
 
   int mac_hex_limit;
   int rlc_hex_limit;
@@ -55,6 +56,7 @@ typedef struct {
   int gw_hex_limit;
   int nas_hex_limit;
   int usim_hex_limit;
+  int stack_hex_limit;
 } stack_log_args_t;
 
 typedef struct {
@@ -66,6 +68,7 @@ typedef struct {
   std::string      ue_category_str;
   nas_args_t       nas;
   gw_args_t        gw;
+  bool             have_tti_time_stats;
 } stack_args_t;
 
 class ue_stack_base
@@ -76,9 +79,9 @@ public:
 
   virtual std::string get_type() = 0;
 
-  virtual void stop()             = 0;
-  virtual bool switch_on()        = 0;
-  virtual bool switch_off()       = 0;
+  virtual void stop()       = 0;
+  virtual bool switch_on()  = 0;
+  virtual bool switch_off() = 0;
 
   // UE metrics interface
   virtual bool get_metrics(stack_metrics_t* metrics) = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -26,30 +26,28 @@
  *                operations in both push and pop
  *****************************************************************************/
 
-
 #ifndef SRSLTE_BLOCK_QUEUE_H
 #define SRSLTE_BLOCK_QUEUE_H
 
-#include <queue>
 #include <memory>
-#include <utility>
 #include <pthread.h>
-#include <stdio.h>
+#include <queue>
 #include <stdint.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <strings.h>
-
-#include "srslte/common/queue_metrics.h"
+#include <unistd.h>
+#include <utility>
 
 namespace srslte {
 
-template<typename myobj>
-class block_queue {
+template <typename myobj>
+class block_queue
+{
 
 public:
-
   // Callback functions for mutexed operations inside pop/push methods
-  class call_mutexed_itf {
+  class call_mutexed_itf
+  {
   public:
     virtual void popping(const myobj& obj) = 0;
     virtual void pushing(const myobj& obj) = 0;
@@ -62,11 +60,11 @@ public:
     pthread_cond_init(&cv_full, NULL);
     capacity         = capacity_;
     mutexed_callback = NULL;
-    enable = true;
-    num_threads = 0;
-    qmetrics.capacity = capacity;
+    enable           = true;
+    num_threads      = 0;
   }
-  ~block_queue() {
+  ~block_queue()
+  {
     // Unlock threads waiting at push or pop
     pthread_mutex_lock(&mutex);
     enable = false;
@@ -75,10 +73,10 @@ public:
     pthread_mutex_unlock(&mutex);
 
     // Wait threads blocked in push/pop to exit
-    while(num_threads>0) {
+    while (num_threads > 0) {
       usleep(100);
     }
-    
+
     // Wait them to exit and destroy cv and mutex
     pthread_mutex_lock(&mutex);
     pthread_cond_destroy(&cv_full);
@@ -86,102 +84,71 @@ public:
     pthread_mutex_unlock(&mutex);
     pthread_mutex_destroy(&mutex);
   }
-  void set_mutexed_itf(call_mutexed_itf *itf) {
-    mutexed_callback = itf;
-  }
-  void resize(int new_capacity) {
-    pthread_mutex_lock(&mutex);
-    capacity = new_capacity;
-    qmetrics.capacity = capacity;
-    pthread_mutex_unlock(&mutex);
-  }
+  void set_mutexed_itf(call_mutexed_itf* itf) { mutexed_callback = itf; }
+  void resize(int new_capacity) { capacity = new_capacity; }
 
-  void push(const myobj& value) {
-    push_(value, true);
-  }
+  void push(const myobj& value) { push_(value, true); }
 
   void push(myobj&& value) { push_(std::move(value), true); }
 
-  bool try_push(const myobj& value) {
-    return push_(value, false);
-  }
+  bool try_push(const myobj& value) { return push_(value, false); }
 
   std::pair<bool, myobj> try_push(myobj&& value) { return push_(std::move(value), false); }
 
-  bool try_pop(myobj *value) {
-    return pop_(value, false);
-  }
+  bool try_pop(myobj* value) { return pop_(value, false); }
 
-  myobj wait_pop() { // blocking pop
+  myobj wait_pop()
+  { // blocking pop
     myobj value = myobj();
     pop_(&value, true);
     return value;
   }
 
-  bool empty() { // queue is empty?
+  bool empty()
+  { // queue is empty?
     pthread_mutex_lock(&mutex);
     bool ret = q.empty();
     pthread_mutex_unlock(&mutex);
     return ret;
   }
 
-  void clear() { // remove all items
-    myobj *item = NULL;
-    while (try_pop(item)) {
-      ++qmetrics.num_cleared;
-    }
+  void clear()
+  { // remove all items
+    myobj* item = NULL;
+    while (try_pop(item))
+      ;
   }
 
   const myobj& front() const { return q.front(); }
 
-  size_t size() {
-    pthread_mutex_lock(&mutex);
-    size_t result = q.size();
-    pthread_mutex_unlock(&mutex);
-    return result;
-  }
+  size_t size() { return q.size(); }
 
-  queue_metrics_t get_qmetrics(bool bReset = false) {
-    pthread_mutex_lock(&mutex);
-    const queue_metrics_t result = qmetrics;
-    if(bReset) {
-      qmetrics.reset();
-    }
-    pthread_mutex_unlock(&mutex);
-    return result;
-  }
-   
 private:
-
-  bool pop_(myobj *value, bool block) {
+  bool pop_(myobj* value, bool block)
+  {
     if (!enable) {
-      ++qmetrics.num_pop_fail;
       return false;
     }
     pthread_mutex_lock(&mutex);
     num_threads++;
     bool ret = false;
     if (q.empty() && !block) {
-      ++qmetrics.num_pop_fail;
       goto exit;
     }
     while (q.empty() && enable) {
       pthread_cond_wait(&cv_empty, &mutex);
     }
     if (!enable) {
-      ++qmetrics.num_pop_fail;
       goto exit;
     }
     if (value) {
       *value = std::move(q.front());
     }
     if (mutexed_callback) {
-      mutexed_callback->popping(*value); // FIXME: Value might be null!
+      mutexed_callback->popping(*value); // TODO: Value might be null!
     }
     q.pop();
     ret = true;
-    ++qmetrics.num_pop;
-    qmetrics.currsize = q.size();
     pthread_cond_signal(&cv_full);
   exit:
     num_threads--;
@@ -195,14 +162,14 @@ private:
     bool ret = false;
     if (capacity > 0) {
       if (block) {
-        while(q.size() >= (uint32_t) capacity && enable) {
+        while (q.size() >= (uint32_t)capacity && enable) {
           pthread_cond_wait(&cv_full, &mutex);
         }
         if (!enable) {
           num_threads--;
           return false;
         }
-      } else if (q.size() >= (uint32_t) capacity) {
+      } else if (q.size() >= (uint32_t)capacity) {
         num_threads--;
         return false;
       }
@@ -224,11 +191,6 @@ private:
       }
       q.push(std::move(value));
       pthread_cond_signal(&cv_empty);
-      ++qmetrics.num_push;
-      qmetrics.currsize = q.size();
-      qmetrics.highwater = std::max(qmetrics.highwater, q.size());
-    } else {
-      ++qmetrics.num_push_fail;
     }
     pthread_mutex_unlock(&mutex);
     return std::make_pair(ret, std::move(value));
@@ -252,17 +214,16 @@ private:
     return ret;
   }
 
-  std::queue<myobj> q; 
-  pthread_mutex_t mutex;
-  pthread_cond_t  cv_empty;
-  pthread_cond_t  cv_full;
-  call_mutexed_itf *mutexed_callback;
-  int capacity;
-  bool enable;
-  uint32_t num_threads;
-  queue_metrics_t qmetrics;
+  std::queue<myobj> q;
+  pthread_mutex_t   mutex;
+  pthread_cond_t    cv_empty;
+  pthread_cond_t    cv_full;
+  call_mutexed_itf* mutexed_callback;
+  int               capacity;
+  bool              enable;
+  uint32_t          num_threads;
 };
 
-}
+} // namespace srslte
 
 #endif // SRSLTE_BLOCK_QUEUE_H

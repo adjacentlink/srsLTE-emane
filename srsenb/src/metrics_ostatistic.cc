@@ -33,11 +33,11 @@ void metrics_ostatistic::set_handle(enb_metrics_interface *enb_)
   enb = enb_;
 }
 
-void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
+void metrics_ostatistic::set_metrics(const enb_metrics_t &m, const uint32_t)
 {
   const auto & stack = m.stack;
   const auto & rrc   = stack.rrc;
-  const auto & rlc   = stack.rlc;
+  //const auto & rlc   = stack.rlc;
   const auto & mac   = stack.mac;
   const auto & s1ap  = stack.s1ap;
 
@@ -79,6 +79,7 @@ void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
 
      ENBSTATS::RLCBearerMetrics rlcBearerMetrics;
 
+#if 0 // XXX FIXME rlc
      // for each bearer
      for(uint16_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n)
       {
@@ -135,6 +136,7 @@ void metrics_ostatistic::set_metrics(enb_metrics_t &m, const uint32_t)
         // save entry on unique rnti
         rlcMRBMetrics[rlc[user].rnti] = rlcMRBBearerMetrics;
       }
+#endif
    }
 
   ENBSTATS::setMACMetrics(macMetrics);

@@ -1121,11 +1121,13 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
        {
          Info("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
+#if 0 // XXX FIXME
          if(enb_dl_put_pdcch_dl_i(q, &grant->dci_cfg, &grant->dci, ref))
           {
              Error("PDCCH:%s Error ref %u, tb %u, rnti 0x%hx\n", 
                    __func__, ref, tb, grant->dci.rnti);
           }
+#endif
        }
    }
 
@@ -1634,7 +1636,9 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   srslte_uci_value_t uci_value;
   ZERO_OBJECT(uci_value);
 
+#if 0 // XXX FIXME
   srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, &uci_value);
+#endif
 
   const auto rnti = cfg->rnti;
 

@@ -65,14 +65,14 @@ typedef struct {
    double               rx_freq;
    double               tx_freq;
    double               clock_rate;
-   void (*error_handler)(srslte_rf_error_t error);
+   srslte_rf_error_handler_t error_handler;
    bool                 rx_stream;
    srslte_rf_info_t     rf_info;
 } rf_dummy_info_t;
 
 
 
-static void rf_dummy_handle_error(srslte_rf_error_t error)
+static void rf_dummy_handle_error(void * arg, srslte_rf_error_t error)
 {
   printf("type %s", 
           error.type == SRSLTE_RF_ERROR_LATE      ? "late"      :
@@ -109,7 +109,7 @@ void rf_dummy_suppress_stdout(void *h)
  }
 
 
-char* rf_dummy_devname(void *h)
+const char* rf_dummy_devname(void *h)
  {
    GET_DEV_INFO(h);
 
@@ -175,7 +175,9 @@ float rf_dummy_get_rssi(void *h)
  }
 
 
-void rf_dummy_register_error_handler(void *h, srslte_rf_error_handler_t error_handler)
+void rf_dummy_register_error_handler(void *h,
+                                     srslte_rf_error_handler_t error_handler,
+                                     void * arg)
  {
    GET_DEV_INFO(h);
 

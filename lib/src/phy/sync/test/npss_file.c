@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -39,7 +39,6 @@ void write_to_file();
 srslte_nbiot_cell_t cell = {
     .base           = {.nof_prb = 1, .cp = SRSLTE_CP_NORM, .id = 0},
     .base.nof_ports = 1,
-    .base.nof_prb   = 1,
     .nbiot_prb      = 0,
 };
 
@@ -76,19 +75,19 @@ void parse_args(int argc, char** argv)
         input_file_name = argv[optind];
         break;
       case 't':
-        threshold = atof(argv[optind]);
+        threshold = strtof(argv[optind], NULL);
         break;
       case 'o':
-        file_offset = atoi(argv[optind]);
+        file_offset = (int)strtol(argv[optind], NULL, 10);
         break;
       case 'l':
-        N_id_2_sync = atoi(argv[optind]);
+        N_id_2_sync = (int)strtol(argv[optind], NULL, 10);
         break;
       case 's':
         save_frame_to_file = true;
         break;
       case 'n':
-        nof_frames = atoi(argv[optind]);
+        nof_frames = (int)strtol(argv[optind], NULL, 10);
         break;
       case 'v':
         srslte_verbose++;
@@ -114,7 +113,7 @@ int main(int argc, char** argv)
 
   parse_args(argc, argv);
 
-  buffer = malloc(sizeof(cf_t) * FLEN * 2);
+  buffer = srslte_vec_cf_malloc(FLEN * 2);
   if (!buffer) {
     perror("malloc");
     exit(-1);

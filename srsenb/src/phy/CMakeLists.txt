@@ -1,5 +1,5 @@
 #
-# Copyright 2013-2019 Software Radio Systems Limited
+# Copyright 2013-2020 Software Radio Systems Limited
 #
 # This file is part of srsLTE
 #
@@ -26,6 +26,5 @@ if(ENABLE_GUI AND SRSGUI_FOUND)
 endif(ENABLE_GUI AND SRSGUI_FOUND)
 
 target_link_libraries(srsenb_phy ${emanelte_LIBRARIES} ${protobuf_LIBRARIES} ${ostatistic_LIBRARIES})
-
 install(TARGETS srsenb_phy DESTINATION ${LIBRARY_DIR})
 

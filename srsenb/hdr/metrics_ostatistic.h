@@ -36,9 +36,9 @@ class metrics_ostatistic : public srslte::metrics_listener<enb_metrics_t>
 public:
   metrics_ostatistic();
 
-  void set_metrics(enb_metrics_t &m, const uint32_t period_usec);
+  void set_metrics(const enb_metrics_t &m, const uint32_t period_usec) override;
   void set_handle(enb_metrics_interface *enb_);
-  void stop() {};
+  void stop() override {};
 
 private:
   enb_metrics_interface* enb;

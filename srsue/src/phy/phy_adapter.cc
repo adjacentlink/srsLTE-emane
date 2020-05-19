@@ -1685,7 +1685,9 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
    const auto rnti    = pucch_cfg.rnti;
 
    // see lib/src/phy/ue/ue_ul.c
+#if 0 // XXX FIXME
    srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
+#endif
 
    // default: SRSLTE_PUCCH_FORMAT_1
    EMANELTE::MHAL::MOD_TYPE modType = EMANELTE::MHAL::MOD_BPSK;

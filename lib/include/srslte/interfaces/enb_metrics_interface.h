@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -40,15 +40,14 @@ struct stack_metrics_t {
   mac_metrics_t  mac[ENB_METRICS_MAX_USERS];
   rrc_metrics_t  rrc;
   s1ap_metrics_t s1ap;
-  srslte::rlc_metrics_t rlc[ENB_METRICS_MAX_USERS];
 };
 
 typedef struct {
   srslte::rf_metrics_t rf;
-  phy_metrics_t   phy[ENB_METRICS_MAX_USERS];
-  stack_metrics_t stack;
-  bool            running;
-}enb_metrics_t;
+  phy_metrics_t        phy[ENB_METRICS_MAX_USERS];
+  stack_metrics_t      stack;
+  bool                 running;
+} enb_metrics_t;
 
 // ENB interface
 class enb_metrics_interface : public srslte::metrics_interface<enb_metrics_t>

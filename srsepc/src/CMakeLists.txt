@@ -1,5 +1,5 @@
 #
-# Copyright 2013-2019 Software Radio Systems Limited
+# Copyright 2013-2020 Software Radio Systems Limited
 #
 # This file is part of srsLTE
 #
@@ -38,6 +38,7 @@ add_executable(srsepc main.cc)
 target_link_libraries( srsepc  srsepc_mme
                                srsepc_hss
                                srsepc_sgw
+                               s1ap_asn1
                                srslte_upper
                                srslte_common
                                ${CMAKE_THREAD_LIBS_INIT}
@@ -65,9 +66,6 @@ if (RPATH)
   set_target_properties(srsmbms PROPERTIES INSTALL_RPATH ".")
 endif (RPATH)
 
-install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
-install(TARGETS srsmbms DESTINATION ${RUNTIME_DIR})
-
 ########################################################################
 # Option to run command after build (useful for remote builds)
 ########################################################################
@@ -79,3 +77,4 @@ else(NOT ${BUILDEPC_CMD} STREQUAL "")
 endif (NOT ${BUILDEPC_CMD} STREQUAL "")
 
 install(TARGETS srsepc DESTINATION ${RUNTIME_DIR})
+install(TARGETS srsmbms DESTINATION ${RUNTIME_DIR})

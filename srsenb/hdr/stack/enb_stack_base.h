@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -44,6 +44,7 @@ typedef struct {
   std::string rrc_level;
   std::string gtpu_level;
   std::string s1ap_level;
+  std::string stack_level;
 
   int mac_hex_limit;
   int rlc_hex_limit;
@@ -51,14 +52,16 @@ typedef struct {
   int rrc_hex_limit;
   int gtpu_hex_limit;
   int s1ap_hex_limit;
+  int stack_hex_limit;
 } stack_log_args_t;
 
 typedef struct {
-  mac_args_t          mac;
-  s1ap_args_t         s1ap;
-  pcap_args_t         pcap;
-  stack_log_args_t    log;
-  embms_args_t        embms;
+  mac_args_t       mac;
+  s1ap_args_t      s1ap;
+  pcap_args_t      mac_pcap;
+  pcap_args_t      s1ap_pcap;
+  stack_log_args_t log;
+  embms_args_t     embms;
 } stack_args_t;
 
 struct stack_metrics_t;

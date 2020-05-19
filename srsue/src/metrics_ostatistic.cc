@@ -33,8 +33,9 @@ void metrics_ostatistic::set_ue_handle(ue_metrics_interface *ue_)
   ue = ue_;
 }
 
-void metrics_ostatistic::set_metrics(ue_metrics_t &m, const uint32_t)
+void metrics_ostatistic::set_metrics(const ue_metrics_t &m, const uint32_t)
 {
+#if 0 // XXX FIXME
   UESTATS::RLCQueueMetricsList rlcQueueMetrics;
   UESTATS::RLCQueueMetricsList rlcMrbQueueMetrics;
 
@@ -119,6 +120,7 @@ void metrics_ostatistic::set_metrics(ue_metrics_t &m, const uint32_t)
                            phy.ul[cc].power,
                            0)); // was mabr_mbps, now unused
     }
+#endif
 }
 
 } // end namespace srsue

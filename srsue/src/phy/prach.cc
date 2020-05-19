@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -19,37 +19,45 @@
  *
  */
 
+#include <pthread.h>
 #include <string.h>
 #include <strings.h>
-#include <pthread.h>
 
-#include "srslte/srslte.h"
 #include "srslte/common/log.h"
-#include "srsue/hdr/phy/prach.h"
-#include "srsue/hdr/phy/phy.h"
 #include "srslte/interfaces/ue_interfaces.h"
+#include "srslte/srslte.h"
+#include "srsue/hdr/phy/phy.h"
+#include "srsue/hdr/phy/prach.h"
 
 #include "srsue/hdr/phy/phy_adapter.h"
 
-#define Error(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h->error(fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...) if (SRSLTE_DEBUG_ENABLED) log_h->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)    if (SRSLTE_DEBUG_ENABLED) log_h->info(fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h->debug(fmt, ##__VA_ARGS__)
+#define Error(fmt, ...)                                                                                                \
+  if (SRSLTE_DEBUG_ENABLED)                                                                                            \
+  log_h->error(fmt, ##__VA_ARGS__)
+#define Warning(fmt, ...)                                                                                              \
+  if (SRSLTE_DEBUG_ENABLED)                                                                                            \
+  log_h->warning(fmt, ##__VA_ARGS__)
+#define Info(fmt, ...)                                                                                                 \
+  if (SRSLTE_DEBUG_ENABLED)                                                                                            \
+  log_h->info(fmt, ##__VA_ARGS__)
+#define Debug(fmt, ...)                                                                                                \
+  if (SRSLTE_DEBUG_ENABLED)                                                                                            \
+  log_h->debug(fmt, ##__VA_ARGS__)
 
 namespace srsue {
- 
 
-prach::~prach() {
+prach::~prach()
+{
   stop();
 }
 
 void prach::init(uint32_t max_prb, srslte::log* log_h_)
 {
-  log_h  = log_h_;
+  log_h = log_h_;
 
-  for (int i=0;i<64;i++) {
+  for (int i = 0; i < 64; i++) {
     for (int f = 0; f < 12; f++) {
-      buffer[f][i] = (cf_t*)srslte_vec_malloc(SRSLTE_PRACH_MAX_LEN * sizeof(cf_t));
+      buffer[f][i] = srslte_vec_cf_malloc(SRSLTE_PRACH_MAX_LEN);
       if (!buffer[f][i]) {
         perror("malloc");
         return;
@@ -61,7 +69,7 @@ void prach::init(uint32_t max_prb, srslte::log* log_h_)
     return;
   }
   srslte_cfo_set_tol(&cfo_h, 0);
-  signal_buffer = (cf_t *) srslte_vec_malloc(MAX_LEN_SF * 30720 * sizeof(cf_t));
+  signal_buffer = srslte_vec_cf_malloc(MAX_LEN_SF * 30720U);
   if (!signal_buffer) {
     perror("malloc");
     return;
@@ -146,13 +154,9 @@ bool prach::set_cell(srslte_cell_t cell, srslte_prach_cfg_t prach_cfg)
         }
       }
 
-#ifdef PHY_ADAPTER_ENABLE
-      phy_adapter::ue_set_prach_freq_offset(prach_cfg.freq_offset);
-#endif
-
-      len = prach_obj.N_seq + prach_obj.N_cp;
+      len             = prach_obj.N_seq + prach_obj.N_cp;
       transmitted_tti = -1;
-      cell_initiated = true;
+      cell_initiated  = true;
     }
     return true;
   } else {
@@ -164,27 +168,29 @@ bool prach::set_cell(srslte_cell_t cell, srslte_prach_cfg_t prach_cfg)
 bool prach::prepare_to_send(uint32_t preamble_idx_, int allowed_subframe_, float target_power_dbm_)
 {
   if (cell_initiated && preamble_idx_ < 64) {
-    preamble_idx = preamble_idx_;
+    preamble_idx     = preamble_idx_;
     target_power_dbm = target_power_dbm_;
-    allowed_subframe = allowed_subframe_; 
-    transmitted_tti = -1; 
+    allowed_subframe = allowed_subframe_;
+    transmitted_tti  = -1;
     Debug("PRACH: prepare to send preamble %d\n", preamble_idx);
-    return true; 
+    return true;
   } else {
     if (!cell_initiated) {
       Error("PRACH: Cell not configured\n");
     } else {
       Error("PRACH: Invalid preamble %d\n", preamble_idx_);
     }
-    return false; 
+    return false;
   }
 }
 
-bool prach::is_pending() {
+bool prach::is_pending()
+{
   return cell_initiated && preamble_idx >= 0 && preamble_idx < 64;
 }
 
-bool prach::is_ready_to_send(uint32_t current_tti_) {
+bool prach::is_ready_to_send(uint32_t current_tti_)
+{
   if (is_pending()) {
     // consider the number of subframes the transmission must be anticipated
     uint32_t tti_tx = TTI_TX(current_tti_);
@@ -217,8 +223,7 @@ phy_interface_mac_lte::prach_info_t prach::get_info()
 
 cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
 {
-
-  if (cell_initiated && preamble_idx >= 0 && nof_sf && preamble_idx <= 64 && srslte_cell_isvalid(&cell) &&
+  if (cell_initiated && preamble_idx >= 0 && nof_sf && preamble_idx < 64 && srslte_cell_isvalid(&cell) &&
       len < MAX_LEN_SF * 30720 && len > 0) {
 
     uint32_t f_idx = 0;
@@ -226,8 +231,6 @@ cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
       f_idx = prach_obj.current_prach_idx;
       // For format4, choose odd or even position
       if (prach_obj.config_idx >= 48) {
-        if ((transmitted_tti / 10) % 2) {
-        }
         f_idx += 6;
       }
       if (f_idx >= 12) {
@@ -240,13 +243,12 @@ cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
     srslte_cfo_correct(&cfo_h, buffer[f_idx][preamble_idx], signal_buffer, cfo / srslte_symbol_sz(cell.nof_prb));
 #endif
     // pad guard symbols with zeros
-    uint32_t nsf = (len-1)/SRSLTE_SF_LEN_PRB(cell.nof_prb)+1;
-#ifdef PHY_ADAPTER_ENABLE
-    phy_adapter::ue_ul_put_prach(preamble_idx);
+    uint32_t nsf = (len - 1) / SRSLTE_SF_LEN_PRB(cell.nof_prb) + 1;
+#ifndef PHY_ADAPTER_ENABLE
+    srslte_vec_cf_zero(&signal_buffer[len], (nsf * SRSLTE_SF_LEN_PRB(cell.nof_prb) - len));
 #else
-    bzero(&signal_buffer[len], (nsf*SRSLTE_SF_LEN_PRB(cell.nof_prb)-len)*sizeof(cf_t));
+    phy_adapter::ue_ul_put_prach(preamble_idx);
 #endif
-
     *nof_sf = nsf;
 
     if (target_power) {
@@ -264,10 +266,12 @@ cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
     return signal_buffer;
   } else {
     Error("PRACH: Invalid parameters: cell_initiated=%d, preamble_idx=%d, cell.nof_prb=%d, len=%d\n",
-          cell_initiated, preamble_idx, cell.nof_prb, len);
+          cell_initiated,
+          preamble_idx,
+          cell.nof_prb,
+          len);
     return NULL;
   }
 }
-  
-} // namespace srsue
 
+} // namespace srsue

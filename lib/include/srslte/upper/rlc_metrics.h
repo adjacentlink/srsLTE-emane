@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 Software Radio Systems Limited
+ * Copyright 2013-2020 Software Radio Systems Limited
  *
  * This file is part of srsLTE.
  *
@@ -23,27 +23,25 @@
 #define SRSLTE_RLC_METRICS_H
 
 #include "srslte/common/common.h"
-#include "srslte/common/queue_metrics.h"
-#include "srslte/interfaces/rrc_interface_types.h"
 
 namespace srslte {
 
-struct rlc_queue_metrics_t { 
- queue_metrics_t qmetrics;
- rlc_mode_t          mode;
-};
+typedef struct {
+  uint32_t num_tx_sdus;
+  uint32_t num_rx_sdus;
+  uint32_t num_tx_pdus;
+  uint32_t num_rx_pdus;
+  uint64_t num_tx_bytes;
+  uint64_t num_rx_bytes;
 
-struct rlc_metrics_t
-{
-  float dl_tput_mbps[SRSLTE_N_RADIO_BEARERS];
-  float ul_tput_mbps[SRSLTE_N_RADIO_BEARERS];
-  float dl_tput_mrb_mbps[SRSLTE_N_MCH_LCIDS];
+  uint32_t num_lost_pdus;
+  uint32_t num_dropped_sdus;
+} rlc_bearer_metrics_t;
 
-  rlc_queue_metrics_t metrics[SRSLTE_N_RADIO_BEARERS];
-  rlc_queue_metrics_t mrb_metrics[SRSLTE_N_MCH_LCIDS];
-
-  uint16_t rnti;
-};
+typedef struct {
+  rlc_bearer_metrics_t bearer[SRSLTE_N_RADIO_BEARERS];
+  rlc_bearer_metrics_t mrb_bearer[SRSLTE_N_MCH_LCIDS];
+} rlc_metrics_t;
 
 } // namespace srslte
 
