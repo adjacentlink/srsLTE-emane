@@ -39,7 +39,9 @@
 #include "srsenb/hdr/metrics_csv.h"
 #include "srsenb/hdr/metrics_stdout.h"
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/metrics_ostatistic.h"
+#endif
 
 using namespace std;
 using namespace srsenb;
@@ -457,9 +459,11 @@ int main(int argc, char* argv[])
     metrics_file.set_handle(enb.get());
   }
 
+#ifdef PHY_ADAPTER_ENABLE
   metrics_ostatistic metrics_ostatistic;
   metricshub.add_listener(&metrics_ostatistic);
   metrics_ostatistic.set_handle(enb.get());
+#endif
 
   // create input thread
   pthread_t input = {0};

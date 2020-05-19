@@ -25,8 +25,10 @@
 #include "srslte/build_info.h"
 #include <iostream>
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
 #include "libemanelte/enbstatisticmanager.h"
+#endif
 
 namespace srsenb {
 

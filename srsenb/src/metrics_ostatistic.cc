@@ -35,18 +35,101 @@ void metrics_ostatistic::set_handle(enb_metrics_interface *enb_)
 
 void metrics_ostatistic::set_metrics(const enb_metrics_t &m, const uint32_t)
 {
+/* 
+typedef struct {
+  srslte::rf_metrics_t rf;
+  phy_metrics_t        phy[ENB_METRICS_MAX_USERS];
+  stack_metrics_t      stack;
+  bool                 running;
+} enb_metrics_t; 
+
+	typedef struct {
+	  uint32_t rf_o;
+	  uint32_t rf_u;
+	  uint32_t rf_l;
+	  bool     rf_error;
+	} rf_metrics_t;
+
+	struct phy_metrics_t {
+	  dl_metrics_t dl;
+	  ul_metrics_t ul;
+	};
+		 struct ul_metrics_t {
+		  float n;
+		  float sinr;
+		  float rssi;
+		  float turbo_iters;
+		  float mcs;
+		  int   n_samples;
+		};
+
+		struct dl_metrics_t {
+		  float mcs;
+		  int   n_samples;
+		};
+
+	struct stack_metrics_t {
+	  mac_metrics_t  mac[ENB_METRICS_MAX_USERS];
+	  rrc_metrics_t  rrc;
+	  s1ap_metrics_t s1ap; 
+	};
+		struct mac_metrics_t {
+		  uint16_t rnti;
+		  uint32_t nof_tti;
+		  int      tx_pkts;
+		  int      tx_errors;
+		  int      tx_brate;
+		  int      rx_pkts;
+		  int      rx_errors;
+		  int      rx_brate;
+		  int      ul_buffer;
+		  int      dl_buffer;
+		  float    dl_cqi;
+		  float    dl_ri;
+		  float    dl_pmi;
+		  float    phr;
+		};
+
+
+		struct rrc_metrics_t {
+		  uint16_t         n_ues;
+		  rrc_ue_metrics_t ues[ENB_METRICS_MAX_USERS];
+		};
+			struct rrc_ue_metrics_t {
+			  rrc_state_t state;
+			};
+				 typedef enum {
+				  RRC_STATE_IDLE = 0,
+				  RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE,
+				  RRC_STATE_WAIT_FOR_SECURITY_MODE_COMPLETE,
+				  RRC_STATE_WAIT_FOR_UE_CAP_INFO,
+				  RRC_STATE_WAIT_FOR_CON_RECONF_COMPLETE,
+				  RRC_STATE_REGISTERED,
+				  RRC_STATE_RELEASE_REQUEST,
+				  RRC_STATE_N_ITEMS,
+				} rrc_state_t;
+
+		struct s1ap_metrics_t {
+		  S1AP_STATUS_ENUM status;
+		};
+			typedef enum {
+			  S1AP_ATTACHING = 0, // Attempting to create S1 connection
+			  S1AP_READY,         // S1 connected
+			  S1AP_ERROR          // Failure
+			} S1AP_STATUS_ENUM;
+*/
+ 
+
   const auto & stack = m.stack;
   const auto & rrc   = stack.rrc;
-  //const auto & rlc   = stack.rlc;
   const auto & mac   = stack.mac;
   const auto & s1ap  = stack.s1ap;
 
   ENBSTATS::MACMetrics    macMetrics;
-  ENBSTATS::RLCMetrics    rlcMetrics;
-  ENBSTATS::RLCMRBMetrics rlcMRBMetrics;
 
   ENBSTATS::setS1State(s1ap.status == S1AP_ATTACHING ? "ATTACHING" :
-                       s1ap.status == S1AP_READY     ? "READY"     : "ERROR");
+                       s1ap.status == S1AP_READY     ? "READY"     : 
+                                                       "ERROR");
 
   for(uint16_t user = 0; user < ENB_METRICS_MAX_USERS; ++user)
    {
@@ -76,72 +159,9 @@ void metrics_ostatistic::set_metrics(const enb_metrics_t &m, const uint32_t)
                                                     mac[user].phr,
                                                     state));
       }
-
-     ENBSTATS::RLCBearerMetrics rlcBearerMetrics;
-
-#if 0 // XXX FIXME rlc
-     // for each bearer
-     for(uint16_t n = 0; n < SRSLTE_N_RADIO_BEARERS; ++n)
-      {
-        // use capacity to determine if lcid is active
-        if(rlc[user].metrics[n].qmetrics.capacity > 0)
-         {
-           const ENBSTATS::RLCQueueMetric queueMetric((int)rlc[user].metrics[n].mode,
-                                                      rlc[user].metrics[n].qmetrics.capacity,
-                                                      rlc[user].metrics[n].qmetrics.currsize,
-                                                      rlc[user].metrics[n].qmetrics.highwater,
-                                                      rlc[user].metrics[n].qmetrics.num_cleared,
-                                                      rlc[user].metrics[n].qmetrics.num_push,
-                                                      rlc[user].metrics[n].qmetrics.num_push_fail,
-                                                      rlc[user].metrics[n].qmetrics.num_pop,
-                                                      rlc[user].metrics[n].qmetrics.num_pop_fail);
-
-           rlcBearerMetrics.emplace_back(ENBSTATS::RLCBearerMetric(rlc[user].dl_tput_mbps[n], 
-                                                                   rlc[user].ul_tput_mbps[n],
-                                                                   queueMetric));
-         }
-      }
-
-     if(! rlcBearerMetrics.empty())
-      {
-        // save entry on unique rnti
-        rlcMetrics[rlc[user].rnti] = rlcBearerMetrics;
-      }
-
-     ENBSTATS::RLCMRBBearerMetrics rlcMRBBearerMetrics;
-
-     // for each mrb bearer
-     for(uint16_t n = 0; n < SRSLTE_N_MCH_LCIDS; ++n)
-      {
-        // use capacity to determine if lcid is active
-        if(rlc[user].mrb_metrics[n].qmetrics.capacity > 0)
-         {
-           ENBSTATS::RLCQueueMetric queueMetric((int)rlc[user].mrb_metrics[n].mode,
-                                                rlc[user].mrb_metrics[n].qmetrics.capacity,
-                                                rlc[user].mrb_metrics[n].qmetrics.currsize,
-                                                rlc[user].mrb_metrics[n].qmetrics.highwater,
-                                                rlc[user].mrb_metrics[n].qmetrics.num_cleared,
-                                                rlc[user].mrb_metrics[n].qmetrics.num_push,
-                                                rlc[user].mrb_metrics[n].qmetrics.num_push_fail,
-                                                rlc[user].mrb_metrics[n].qmetrics.num_pop,
-                                                rlc[user].mrb_metrics[n].qmetrics.num_pop_fail);
-
-           rlcMRBBearerMetrics.emplace_back(ENBSTATS::RLCMRBBearerMetric(rlc[user].dl_tput_mrb_mbps[n], 
-                                                                         queueMetric));
-         }
-      }
-
-     if(! rlcMRBBearerMetrics.empty())
-      {
-        // save entry on unique rnti
-        rlcMRBMetrics[rlc[user].rnti] = rlcMRBBearerMetrics;
-      }
-#endif
    }
 
   ENBSTATS::setMACMetrics(macMetrics);
-  ENBSTATS::setRLCMetrics(rlcMetrics);
-  ENBSTATS::setRLCMetrics(rlcMRBMetrics);
 }
 
 } // end namespace srsenb
