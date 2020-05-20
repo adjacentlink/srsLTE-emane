@@ -25,8 +25,6 @@
 
 #include "srsenb/hdr/phy/sf_worker.h"
 
-#include "srsenb/hdr/phy/phy_adapter.h"
-
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -196,11 +194,9 @@ void sf_worker::work_imp()
   ul_sf.tti = tti_rx;
 
   // Process UL
-#ifndef PHY_ADAPTER_ENABLE // XXX TODO
   for (uint32_t cc = 0; cc < cc_workers.size(); cc++) {
     cc_workers[cc]->work_ul(ul_sf, ul_grants[cc]);
   }
-#endif
 
   // Get DL scheduling for the TX TTI from MAC
   if (sf_type == SRSLTE_SF_NORM) {
@@ -236,12 +232,6 @@ void sf_worker::work_imp()
 
   // Prepare for receive ACK for DL grants in t_tx_dl+4
   phy->ue_db.clear_tti_pending_ack(tti_tx_ul);
-
-#ifdef PHY_ADAPTER_ENABLE
-#if 0 // XXX FIXME
-  phy_adapter::enb_dl_tx_init(&enb_dl, tti_tx_dl, dl_grants[t_tx_dl].cfi);
-#endif
-#endif
 
   // Process DL
   for (uint32_t cc = 0; cc < cc_workers.size(); cc++) {

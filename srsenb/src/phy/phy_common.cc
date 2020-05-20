@@ -28,6 +28,10 @@
 
 #include <assert.h>
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "srsenb/hdr/phy/phy_adapter.h" 
+#endif
+
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -137,8 +141,12 @@ void phy_common::worker_end(void*                tx_sem_id,
     dl_channel->run(buffer.to_cf_t(), buffer.to_cf_t(), nof_samples, tx_time);
   }
 
+#ifndef PHY_ADAPTER_ENABLE
   // Always transmit on single radio
   radio->tx(buffer, nof_samples, tx_time);
+#else
+  phy_adapter::enb_dl_send_signal(tx_time.full_secs, tx_time.frac_secs);
+#endif
 
   // Trigger MAC clock
   stack->tti_clock();

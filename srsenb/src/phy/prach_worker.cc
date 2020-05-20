@@ -22,7 +22,9 @@
 #include "srsenb/hdr/phy/prach_worker.h"
 #include "srslte/srslte.h"
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
+#endif
 
 namespace srsenb {
 

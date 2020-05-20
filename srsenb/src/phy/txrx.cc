@@ -28,7 +28,9 @@
 #include "srsenb/hdr/phy/sf_worker.h"
 #include "srsenb/hdr/phy/txrx.h"
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsenb/hdr/phy/phy_adapter.h"
+#endif
 
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \

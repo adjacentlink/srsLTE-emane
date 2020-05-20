@@ -1105,12 +1105,11 @@ int enb_dl_put_pdcch_dl_i(srslte_enb_dl_t* q,
 
  typedef struct {
    srslte_dci_dl_t         dci;
-   srslte_dci_cfg_t        dci_cfg;
    uint8_t*                data[SRSLTE_MAX_TB];
    srslte_softbuffer_tx_t* softbuffer_tx[SRSLTE_MAX_TB];
  } dl_sched_grant_t; */
 int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q, 
-                        srslte_pdsch_cfg_t* pdsch, 
+                        srslte_dci_cfg_t* dci_cfg,
                         mac_interface_phy_lte::dl_sched_grant_t* grant,
                         uint32_t ref)
 {
@@ -1121,13 +1120,11 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
        {
          Info("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
-#if 0 // XXX FIXME
-         if(enb_dl_put_pdcch_dl_i(q, &grant->dci_cfg, &grant->dci, ref))
+         if(enb_dl_put_pdcch_dl_i(q, dci_cfg, &grant->dci, ref))
           {
              Error("PDCCH:%s Error ref %u, tb %u, rnti 0x%hx\n", 
                    __func__, ref, tb, grant->dci.rnti);
           }
-#endif
        }
    }
 
@@ -1167,7 +1164,6 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
 
  typedef struct {
    srslte_dci_dl_t         dci;
-   srslte_dci_cfg_t        dci_cfg;
    uint8_t*                data[SRSLTE_MAX_TB];
    srslte_softbuffer_tx_t* softbuffer_tx[SRSLTE_MAX_TB];
  } dl_sched_grant_t; */
@@ -1633,12 +1629,14 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   // see lib/src/phy/enb/enb_ul.c get_pucch()
   // and lib/src/phy/ue/test/pucch_resource_test.c
   // this is needed to set cfg->format
-  srslte_uci_value_t uci_value;
-  ZERO_OBJECT(uci_value);
+  srslte_uci_value_t uci_data;
+  ZERO_OBJECT(uci_data);
 
-#if 0 // XXX FIXME
-  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, &uci_value);
-#endif
+  // see lib/src/phy/phch/pucch_proc.c <<srslte_pucch_proc_get_npucch>>
+  uint8_t b[SRSLTE_UCI_MAX_ACK_BITS] = {};
+
+  // Prepare configuration
+  srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, &uci_data, b);
 
   const auto rnti = cfg->rnti;
 

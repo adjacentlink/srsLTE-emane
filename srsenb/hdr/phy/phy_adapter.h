@@ -79,7 +79,7 @@ void enb_initialize(srslte::log*                   log_h,
 
  // set dl pdcch
  int enb_dl_put_pdcch_dl(srslte_enb_dl_t*                     q, 
-                         srslte_pdsch_cfg_t*                  pdsch, 
+                         srslte_dci_cfg_t* dci_cfg,
                          mac_interface_phy_lte::dl_sched_grant_t* grant,
                          uint32_t ref);
  // set dl pdsch

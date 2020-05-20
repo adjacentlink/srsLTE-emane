@@ -1684,10 +1684,10 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
    auto pucch_cfg     = cfg->ul_cfg.pucch;
    const auto rnti    = pucch_cfg.rnti;
 
+   srslte_uci_value_t uci_value2 = *uci_data;
+
    // see lib/src/phy/ue/ue_ul.c
-#if 0 // XXX FIXME
-   srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data);
-#endif
+   srslte_ue_ul_pucch_resource_selection(&q->cell, &cfg->ul_cfg.pucch, &cfg->ul_cfg.pucch.uci_cfg, uci_data, uci_value2.ack.ack_value);
 
    // default: SRSLTE_PUCCH_FORMAT_1
    EMANELTE::MHAL::MOD_TYPE modType = EMANELTE::MHAL::MOD_BPSK;
@@ -1763,10 +1763,10 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
    grant_message->set_num_prb(n_prb[1]);
    grant_message->set_num_pucch(pucch_cfg.n_pucch);
    grant_message->set_rnti(rnti);
-   grant_message->set_uci(uci_data, sizeof(srslte_uci_value_t));
+   grant_message->set_uci(&uci_value2, sizeof(srslte_uci_value_t));
 
 #ifdef DEBUG_HEX
-   InfoHex(uci_data, sizeof(srslte_uci_value_t), 
+   InfoHex(&uci_value2, sizeof(srslte_uci_value_t), 
            "PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
 #endif
 
