@@ -32,8 +32,10 @@
 #include <sstream>
 #include <string>
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #include "libemanelte/uestatisticmanager.h"
+#endif
 
 using namespace srslte;
 

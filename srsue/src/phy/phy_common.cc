@@ -25,7 +25,9 @@
 #include "srslte/srslte.h"
 #include "srsue/hdr/phy/phy_common.h"
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
+#endif
 
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \

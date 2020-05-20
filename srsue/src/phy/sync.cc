@@ -27,7 +27,9 @@
 #include <algorithm>
 #include <unistd.h>
 
+#ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
+#endif
 
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
@@ -827,9 +829,11 @@ void sync::get_current_cell(srslte_cell_t* cell_, uint32_t* earfcn_)
 int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
 #ifdef PHY_ADAPTER_ENABLE
+  log_h->warning("SYNC: (rx_time=%f, tti_ts=%f)\n",
+                       srslte_timestamp_real(rx_time),
+                       srslte_timestamp_real(&tti_ts));
   return nsamples;
-
- // XXX TODO check timestamp set below
+  // XXX TODO check timestamp set below tti_ts ???
 #else
   srslte_timestamp_t ts = {};
 
