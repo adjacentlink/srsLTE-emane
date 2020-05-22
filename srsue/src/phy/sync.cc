@@ -382,6 +382,8 @@ void sync::run_thread()
 
     switch (phy_state.run_state()) {
       case sync_state::CELL_SEARCH:
+        Info("XXX state=%s, tti=%d\n", phy_state.to_string(), tti);
+
         /* Search for a cell in the current frequency and go to IDLE.
          * The function search_p.run() will not return until the search finishes
          */
@@ -392,6 +394,7 @@ void sync::run_thread()
         phy_state.state_exit();
         break;
       case sync_state::SFN_SYNC:
+        Info("XXX state=%s, tti=%d\n", phy_state.to_string(), tti);
 
         /* SFN synchronization using MIB. run_subframe() receives and processes 1 subframe
          * and returns
@@ -456,7 +459,11 @@ void sync::run_thread()
               if (force_camping_sfn_sync) {
                 uint32_t _tti                = 0;
                 temp_cell                    = cell;
+#ifndef PHY_ADAPTER_ENABLE
                 sync::sfn_sync::ret_code ret = sfn_p.decode_mib(&temp_cell, &_tti, &sync_buffer, mib);
+#else
+                sync::sfn_sync::ret_code ret = sfn_p.run_subframe(&temp_cell, &_tti, mib);
+#endif
                 if (ret == sfn_sync::SFN_FOUND) {
                   // Force tti
                   tti = _tti;
@@ -828,13 +835,6 @@ void sync::get_current_cell(srslte_cell_t* cell_, uint32_t* earfcn_)
 
 int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
-#ifdef PHY_ADAPTER_ENABLE
-  log_h->warning("SYNC: (rx_time=%f, tti_ts=%f)\n",
-                       srslte_timestamp_real(rx_time),
-                       srslte_timestamp_real(&tti_ts));
-  return nsamples;
-  // XXX TODO check timestamp set below tti_ts ???
-#else
   srslte_timestamp_t ts = {};
 
   // Use local timestamp if timestamp is not provided
@@ -843,7 +843,11 @@ int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_ti
   }
 
   // Receive
+#ifndef PHY_ADAPTER_ENABLE
   if (radio_h->rx_now(data, nsamples, rx_time)) {
+#else
+  if (phy_adapter::ue_dl_read_frame(rx_time)) {
+#endif
     // check timestamp reset
     if (forced_rx_time_init || srslte_timestamp_iszero(&tti_ts) || srslte_timestamp_compare(rx_time, &tti_ts) < 0) {
       if (srslte_timestamp_compare(rx_time, &tti_ts) < 0) {
@@ -854,7 +858,7 @@ int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_ti
       }
 
       // init tti_ts with last rx time
-      log_h->debug("SYNC:  Setting initial TTI time to %f\n", srslte_timestamp_real(rx_time));
+      log_h->info("SYNC:  Setting initial TTI time to %f\n", srslte_timestamp_real(rx_time));
       srslte_timestamp_copy(&tti_ts, rx_time);
       forced_rx_time_init = false;
     }
@@ -873,11 +877,14 @@ int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_ti
 
       // Run stack
       stack->run_tti(tti, tti_jump);
+    } else {
+      log_h->info("SYNC: skip TTI\n");
     }
 
     // update timestamp
     srslte_timestamp_copy(&tti_ts, rx_time);
 
+#ifndef PHY_ADAPTER_ENABLE
     if (channel_emulator && rx_time) {
       channel_emulator->set_srate((uint32_t)current_srate);
       channel_emulator->run(data.to_cf_t(), data.to_cf_t(), nsamples, *rx_time);
@@ -892,14 +899,15 @@ int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_ti
         intra_freq_meas[i]->set_rx_gain_offset(worker_com->rx_gain_offset);
       }
     }
+#endif
 
     log_h->debug("SYNC:  received %d samples from radio\n", nsamples);
 
     return nsamples;
   } else {
+    log_h->info("SYNC:  received NO samples from radio\n");
     return -1;
   }
-#endif
 }
 
 void sync::set_rx_gain(float gain)
@@ -981,7 +989,7 @@ sync::search::ret_code sync::search::run(srslte_cell_t* cell_, std::array<uint8_
   ret = phy_adapter::ue_dl_cellsearch_scan(&cs, found_cells, force_N_id_2, &max_peak_cell);
 #else
   if (force_N_id_2 >= 0 && force_N_id_2 < 3) {
-    ret           = srslte_ue_cellsearch_scan_N_id_2(&cs, force_N_id_2, &found_cells[force_N_id_2]);
+    ret = srslte_ue_cellsearch_scan_N_id_2(&cs, force_N_id_2, &found_cells[force_N_id_2]);
     max_peak_cell = force_N_id_2;
   } else {
     ret = srslte_ue_cellsearch_scan(&cs, found_cells, &max_peak_cell);
@@ -1173,7 +1181,7 @@ sync::sfn_sync::ret_code sync::sfn_sync::decode_mib(srslte_cell_t*              
     }
 
     int sfn_offset = 0;
-    int n          = srslte_ue_mib_decode(&ue_mib, bch_payload.data(), NULL, &sfn_offset);
+    int n  = srslte_ue_mib_decode(&ue_mib, bch_payload.data(), NULL, &sfn_offset);
     switch (n) {
       default:
         Error("SYNC:  Error decoding MIB while synchronising SFN");

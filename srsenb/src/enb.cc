@@ -141,7 +141,7 @@ int enb::parse_args(const all_args_t& args_)
 #ifdef PHY_ADAPTER_ENABLE
   if(result != SRSLTE_ERROR)
    {
-     // XXX TODO multiple cell cfg
+     // ALINK_XXX multiple cell cfg
      if(phy_cfg.phy_cell_cfg.size() == 1)
       {
         ENBSTATS::initialize(args.general.metrics_period_secs);
@@ -160,7 +160,7 @@ int enb::parse_args(const all_args_t& args_)
       }
      else
       {
-        log.console("XXX TODO, only 1 phy_cell_cfg supported, found %zu phy_cell_cfg entries\n", 
+        log.console("TODO, only 1 phy_cell_cfg supported, found %zu phy_cell_cfg entries\n", 
                     phy_cfg.phy_cell_cfg.size());
 
         result = SRSLTE_ERROR;

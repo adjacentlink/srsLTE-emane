@@ -26,12 +26,13 @@
 
 #include "srslte/srslte.h"
 #include "rf_dummy_imp.h"
+#include "rf_helper.h"
 #include "srslte/phy/rf/rf.h"
 
 #include <assert.h>
 #include <unistd.h>
 
-static bool log_stdout = false;
+static bool log_stdout = true;
 
 #define LOG_FMT "%02d:%02d:%02d.%06ld [DMY] [%c] %s "
 
@@ -71,6 +72,7 @@ typedef struct {
 } rf_dummy_info_t;
 
 
+static uint32_t delay_usec = 1000;
 
 static void rf_dummy_handle_error(void * arg, srslte_rf_error_t error)
 {
@@ -105,7 +107,7 @@ static  rf_dummy_info_t rf_dummy_info = { .dev_name        = "dummyrf",
 
 void rf_dummy_suppress_stdout(void *h)
  {
-   // log_stdout = false;
+   //log_stdout = false;
  }
 
 
@@ -200,6 +202,8 @@ int rf_dummy_open_multi(char *args, void **h, uint32_t nof_channels)
    LOG_INFO("num_channels %d, args %s", nof_channels, args);
 
    *h = &rf_dummy_info;
+
+   parse_uint32(args, "delay", 1000, &delay_usec);
 
    return 0;
  }
@@ -371,7 +375,7 @@ int rf_dummy_recv_with_time(void *h, void *data, uint32_t nsamples,
 int rf_dummy_recv_with_time_multi(void *h, void **data, uint32_t nsamples, 
                                   bool blocking, time_t *full_secs, double *frac_secs)
 {
-   usleep(1000);
+   usleep(delay_usec);
 
    rf_dummy_get_time(h, full_secs, frac_secs);
 

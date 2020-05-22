@@ -134,8 +134,8 @@ int ue::init(const all_args_t& args_, srslte::logger* logger_)
     log.console("done!\n");
   }
 
-  // ALINK set log level to prevent info level logs srslte issue #393
-  log.set_level(srslte::LOG_LEVEL_WARNING);
+  // ALINK_XXX set log level to prevent info level logs srslte issue #393
+  // log.set_level(srslte::LOG_LEVEL_WARNING);
 
   return ret;
 }

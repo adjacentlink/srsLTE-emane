@@ -244,7 +244,7 @@ cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
         f_idx = 0;
       }
     }
-#ifndef PHY_ADAPTER_ENABLE // XXX_MEMORY
+#ifndef PHY_ADAPTER_ENABLE // ALINK_XXX_MEMORY
     // Correct CFO before transmission
     srslte_cfo_correct(&cfo_h, buffer[f_idx][preamble_idx], signal_buffer, cfo / srslte_symbol_sz(cell.nof_prb));
 #endif

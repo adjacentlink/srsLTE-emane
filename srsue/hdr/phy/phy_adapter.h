@@ -55,6 +55,9 @@ void ue_set_prach_freq_offset(uint32_t freq_offset);
 
 void ue_set_crnti(uint16_t rnti);
 
+// 0 idle read
+int ue_dl_read_frame(srslte_timestamp_t* rx_time);
+
 // 1 cell cearch
 int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                           srslte_ue_cellsearch_result_t * fc,
@@ -72,8 +75,8 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * tti);
 // 4 syncd search
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti);
 
-// decode signal
-float ue_dl_decode_signal(uint32_t cell_id);
+// get rssi
+float ue_dl_get_rssi(uint32_t cell_id);
 
 // get dl dci
 int ue_dl_find_dl_dci(srslte_ue_dl_t*            q,

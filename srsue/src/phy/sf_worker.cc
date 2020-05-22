@@ -300,23 +300,20 @@ void sf_worker::reset_uci(srslte_uci_data_t* uci_data)
 
 void sf_worker::update_measurements()
 {
+#ifndef PHY_ADAPTER_ENABLE
   /* Only worker 0 reads the RSSI sensor every ~1-nof_cores s */
   if (get_id() == 0) {
 
     // Average RSSI over all symbols in antenna port 0 (make sure SF length is non-zero)
-#ifndef PHY_ADAPTER_ENABLE
     float rssi_dbm = SRSLTE_SF_LEN_PRB(cell.nof_prb) > 0
                          ? (srslte_convert_power_to_dB(srslte_vec_avg_power_cf(cc_workers[0]->get_rx_buffer(0),
                                                                                SRSLTE_SF_LEN_PRB(cell.nof_prb))) +
                             30)
                          : 0;
-#else
-    float rssi_dbm = phy_adapter::ue_dl_decode_signal(cell.id);
-#endif
+
     if (std::isnormal(rssi_dbm)) {
       phy->avg_rssi_dbm[0] = SRSLTE_VEC_EMA(rssi_dbm, phy->avg_rssi_dbm[0], phy->args->snr_ema_coeff);
     }
-
     if (!rssi_read_cnt) {
       phy->rx_gain_offset = phy->get_radio()->get_rx_gain() + phy->args->rx_gain_offset;
     }
@@ -325,6 +322,7 @@ void sf_worker::update_measurements()
       rssi_read_cnt = 0;
     }
   }
+#endif
 
   // Run measurements in all carriers
   std::vector<rrc_interface_phy_lte::phy_meas_t> serving_cells = {};
@@ -355,14 +353,20 @@ void sf_worker::update_measurements()
 
   // Check in-sync / out-sync conditions
   if (phy->avg_rsrp_dbm[0] > phy->args->in_sync_rsrp_dbm_th && phy->avg_snr_db_cqi[0] > phy->args->in_sync_snr_db_th) {
-    log_h->debug("SNR=%.1f dB, RSRP=%.1f dBm sync=in-sync from channel estimator\n",
+    log_h->debug("SNR_CQI=%.1f > %.1f dB, RSRP=%.1f > %.1f dBm,  RSSI=%.1f dBm sync=IN-SYNC from channel estimator\n",
                  phy->avg_snr_db_cqi[0],
-                 phy->avg_rsrp_dbm[0]);
+                 phy->args->in_sync_snr_db_th,
+                 phy->avg_rsrp_dbm[0],
+                 phy->args->in_sync_rsrp_dbm_th,
+                 phy->avg_rssi_dbm[0]);
     chest_loop->in_sync();
   } else {
-    log_h->warning("SNR=%.1f dB RSRP=%.1f dBm, sync=out-of-sync from channel estimator\n",
-                   phy->avg_snr_db_cqi[0],
-                   phy->avg_rsrp_dbm[0]);
+    log_h->warning("SNR_CQI=%.1f < %.1f dB, RSRP=%.1f < %.1f dBm,  RSSI=%.1f dBm sync=OUT_OF-SYNC from channel estimator\n",
+                 phy->avg_snr_db_cqi[0],
+                 phy->args->in_sync_snr_db_th,
+                 phy->avg_rsrp_dbm[0],
+                 phy->args->in_sync_rsrp_dbm_th,
+                 phy->avg_rssi_dbm[0]);
     chest_loop->out_of_sync();
   }
 }

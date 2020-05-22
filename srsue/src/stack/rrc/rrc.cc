@@ -379,6 +379,7 @@ void rrc::set_ue_identity(srslte::s_tmsi_t s_tmsi)
 void rrc::new_cell_meas(const std::vector<phy_meas_t>& meas)
 {
   cell_meas_q.push(meas);
+  rrc_log->info("MEAS:  Processing measurement. %zd measurements in queue\n", cell_meas_q.size());
 }
 
 /* Processes all pending PHY measurements in queue. Must be called from a mutexed function
@@ -388,7 +389,7 @@ void rrc::process_cell_meas()
   std::vector<phy_meas_t> m;
   while (cell_meas_q.try_pop(&m)) {
     if (cell_meas_q.size() > 0) {
-      rrc_log->debug("MEAS:  Processing measurement. %zd measurements in queue\n", cell_meas_q.size());
+      rrc_log->info("MEAS:  Processing measurement. %zd measurements in queue\n", cell_meas_q.size());
     }
     process_new_cell_meas(m);
   }
@@ -397,7 +398,7 @@ void rrc::process_cell_meas()
 void rrc::process_new_cell_meas(const std::vector<phy_meas_t>& meas)
 {
   bool neighbour_added = false;
-  rrc_log->debug("MEAS:  Processing measurement of %zd cells\n", meas.size());
+  rrc_log->info("MEAS:  Processing measurement of %zd cells\n", meas.size());
   for (auto& m : meas) {
     cell_t* c = nullptr;
     // Get serving_cell handle if it's the serving cell

@@ -324,7 +324,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
              dci_msg->nof_bits,
              (SRSLTE_DCI_MAX_BITS - 16));
 
-      // XXX TODO
+      // ALINK_XXX TODO
       // srslte p/r #299 amd issue #347 temp fix set start_reg to 0
       start_reg = 0;
     }
