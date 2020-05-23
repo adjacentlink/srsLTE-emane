@@ -159,7 +159,6 @@ bool prach::set_cell(srslte_cell_t cell, srslte_prach_cfg_t prach_cfg)
 #ifdef PHY_ADAPTER_ENABLE
       phy_adapter::ue_set_prach_freq_offset(prach_cfg.freq_offset);
 #endif
-
       len             = prach_obj.N_seq + prach_obj.N_cp;
       transmitted_tti = -1;
       cell_initiated  = true;

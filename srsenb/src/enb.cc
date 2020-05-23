@@ -107,6 +107,9 @@ int enb::init(const all_args_t& args_, srslte::logger* logger_)
   log.console("\n==== eNodeB started ===\n");
   log.console("Type <t> to view trace\n");
 
+  // ALINK_XXX set log level to prevent info level logs srslte issue #393
+  log.set_level(srslte::LOG_LEVEL_WARNING);
+
   started = (ret == SRSLTE_SUCCESS);
 
   return ret;

@@ -543,11 +543,10 @@ void phy_common::worker_end(void*                tx_sem_id,
   // For each radio, transmit
   if (tx_enable && !srslte_timestamp_iszero(&tx_time)) {
 
-#ifndef PHY_ADAPTER_ENABLE
     if (ul_channel) {
       ul_channel->run(buffer.to_cf_t(), buffer.to_cf_t(), nof_samples, tx_time);
     }
-
+#ifndef PHY_ADAPTER_ENABLE
     radio_h->tx(buffer, nof_samples, tx_time);
 #else
     phy_adapter::ue_ul_send_signal(tx_time.full_secs, tx_time.frac_secs, cell);

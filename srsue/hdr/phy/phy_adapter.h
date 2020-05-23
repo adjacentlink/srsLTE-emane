@@ -56,7 +56,7 @@ void ue_set_prach_freq_offset(uint32_t freq_offset);
 void ue_set_crnti(uint16_t rnti);
 
 // 0 idle read
-int ue_dl_read_frame(srslte_timestamp_t* rx_time);
+int ue_dl_read_frame_idle(srslte_timestamp_t* rx_time);
 
 // 1 cell cearch
 int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,

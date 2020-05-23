@@ -379,7 +379,6 @@ void rrc::set_ue_identity(srslte::s_tmsi_t s_tmsi)
 void rrc::new_cell_meas(const std::vector<phy_meas_t>& meas)
 {
   cell_meas_q.push(meas);
-  rrc_log->info("MEAS:  Processing measurement. %zd measurements in queue\n", cell_meas_q.size());
 }
 
 /* Processes all pending PHY measurements in queue. Must be called from a mutexed function

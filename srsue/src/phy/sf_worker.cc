@@ -29,7 +29,6 @@
 #ifdef PHY_ADAPTER_ENABLE
 #include "srsue/hdr/phy/phy_adapter.h"
 #endif
-
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -310,10 +309,10 @@ void sf_worker::update_measurements()
                                                                                SRSLTE_SF_LEN_PRB(cell.nof_prb))) +
                             30)
                          : 0;
-
     if (std::isnormal(rssi_dbm)) {
       phy->avg_rssi_dbm[0] = SRSLTE_VEC_EMA(rssi_dbm, phy->avg_rssi_dbm[0], phy->args->snr_ema_coeff);
     }
+
     if (!rssi_read_cnt) {
       phy->rx_gain_offset = phy->get_radio()->get_rx_gain() + phy->args->rx_gain_offset;
     }
@@ -353,20 +352,14 @@ void sf_worker::update_measurements()
 
   // Check in-sync / out-sync conditions
   if (phy->avg_rsrp_dbm[0] > phy->args->in_sync_rsrp_dbm_th && phy->avg_snr_db_cqi[0] > phy->args->in_sync_snr_db_th) {
-    log_h->debug("SNR_CQI=%.1f > %.1f dB, RSRP=%.1f > %.1f dBm,  RSSI=%.1f dBm sync=IN-SYNC from channel estimator\n",
+    log_h->debug("SNR=%.1f dB, RSRP=%.1f dBm sync=in-sync from channel estimator\n",
                  phy->avg_snr_db_cqi[0],
-                 phy->args->in_sync_snr_db_th,
-                 phy->avg_rsrp_dbm[0],
-                 phy->args->in_sync_rsrp_dbm_th,
-                 phy->avg_rssi_dbm[0]);
+                 phy->avg_rsrp_dbm[0]);
     chest_loop->in_sync();
   } else {
-    log_h->warning("SNR_CQI=%.1f < %.1f dB, RSRP=%.1f < %.1f dBm,  RSSI=%.1f dBm sync=OUT_OF-SYNC from channel estimator\n",
-                 phy->avg_snr_db_cqi[0],
-                 phy->args->in_sync_snr_db_th,
-                 phy->avg_rsrp_dbm[0],
-                 phy->args->in_sync_rsrp_dbm_th,
-                 phy->avg_rssi_dbm[0]);
+    log_h->warning("SNR=%.1f dB RSRP=%.1f dBm, sync=out-of-sync from channel estimator\n",
+                   phy->avg_snr_db_cqi[0],
+                   phy->avg_rsrp_dbm[0]);
     chest_loop->out_of_sync();
   }
 }

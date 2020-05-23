@@ -204,7 +204,7 @@ static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 }
 
 // see sf_worker::update_measurements() -> cc_worker::update_measurements()
-static void ue_dl_update_chest(srslte_chest_dl_res_t * chest_res, float snr_db, float noise_db)
+static void ue_dl_update_chest_i(srslte_chest_dl_res_t * chest_res, float snr_db, float noise_db)
 {
     //  from faux_rf
     //  cc_idx avg_noise 0.000, acg_rsrp_dbm -20.313, avg_rsrq_db -3.519, avg_rssi_dbm 2.536, pathloss 20.313, avg_snr_db_cqi  141.119
@@ -217,17 +217,19 @@ static void ue_dl_update_chest(srslte_chest_dl_res_t * chest_res, float snr_db, 
 // get all ota messages (all pci enb dl messages and rx control info)
 static DL_Signals ue_dl_get_signals_i(srslte_timestamp_t * ts)
 {
+  // Info("Enter:%s: \n", __func__);
+
   timeval tv_sor;
 
   EMANELTE::MHAL::RxMessages messages;
 
   const bool bInStep = EMANELTE::MHAL::UE::get_messages(messages, tv_sor);
 
-  // all signals from all enb(s)
-  DL_Signals dl_signals;
-
   ts->full_secs = tv_sor.tv_sec;
   ts->frac_secs = tv_sor.tv_usec / 1e6;
+
+  // all signals from all enb(s)
+  DL_Signals dl_signals;
 
   // for each message rx ota
   for(auto iter = messages.begin(); iter != messages.end(); ++iter)
@@ -261,11 +263,11 @@ static DL_Signals ue_dl_get_signals_i(srslte_timestamp_t * ts)
          {
            dl_signals.emplace(pci, DL_ENB_Signals(1, DL_ENB_Signal(enb_dl_msg, rxControl)));
          }
-     }
-   else
-     {
-       Error("MHAL:%s ParseFromString ERROR\n", __func__);
-     }
+      }
+    else
+      {
+        Error("MHAL:%s ParseFromString ERROR\n", __func__);
+      }
    }
 
   return (dl_signals);
@@ -275,6 +277,8 @@ static DL_Signals ue_dl_get_signals_i(srslte_timestamp_t * ts)
 // return signals for a specific pci (enb)
 static DL_ENB_Signals ue_dl_enb_subframe_search_i(srslte_ue_sync_t * ue_sync, const uint32_t * tti)
 {
+   // Info("Enter:%s: \n", __func__);
+
    const auto dl_signals = ue_dl_get_signals_i(&ue_sync->last_timestamp);
 
    auto iter = dl_signals.find(ue_sync->cell.id);
@@ -527,7 +531,8 @@ void ue_set_prach_freq_offset(uint32_t freq_offset)
   prach_freq_offset_ = freq_offset;
 }
 
-int ue_dl_read_frame(srslte_timestamp_t* rx_time)
+// 0 read while in idle/discarding
+int ue_dl_read_frame_idle(srslte_timestamp_t* rx_time)
 {
   timeval tv_sor;
 
@@ -570,7 +575,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                           int force_nid_2,
                           uint32_t *max_peak)
 {
-  Info("RX:%s: \n", __func__);
+  Info("Enter:%s: \n", __func__);
 
   // n_id_2's
   std::set<uint32_t> n_id2s;
@@ -585,7 +590,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
   EMANELTE::MHAL::UE::begin_cell_search();
 
-  while(try_num++ <= max_tries)
+  while(++try_num <= max_tries)
    {
      // cell search is typically done in blocks of 5 sf's
      // we handle the radio recv call here one at a time
@@ -594,27 +599,18 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
      // for each enb
      for(auto iter = dl_signals.begin(); iter != dl_signals.end(); ++iter)
       {
-        const uint32_t pci = iter->first;
-
+        const uint32_t pci    = iter->first;
         const uint32_t n_id_1 = pci / 3;
- 
         const uint32_t n_id_2 = pci % 3;
 
-        Info("RX:%s: try %u/%u, pci %hu, %zu signals\n", 
-              __func__, 
-              try_num,
-              max_tries,
-              pci,
-              iter->second.size());
+        Debug("RX:%s: try %u/%u, pci %hu, %zu signals\n", 
+              __func__, try_num, max_tries, pci, iter->second.size());
 
         // force is enabled, but this cell id group does not match
         if(is_valid_n_id_2(force_nid_2) && n_id_2 != (uint32_t)force_nid_2)
          {
            Info("RX:%s: n_id_1 %u, n_id_2 %u != %d, ignore\n",
-                __func__,
-                n_id_1,
-                n_id_2,
-                force_nid_2);
+                __func__, n_id_1, n_id_2, force_nid_2);
  
             continue;
          }
@@ -646,7 +642,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
                   ++num_pss_sss_found;
 
-                  Info("RX:%s: found pss_sss %s, peak_sum %0.1f, num_samples %u\n",
+                  Debug("RX:%s: found pss_sss %s, peak_sum %0.1f, num_samples %u\n",
                        __func__,
                        GetDebugString(pss_sss.DebugString()).c_str(),
                        iter->second[n].second.rxData_.peak_sum_,
@@ -784,19 +780,19 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_ue_mib_sync_t * ue_mib_sync,
                      srslte_cell_t * cell)
 {
-  Info("RX:%s:\n", __func__);
+  Info("Enter:%s:\n", __func__);
 
   // 40 sf
   const uint32_t max_tries = cs->max_frames * 5;
 
   uint32_t try_num = 0;
 
-  while(try_num++ < max_tries)
+  while(++try_num <= max_tries)
     {
       // we handle the radio recv call here one at a time
       const auto dl_enb_signals = ue_dl_enb_subframe_search_i(&ue_mib_sync->ue_sync, NULL);
 
-      Info("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
+      Debug("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
             ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dl_enb_signals.size());
 
       if(! dl_enb_signals.empty())
@@ -918,6 +914,8 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 } srslte_ue_sync_t; */
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 {
+  // Info("Enter:%s: \n", __func__);
+
   const uint32_t max_tries = 50;
 
   uint32_t try_num = 0;
@@ -977,9 +975,11 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 }
 
 
-// 4 called by emu_srsue/src/phy/phch_recv.cc
+// 4 
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 {
+  //  Info("Enter:%s: \n", __func__);
+
    // set next tx tti
    tti_tx_ = (tti+4)%10240;
 
@@ -1122,7 +1122,7 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           memcpy(dci_msg[0].payload, dl_dci_message_data.data(), dl_dci_message_data.size());
           ++nof_msg;
 
-          ue_dl_update_chest(&q->chest_res, pdsch_result.second.sinr_dB_, pdsch_result.second.noiseFloor_dBm_);
+          ue_dl_update_chest_i(&q->chest_res, pdsch_result.second.sinr_dB_, pdsch_result.second.noiseFloor_dBm_);
 
 #ifdef DEBUG_HEX
           InfoHex(dl_dci_message_data.data(), dl_dci_message_data.size(),
@@ -1200,7 +1200,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
         const auto & ul_dci_message      = dci_message.dci_msg();
         const auto & ul_dci_message_data = ul_dci_message.data();
  
-        ue_dl_update_chest(&q->chest_res, ul_dci_results[0].second.sinr_dB_, ul_dci_results[0].second.noiseFloor_dBm_);
+        ue_dl_update_chest_i(&q->chest_res, ul_dci_results[0].second.sinr_dB_, ul_dci_results[0].second.noiseFloor_dBm_);
 
         dci_msg[0].nof_bits      = ul_dci_message.num_bits();
         dci_msg[0].rnti          = rnti;
@@ -1328,7 +1328,7 @@ int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
              data[tb].avg_iterations_block = 1;
              data[tb].crc = true;
 
-             ue_dl_update_chest(&q->chest_res, pdsch_result.second.sinr_dB_, pdsch_result.second.noiseFloor_dBm_);
+             ue_dl_update_chest_i(&q->chest_res, pdsch_result.second.sinr_dB_, pdsch_result.second.noiseFloor_dBm_);
 
 #ifdef DEBUG_HEX
              InfoHex(pdsch_data.data(), pdsch_data.size(),
@@ -1388,7 +1388,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
 
      const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti);
 
-     ue_dl_update_chest(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
+     ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
 
      if(sinrResult.bPassed_)
       {
@@ -1504,7 +1504,7 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
              {
                const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH);
 
-               ue_dl_update_chest(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
+               ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
 
                if(sinrResult.bPassed_)
                  {

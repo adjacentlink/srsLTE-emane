@@ -107,7 +107,7 @@ static  rf_dummy_info_t rf_dummy_info = { .dev_name        = "dummyrf",
 
 void rf_dummy_suppress_stdout(void *h)
  {
-   //log_stdout = false;
+   log_stdout = false;
  }
 
 

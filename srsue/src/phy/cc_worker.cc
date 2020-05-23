@@ -308,7 +308,7 @@ bool cc_worker::work_dl_mbsfn(srslte_mbsfn_cfg_t mbsfn_cfg)
 {
   mac_interface_phy_lte::tb_action_dl_t dl_action = {};
 
-#ifndef PHY_ADAPTER_ENABLE
+#ifndef PHY_ADAPTER_ENABLE // ALINK_XXX check this
   // Configure MBSFN settings
   srslte_ue_dl_set_mbsfn_area_id(&ue_dl, mbsfn_cfg.mbsfn_area_id);
 #endif
@@ -387,7 +387,7 @@ int cc_worker::decode_pdcch_dl()
       Debug("PDCCH looking for rnti=0x%x\n", dl_rnti);
       ue_dl_cfg.cfg.dci.cif_enabled = i > 0;
 #ifndef PHY_ADAPTER_ENABLE
-      nof_grants = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
+      nof_grants                    = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #else
       nof_grants = phy_adapter::ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #endif
@@ -798,7 +798,7 @@ int cc_worker::decode_pdcch_ul()
     for (int i = 0; i < (ue_dl_cfg.cfg.dci.cif_present ? 2 : 1) && !nof_grants; i++) {
       ue_dl_cfg.cfg.dci.cif_enabled = i > 0;
 #ifndef PHY_ADAPTER_ENABLE
-      nof_grants = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
+      nof_grants                    = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
 #else
       nof_grants = phy_adapter::ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
 #endif
