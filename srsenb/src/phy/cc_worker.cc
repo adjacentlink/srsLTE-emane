@@ -238,7 +238,7 @@ void cc_worker::work_ul(const srslte_ul_sf_cfg_t& ul_sf_cfg, stack_interface_phy
     ue.second->is_grant_available = false;
   }
 
-  Info("cc_worker:%s cc_idx %u\n", __func__, cc_idx);
+  Debug("cc_worker:%s cc_idx %u\n", __func__, cc_idx);
 
   // Process UL signal
 #ifndef PHY_ADAPTER_ENABLE
@@ -263,7 +263,7 @@ void cc_worker::work_dl(const srslte_dl_sf_cfg_t&            dl_sf_cfg,
   // Put base signals (references, PBCH, PCFICH and PSS/SSS) into the resource grid
   srslte_enb_dl_put_base(&enb_dl, &dl_sf);
 
-  Info("cc_worker:%s cc_idx %u\n", __func__, cc_idx);
+  Debug("cc_worker:%s cc_idx %u\n", __func__, cc_idx);
 
 #ifdef PHY_ADAPTER_ENABLE
   phy_adapter::enb_dl_tx_init(&enb_dl, tti_tx_dl, dl_grants.cfi);
@@ -352,7 +352,7 @@ int cc_worker::decode_pusch(stack_interface_phy_lte::ul_sched_grant_t* grants, u
 
         if (grants[i].dci.tb.rv == 0) {
           if (!pusch_res.crc) {
-            Debug("PUSCH: Radio-Link failure snr=%.1f dB\n", snr_db);
+            Warning("PUSCH: Radio-Link failure snr=%.1f dB\n", snr_db);
             phy->stack->rl_failure(rnti);
           } else {
             phy->stack->rl_ok(rnti);
@@ -414,7 +414,7 @@ int cc_worker::decode_pucch()
         // Notify MAC of RL status (skip SR subframes)
         if (!ul_cfg.pucch.uci_cfg.is_scheduling_request_tti) {
           if (pucch_res.correlation < PUCCH_RL_CORR_TH) {
-            Debug("PUCCH: Radio-Link failure corr=%.1f\n", pucch_res.correlation);
+            Warning("PUCCH: Radio-Link failure corr=%.1f\n", pucch_res.correlation);
             phy->stack->rl_failure(rnti);
           } else {
             phy->stack->rl_ok(rnti);

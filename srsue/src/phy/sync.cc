@@ -435,6 +435,7 @@ void sync::run_thread()
           switch (phy_adapter::ue_dl_sync_search(&ue_sync, tti)) {
 #endif
             case 1:
+
 #ifndef PHY_ADAPTER_ENABLE
               // Check tti is synched with ue_sync
               if (srslte_ue_sync_get_sfidx(&ue_sync) != tti % 10) {
@@ -571,7 +572,7 @@ void sync::run_thread()
           usleep(1000);
         }
         break;
-    }
+      }
 
 #ifdef PHY_ADAPTER_ENABLE
     stack->run_tti(tti, 1);

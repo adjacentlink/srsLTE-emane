@@ -1118,7 +1118,8 @@ int enb_dl_put_pdcch_dl(srslte_enb_dl_t* q,
       // check if data is ready
       if(grant->data[tb])
        {
-         Info("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
+         if(grant->dci.rnti != 0xffff)
+          Info("PDCCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
          if(enb_dl_put_pdcch_dl_i(q, dci_cfg, &grant->dci, ref))
           {
@@ -1178,7 +1179,8 @@ int enb_dl_put_pdsch_dl(srslte_enb_dl_t* q,
       // check if data is ready
       if(grant->data[tb])
        {
-         Info("PDSCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
+         if(grant->dci.rnti != 0xffff)
+           Info("PDSCH:%s put tb %d, rnti 0x%hx\n", __func__, tb, grant->dci.rnti);
 
          if(enb_dl_put_dl_pdsch_i(q, pdsch, grant->data[tb], ref, tb) != SRSLTE_SUCCESS)
            {
@@ -1450,11 +1452,8 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
          if(!rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
            {
-             continue;
-           }
-         else
-           {
              Info("PRACH:%s: fail snr\n", __func__);
+             continue;
            }
 
          const auto & prach    = ul_msg->first.prach();
@@ -1487,7 +1486,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
        }
      else
        {
-         Debug("PRACH:%s no preambles\n", __func__);
+         Info("PRACH:%s no preambles\n", __func__);
        }
     }
 
@@ -1626,6 +1625,30 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
     return -1;
   }
 
+  int                ret                               = SRSLTE_SUCCESS;
+  uint32_t           n_pucch_i[SRSLTE_PUCCH_MAX_ALLOC] = {};
+  srslte_pucch_res_t pucch_res                         = {};
+  uint32_t           uci_cfg_total_ack                 = srslte_uci_cfg_total_ack(&cfg->uci_cfg);
+
+  // Drop CQI if there is collision with ACK
+  if (!cfg->simul_cqi_ack && uci_cfg_total_ack > 0 && cfg->uci_cfg.cqi.data_enable) {
+    cfg->uci_cfg.cqi.data_enable = false;
+  }
+
+  // Select format
+  cfg->format = srslte_pucch_proc_select_format(&q->cell, cfg, &cfg->uci_cfg, NULL);
+  if (cfg->format == SRSLTE_PUCCH_FORMAT_ERROR) {
+    ERROR("Returned Error while selecting PUCCH format\n");
+    return SRSLTE_ERROR;
+  }
+
+  // Get possible resources
+  int nof_resources = srslte_pucch_proc_get_resources(&q->cell, cfg, &cfg->uci_cfg, NULL, n_pucch_i);
+  if (nof_resources < 1 || nof_resources > SRSLTE_PUCCH_CS_MAX_ACK) {
+    ERROR("No PUCCH resource could be calculated (%d)\n", nof_resources);
+    return SRSLTE_ERROR;
+  }
+
   // see lib/src/phy/enb/enb_ul.c get_pucch()
   // and lib/src/phy/ue/test/pucch_resource_test.c
   // this is needed to set cfg->format
@@ -1635,8 +1658,10 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   // see lib/src/phy/phch/pucch_proc.c <<srslte_pucch_proc_get_npucch>>
   uint8_t b[SRSLTE_UCI_MAX_ACK_BITS] = {};
 
+#if 0
   // Prepare configuration
   srslte_ue_ul_pucch_resource_selection(&q->cell, cfg, &cfg->uci_cfg, &uci_data, b);
+#endif
 
   const auto rnti = cfg->rnti;
 
@@ -1732,12 +1757,12 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   if(res->detected == false)
    {
-     Info("PUCCH:%s tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
+     Debug("PUCCH:%s tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
            __func__, curr_tti_, rnti, ue_ul_msgs_.size());
    }
   else
    {
-     Info("PUCCH:%s tti %u, DID find rnti 0x%hx, in %zu uplink messages\n", 
+     Info("PUCCH:%s tti %u, found rnti 0x%hx, in %zu uplink messages\n", 
            __func__, curr_tti_, rnti, ue_ul_msgs_.size());
    }
 
@@ -1892,12 +1917,12 @@ int enb_ul_get_pusch(srslte_enb_ul_t*    q,
 
   if(res->crc == false)
    {
-     Info("PUSCH:%s tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
+     Debug("PUSCH:%s tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
            __func__, curr_tti_, rnti, ue_ul_msgs_.size());
    }
   else
    {
-     Info("PUSCH:%s tti %u, DID find rnti 0x%hx, in %zu uplink messages\n", 
+     Info("PUSCH:%s tti %u, found rnti 0x%hx, in %zu uplink messages\n", 
            __func__, curr_tti_, rnti, ue_ul_msgs_.size());
    }
 
