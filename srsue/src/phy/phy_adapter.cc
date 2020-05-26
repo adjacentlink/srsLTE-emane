@@ -605,8 +605,6 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                           int force_nid_2,
                           uint32_t *max_peak)
 {
-  Info("Enter1: %s: \n", __func__);
-
   // n_id_2's
   std::set<uint32_t> n_id2s;
 
@@ -621,7 +619,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
   while(++try_num <= max_tries)
    {
-     // radio recv call here
+     // radio recv called here
      sync_->radio_recv_fnc(buffer_, 0, 0);
 
      const auto dl_signals = ue_dl_get_signals_i(&cs->ue_sync.last_timestamp);
@@ -632,9 +630,6 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
         const uint32_t pci    = iter->first;
         const uint32_t n_id_1 = pci / 3;
         const uint32_t n_id_2 = pci % 3;
-
-        Debug("RX:%s: try %u/%u, pci %hu, %zu signals\n", 
-              __func__, try_num, max_tries, pci, iter->second.size());
 
         // force is enabled, but this cell id group does not match
         if(is_valid_n_id_2(force_nid_2) && n_id_2 != (uint32_t)force_nid_2)
@@ -811,15 +806,13 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_ue_mib_sync_t * ue_mib_sync,
                      srslte_cell_t * cell)
 {
-  Info("Enter2: %s:\n", __func__);
-
   // 40 sf
   const uint32_t max_tries = cs->max_frames * 5;
   uint32_t try_num         = 0;
 
   while(++try_num <= max_tries)
     {
-      // radio recv call here
+      // radio recv called here
       sync_->radio_recv_fnc(buffer_, 0, 0);
 
       const auto dl_enb_signals = ue_dl_enb_subframe_get_i(&ue_mib_sync->ue_sync, NULL);
@@ -947,20 +940,16 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 // 3 system frame search
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 {
-  Info("Enter3:%s: \n", __func__);
-
   const uint32_t max_tries = 1;
 
   uint32_t try_num = 0;
 
   while(++try_num <= max_tries)
     {
-      // radio recv call
+      // radio recv called here
       sync_->radio_recv_fnc(buffer_, 0, 0);
 
       const auto dl_enb_signals = ue_dl_enb_subframe_get_i(ue_sync, NULL);
-
-      Debug("RX:%s: try %d/%u, %zu signals\n", __func__, try_num, max_tries, dl_enb_signals.size());
 
       if(! dl_enb_signals.empty())
         {
@@ -1014,14 +1003,12 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 // 4 
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 {
-   Debug("Enter4:%s: \n", __func__);
-
    // set next tx tti
    tti_tx_ = (tti+4)%10240;
 
    EMANELTE::MHAL::UE::set_tti(tti);
 
-   // caller will trigger the radio recv call
+   // radio recv called here
    sync_->radio_recv_fnc(buffer_, 0, 0);
 
    const auto dl_enb_signals = ue_dl_enb_subframe_get_i(ue_sync, &tti);
