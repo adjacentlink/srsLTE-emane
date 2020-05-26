@@ -37,6 +37,7 @@
 #include <string>
 
 namespace srsue {
+class sync;
 namespace phy_adapter {
 
 void ue_initialize(srslte::log * log_h, 
@@ -55,8 +56,11 @@ void ue_set_prach_freq_offset(uint32_t freq_offset);
 
 void ue_set_crnti(uint16_t rnti);
 
-// 0 idle read
-int ue_dl_read_frame_idle(srslte_timestamp_t* rx_time);
+void ue_set_sync(sync * sync);
+
+// rx frame for this tti, common to all (4) states below
+int ue_dl_read_frame(srslte_timestamp_t* rx_time);
+
 
 // 1 cell cearch
 int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
@@ -70,10 +74,12 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_cell_t * cell);
 
 // 3 sfn search 
-int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * tti);
+int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, 
+                              uint32_t * tti);
 
 // 4 syncd search
-int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti);
+int ue_dl_sync_search(srslte_ue_sync_t * ue_sync,
+                      uint32_t tti);
 
 // get rssi
 float ue_dl_get_rssi(uint32_t cell_id);

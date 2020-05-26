@@ -368,7 +368,7 @@ void sync::run_thread()
   float    prach_power  = 0;
 
   while (running) {
-    Debug("SYNC:  state=%s, tti=%d\n", phy_state.to_string(), tti);
+    Debug("SYNC:  state=%s, TTI=%d\n", phy_state.to_string(), tti);
 
     // If not camping, clear SFN sync
     if (!phy_state.is_camping()) {
@@ -555,12 +555,8 @@ void sync::run_thread()
           }
           Debug("Discarding %d samples\n", nsamples);
           srslte_timestamp_t rx_time = {};
-#ifndef PHY_ADAPTER_ENABLE
           if (!radio_recv_fnc(dummy_buffer, nsamples, &rx_time)) {
             log_h->console("SYNC:  Receiving from radio while in IDLE_RX\n");
-#else
-          if (phy_adapter::ue_dl_read_frame_idle(&rx_time)) {
-#endif
           }
           // If radio is in locked state returns immediately. In that case, do a 1 ms sleep
           if (rx_time.frac_secs == 0 && rx_time.full_secs == 0) {
@@ -572,15 +568,11 @@ void sync::run_thread()
           usleep(1000);
         }
         break;
-      }
-
-#ifdef PHY_ADAPTER_ENABLE
-    stack->run_tti(tti, 1);
-#endif
+      } // end switch
 
     // Increase TTI counter
     tti = (tti + 1) % 10240;
-  }
+  } // end while
 }
 
 /***************
@@ -786,6 +778,7 @@ bool sync::set_frequency()
 
 #ifdef PHY_ADAPTER_ENABLE
     phy_adapter::ue_set_frequencies(set_ul_freq, set_dl_freq, current_earfcn);
+    phy_adapter::ue_set_sync(this);
 #endif
 
     ul_dl_factor = (float)(set_ul_freq / set_dl_freq);
@@ -837,11 +830,6 @@ void sync::get_current_cell(srslte_cell_t* cell_, uint32_t* earfcn_)
 
 int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_timestamp_t* rx_time)
 {
-#ifdef PHY_ADAPTER_ENABLE
-  // this method not used instead see individual state/calls
-  return nsamples;
-#endif
-
   srslte_timestamp_t ts = {};
 
   // Use local timestamp if timestamp is not provided
@@ -850,7 +838,11 @@ int sync::radio_recv_fnc(srslte::rf_buffer_t& data, uint32_t nsamples, srslte_ti
   }
 
   // Receive
+#ifndef PHY_ADAPTER_ENABLE
   if (radio_h->rx_now(data, nsamples, rx_time)) {
+#else
+  if (phy_adapter::ue_dl_read_frame(rx_time)) {
+#endif
     // check timestamp reset
     if (forced_rx_time_init || srslte_timestamp_iszero(&tti_ts) || srslte_timestamp_compare(rx_time, &tti_ts) < 0) {
       if (srslte_timestamp_compare(rx_time, &tti_ts) < 0) {

@@ -24,11 +24,14 @@
  *
  */
 
+#include <stdint.h> // radio.h needs this
 #include "srslte/config.h"
+#include "srslte/radio/radio.h"
 
 #ifdef PHY_ADAPTER_ENABLE
 
 #include "srsue/hdr/phy/phy_adapter.h"
+#include "srsue/hdr/phy/sync.h"
 
 #include "libemanelte/enbotamessage.pb.h"
 #include "libemanelte/ueotamessage.pb.h"
@@ -53,18 +56,24 @@
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
- EMANELTE::MHAL::UE_UL_Message    ue_ul_msg_;
- EMANELTE::MHAL::TxControlMessage tx_control_;
- EMANELTE::MHAL::UplinkMessage*   uplink_control_message_;
+ EMANELTE::MHAL::UE_UL_Message     ue_ul_msg_;
+ EMANELTE::MHAL::TxControlMessage  tx_control_;
+ EMANELTE::MHAL::UplinkMessage    *uplink_control_message_;
 
  // enb dl msg and rx control info
- typedef std::pair<EMANELTE::MHAL::ENB_DL_Message, EMANELTE::MHAL::RxControl> DL_ENB_Signal;
+ using DL_ENB_Signal = std::pair<EMANELTE::MHAL::ENB_DL_Message, EMANELTE::MHAL::RxControl>;
 
  // vector of dl signals from a specific enb
- typedef std::vector<DL_ENB_Signal> DL_ENB_Signals;
+ using DL_ENB_Signals = std::vector<DL_ENB_Signal>;
 
  // map of dl signals to enb(pci)
- typedef std::map<uint16_t, DL_ENB_Signals> DL_Signals;
+ using DL_ENB_Signal_Map = std::map<uint16_t, DL_ENB_Signals>;
+
+ using DL_ENB_Messages = std::vector<std::pair<struct timeval, EMANELTE::MHAL::RxMessages>>;
+
+ srslte::rf_buffer_t buffer_(1);
+
+ DL_ENB_Messages dl_enb_messages_;
 
  EMANELTE::MHAL::ENB_DL_Message enb_dl_msg_;
 
@@ -80,9 +89,11 @@ namespace {
 
 
  // pdsch rnti/messages with signal quality
- typedef std::pair<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data, SignalQuality> ENB_DL_Message_PDSCH_Result;
+ using ENB_DL_Message_PDSCH_Entry = std::pair<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data, SignalQuality>;
 
- std::map<uint16_t, ENB_DL_Message_PDSCH_Result> enb_dl_pdsch_messages_;
+ using ENB_DL_PDSCH_MESSAGES = std::map<uint16_t, ENB_DL_Message_PDSCH_Entry>;
+
+ ENB_DL_PDSCH_MESSAGES enb_dl_pdsch_messages_;
 
  EMANELTE::MHAL::RxControl rx_control_;
 
@@ -91,6 +102,7 @@ namespace {
  uint32_t earfcn_            = 0;
  uint32_t tti_tx_            = 0;
  uint32_t prach_freq_offset_ = 0;
+ srsue::sync * sync_         = nullptr;
 
  srslte::log * log_h_ = NULL;
 
@@ -215,56 +227,61 @@ static void ue_dl_update_chest_i(srslte_chest_dl_res_t * chest_res, float snr_db
 }
 
 // get all ota messages (all pci enb dl messages and rx control info)
-static DL_Signals ue_dl_get_signals_i(srslte_timestamp_t * ts)
+static DL_ENB_Signal_Map ue_dl_get_signals_i(srslte_timestamp_t * ts)
 {
-  // Info("Enter:%s: \n", __func__);
+  if(dl_enb_messages_.empty())
+   {
+      Error("No Messages:%s: \n", __func__);
 
-  timeval tv_sor;
+      return DL_ENB_Signal_Map{};
+   }
 
-  EMANELTE::MHAL::RxMessages messages;
+  // we expect 1 and only 1 message
+  const auto message = dl_enb_messages_.front();
 
-  const bool bInStep = EMANELTE::MHAL::UE::get_messages(messages, tv_sor);
-
-  ts->full_secs = tv_sor.tv_sec;
-  ts->frac_secs = tv_sor.tv_usec / 1e6;
+  if(ts)
+   {
+     ts->full_secs = message.first.tv_sec;
+     ts->frac_secs = message.first.tv_usec / 1e6;
+   }
 
   // all signals from all enb(s)
-  DL_Signals dl_signals;
+  DL_ENB_Signal_Map dl_signals;
 
   // for each message rx ota
-  for(auto iter = messages.begin(); iter != messages.end(); ++iter)
+  for(auto msg_iter = message.second.begin(); 
+       msg_iter != message.second.end();
+         ++msg_iter)
    {
      EMANELTE::MHAL::ENB_DL_Message enb_dl_msg;
 
-     if(enb_dl_msg.ParseFromString(iter->first))
+     if(enb_dl_msg.ParseFromString(msg_iter->first))
       {
-       const auto & rxControl = iter->second;
+       const auto & rxControl = msg_iter->second;
 
        const uint32_t & pci = enb_dl_msg.phy_cell_id();
 
-       if(! bInStep)
-        Info("RX:%s %s, rx_seq %lu, pci %u, sf_time %ld:%06ld, msg:%s\n",
+       Debug("RX:%s rx_seq %lu, pci %u, sf_time %ld:%06ld, msg:%s\n",
             __func__,
-            bInStep ? "in-step" : "late",
             rxControl.rxData_.rx_seqnum_,
             pci,
             rxControl.rxData_.sf_time_.tv_sec,
             rxControl.rxData_.sf_time_.tv_usec,
             GetDebugString(enb_dl_msg.DebugString()).c_str());
 
-       auto signal = dl_signals.find(pci);
+       auto signal_iter = dl_signals.find(pci);
 
        // existing append
-       if(signal != dl_signals.end())
-         {
-           signal->second.emplace_back(enb_dl_msg, rxControl);
-         }
+       if(signal_iter != dl_signals.end())
+        {
+          signal_iter->second.emplace_back(enb_dl_msg, rxControl);
+        }
        else
-         {
-           dl_signals.emplace(pci, DL_ENB_Signals(1, DL_ENB_Signal(enb_dl_msg, rxControl)));
-         }
+        {
+          dl_signals.emplace(pci, DL_ENB_Signals{1, {enb_dl_msg, rxControl}});
+        }
       }
-    else
+     else
       {
         Error("MHAL:%s ParseFromString ERROR\n", __func__);
       }
@@ -275,13 +292,13 @@ static DL_Signals ue_dl_get_signals_i(srslte_timestamp_t * ts)
 
 
 // return signals for a specific pci (enb)
-static DL_ENB_Signals ue_dl_enb_subframe_search_i(srslte_ue_sync_t * ue_sync, const uint32_t * tti)
+static DL_ENB_Signals ue_dl_enb_subframe_get_i(srslte_ue_sync_t * ue_sync, const uint32_t * tti)
 {
-   // Info("Enter:%s: \n", __func__);
+   Debug("Enter:%s: \n", __func__);
 
    const auto dl_signals = ue_dl_get_signals_i(&ue_sync->last_timestamp);
 
-   auto iter = dl_signals.find(ue_sync->cell.id);
+   const auto iter = dl_signals.find(ue_sync->cell.id);
 
    if(iter != dl_signals.end())
     {
@@ -312,7 +329,7 @@ static DL_ENB_Signals ue_dl_enb_subframe_search_i(srslte_ue_sync_t * ue_sync, co
     {
       Info("RX:%s nothing found for pci %hu\n", __func__, ue_sync->cell.id);
 
-      return DL_ENB_Signals();
+      return DL_ENB_Signals{};
     }
 }
 
@@ -349,7 +366,7 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
            }
          else
            {
-             Info("PUCCH:%s: rnti 0x%hx != ul_dci_rnti 0x%hx, skip\n", 
+             Debug("PUCCH:%s: rnti 0x%hx != ul_dci_rnti 0x%hx, skip\n", 
                     __func__, rnti, ul_dci_message.rnti());
            }
        }
@@ -389,7 +406,7 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti)
            }
          else
            {
-             Info("PDSCH:%s: rnti 0x%hx != dl_dci_rnti 0x%hx, refid %u, skip\n", 
+             Debug("PDSCH:%s: rnti 0x%hx != dl_dci_rnti 0x%hx, refid %u, skip\n", 
                     __func__, rnti, dl_dci_message.rnti(), dl_dci_message.refid());
            }
        }
@@ -454,6 +471,11 @@ void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn)
   earfcn_ = earfcn;
 
   EMANELTE::MHAL::UE::set_frequencies(ul_freq, dl_freq);
+}
+
+void ue_set_sync(srsue::sync * sync)
+{
+  sync_ = sync;
 }
 
 
@@ -531,23 +553,29 @@ void ue_set_prach_freq_offset(uint32_t freq_offset)
   prach_freq_offset_ = freq_offset;
 }
 
-// 0 read while in idle/discarding
-int ue_dl_read_frame_idle(srslte_timestamp_t* rx_time)
+
+// read frame for this tti common to all states
+int ue_dl_read_frame(srslte_timestamp_t* rx_time)
 {
-  timeval tv_sor;
+  timeval tv_tti = {0,0};
 
   EMANELTE::MHAL::RxMessages messages;
 
-  const bool bInStep = EMANELTE::MHAL::UE::get_messages(messages, tv_sor);
+  EMANELTE::MHAL::UE::get_messages(messages, tv_tti);
 
-  rx_time->full_secs = tv_sor.tv_sec; 
-  rx_time->frac_secs = tv_sor.tv_usec / 1e6;
+  dl_enb_messages_.clear();
+  dl_enb_messages_.emplace_back(tv_tti, messages);
+
+  if(rx_time)
+   {
+     rx_time->full_secs = tv_tti.tv_sec; 
+     rx_time->frac_secs = tv_tti.tv_usec / 1e6;
+   }
 
   return 1;
 }
 
 
-// 1 initial state cell search
 /*typedef struct SRSLTE_API {
   uint32_t            cell_id;
   srslte_cp_t         cp;
@@ -570,21 +598,22 @@ typedef struct SRSLTE_API {
   uint8_t          *mode_counted; 
   srslte_ue_cellsearch_result_t *candidates; 
 } srslte_ue_cellsearch_t; */
+
+// 1 initial state cell search
 int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                           srslte_ue_cellsearch_result_t * res,
                           int force_nid_2,
                           uint32_t *max_peak)
 {
-  Info("Enter:%s: \n", __func__);
+  Info("Enter1: %s: \n", __func__);
 
   // n_id_2's
   std::set<uint32_t> n_id2s;
 
   UESTATS::Cells cells;
 
-  // 40 sf
-  const uint32_t max_tries = cs->max_frames * 5;
-
+  // cell search is typically done in blocks of 5 sf's
+  const uint32_t max_tries   = cs->max_frames * 5; // 40 sf
   uint32_t num_pss_sss_found = 0;
   uint32_t try_num           = 0;
 
@@ -592,8 +621,9 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
   while(++try_num <= max_tries)
    {
-     // cell search is typically done in blocks of 5 sf's
-     // we handle the radio recv call here one at a time
+     // radio recv call here
+     sync_->radio_recv_fnc(buffer_, 0, 0);
+
      const auto dl_signals = ue_dl_get_signals_i(&cs->ue_sync.last_timestamp);
 
      // for each enb
@@ -713,7 +743,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
         }
     }
 
-  Info("RX:%s: sf_idx %u, done, num_cells %zu, max_peak id %u, max_avg %f\n",
+  Info("RX:%s: sf_idx %u, DONE, num_cells %zu, max_peak id %u, max_avg %f\n",
           __func__,
           cs->ue_sync.sf_idx,
           n_id2s.size(),
@@ -725,7 +755,6 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
   return n_id2s.size();
 }
 
-// 2 mib search
 /* typedef struct SRSLTE_API {
   srslte_ue_sync_t              ue_sync;
   cf_t                          *sf_buffer[SRSLTE_MAX_PORTS];
@@ -776,21 +805,24 @@ typedef struct SRSLTE_API {
   float    cfo;
   float    sync_error;
 } srslte_chest_dl_res_t; */
+
+// 2 mib search
 int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
                      srslte_ue_mib_sync_t * ue_mib_sync,
                      srslte_cell_t * cell)
 {
-  Info("Enter:%s:\n", __func__);
+  Info("Enter2: %s:\n", __func__);
 
   // 40 sf
   const uint32_t max_tries = cs->max_frames * 5;
-
-  uint32_t try_num = 0;
+  uint32_t try_num         = 0;
 
   while(++try_num <= max_tries)
     {
-      // we handle the radio recv call here one at a time
-      const auto dl_enb_signals = ue_dl_enb_subframe_search_i(&ue_mib_sync->ue_sync, NULL);
+      // radio recv call here
+      sync_->radio_recv_fnc(buffer_, 0, 0);
+
+      const auto dl_enb_signals = ue_dl_enb_subframe_get_i(&ue_mib_sync->ue_sync, NULL);
 
       Debug("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
             ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dl_enb_signals.size());
@@ -811,7 +843,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 
                       const auto & pbch = enb_dl_msg.pbch();
 
-                      Info("RX:ue_dl_mib_search: found pbch %s\n", GetDebugString(pbch.DebugString()).c_str());
+                      Info("RX:ue_dl_mib_search: found PBCH %s\n", GetDebugString(pbch.DebugString()).c_str());
 
                       cell->nof_prb   = pbch.num_prb();
                       cell->nof_ports = pbch.num_antennas();
@@ -869,7 +901,6 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 }
 
 
-// 3 system frame search
 /*typedef struct SRSLTE_API {
   srslte_sync_t s        find;
   srslte_sync_t          strack;
@@ -912,17 +943,22 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
   uint32_t               sample_offset_correct_period;
   float                  sfo_ema; 
 } srslte_ue_sync_t; */
+
+// 3 system frame search
 int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 {
-  // Info("Enter:%s: \n", __func__);
+  Info("Enter3:%s: \n", __func__);
 
-  const uint32_t max_tries = 50;
+  const uint32_t max_tries = 1;
 
   uint32_t try_num = 0;
 
-  while(try_num++ < max_tries)
+  while(++try_num <= max_tries)
     {
-      const auto dl_enb_signals = ue_dl_enb_subframe_search_i(ue_sync, NULL);
+      // radio recv call
+      sync_->radio_recv_fnc(buffer_, 0, 0);
+
+      const auto dl_enb_signals = ue_dl_enb_subframe_get_i(ue_sync, NULL);
 
       Debug("RX:%s: try %d/%u, %zu signals\n", __func__, try_num, max_tries, dl_enb_signals.size());
 
@@ -943,7 +979,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 
                       const auto & pbch = enb_dl_msg.pbch();
 
-                      Info("RX:%s: found pbch %s, try %u/%u\n",
+                      Info("RX:%s: found PBCH %s, try %u/%u\n",
                            __func__,
                            GetDebugString(pbch.DebugString()).c_str(),
                            try_num,
@@ -978,14 +1014,17 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 // 4 
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 {
-  //  Info("Enter:%s: \n", __func__);
+   Debug("Enter4:%s: \n", __func__);
 
    // set next tx tti
    tti_tx_ = (tti+4)%10240;
 
    EMANELTE::MHAL::UE::set_tti(tti);
 
-   const auto dl_enb_signals = ue_dl_enb_subframe_search_i(ue_sync, &tti);
+   // caller will trigger the radio recv call
+   sync_->radio_recv_fnc(buffer_, 0, 0);
+
+   const auto dl_enb_signals = ue_dl_enb_subframe_get_i(ue_sync, &tti);
 
    enb_dl_msg_.Clear();
 
@@ -1108,18 +1147,22 @@ int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
           UESTATS::getPDSCH(rnti, true);
 
           // save the grant for pdsch_decode
-          enb_dl_pdsch_messages_.emplace(rnti, ENB_DL_Message_PDSCH_Result(pdsch_result.first, pdsch_result.second));
+          enb_dl_pdsch_messages_.emplace(rnti, 
+                                         ENB_DL_Message_PDSCH_Entry{pdsch_result.first, 
+                                                                    pdsch_result.second});
 
           const auto & dl_dci_message      = dci_message.dci_msg();
           const auto & dl_dci_message_data = dl_dci_message.data();
 
-          dci_msg[0].nof_bits      = dl_dci_message.num_bits();
-          dci_msg[0].rnti          = rnti;
-          dci_msg[0].format        = get_msg_format(dl_dci_message.format());
-          dci_msg[0].location.L    = dl_dci_message.l_level();
-          dci_msg[0].location.ncce = dl_dci_message.l_ncce();
+          auto & dci_entry = dci_msg[0];
 
-          memcpy(dci_msg[0].payload, dl_dci_message_data.data(), dl_dci_message_data.size());
+          dci_entry.nof_bits      = dl_dci_message.num_bits();
+          dci_entry.rnti          = rnti;
+          dci_entry.format        = get_msg_format(dl_dci_message.format());
+          dci_entry.location.L    = dl_dci_message.l_level();
+          dci_entry.location.ncce = dl_dci_message.l_ncce();
+
+          memcpy(dci_entry.payload, dl_dci_message_data.data(), dl_dci_message_data.size());
           ++nof_msg;
 
           ue_dl_update_chest_i(&q->chest_res, pdsch_result.second.sinr_dB_, pdsch_result.second.noiseFloor_dBm_);
@@ -1202,13 +1245,15 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
  
         ue_dl_update_chest_i(&q->chest_res, ul_dci_results[0].second.sinr_dB_, ul_dci_results[0].second.noiseFloor_dBm_);
 
-        dci_msg[0].nof_bits      = ul_dci_message.num_bits();
-        dci_msg[0].rnti          = rnti;
-        dci_msg[0].format        = get_msg_format(ul_dci_message.format());
-        dci_msg[0].location.L    = ul_dci_message.l_level();
-        dci_msg[0].location.ncce = ul_dci_message.l_ncce();
+        auto & dci_entry = dci_msg[0];
 
-        memcpy(dci_msg[0].payload, ul_dci_message_data.data(), ul_dci_message_data.size());
+        dci_entry.nof_bits      = ul_dci_message.num_bits();
+        dci_entry.rnti          = rnti;
+        dci_entry.format        = get_msg_format(ul_dci_message.format());
+        dci_entry.location.L    = ul_dci_message.l_level();
+        dci_entry.location.ncce = ul_dci_message.l_ncce();
+
+        memcpy(dci_entry.payload, ul_dci_message_data.data(), ul_dci_message_data.size());
 
         Info("PUCCH:%s found ul_dci rnti 0x%hx\n", __func__, rnti);
 
@@ -1574,7 +1619,7 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Info("TX:%s tx_ctrl:%s\n",
+      Debug("TX:%s tx_ctrl:%s\n",
            __func__,
            tx_control_.DebugString().c_str());
 

@@ -62,12 +62,15 @@ extern "C" {
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
-  EMANELTE::MHAL::ENB_DL_Message   enb_dl_msg_;
-  EMANELTE::MHAL::TxControlMessage tx_control_;
-  EMANELTE::MHAL::DownlinkMessage * downlink_control_message_;
+  EMANELTE::MHAL::ENB_DL_Message     enb_dl_msg_;
+  EMANELTE::MHAL::TxControlMessage   tx_control_;
+  EMANELTE::MHAL::DownlinkMessage   *downlink_control_message_;
 
-  typedef std::pair<EMANELTE::MHAL::UE_UL_Message, EMANELTE::MHAL::RxControl> UE_UL_Message;
-  typedef std::vector<UE_UL_Message> UE_UL_Messages;
+  // ul ue msg with emane ota info
+  using UE_UL_Message = std::pair<EMANELTE::MHAL::UE_UL_Message, EMANELTE::MHAL::RxControl>;
+
+  // 0 or more ue ul messages for this tti
+  using UE_UL_Messages = std::vector<UE_UL_Message>;
 
   UE_UL_Messages ue_ul_msgs_;
 
@@ -86,8 +89,9 @@ namespace {
   float pdsch_rho_b_over_rho_a_ = 1.0;
 
   // scaling between reference signal res and pdsch res in symbols without reference signals, by tti and rnti
-  typedef std::map<uint16_t, float> rho_a_db_map_t; // map of rnti to rho_a
-  rho_a_db_map_t rho_a_db_map_[10];                 // vector of rho_a maps by subframe number
+  using RHO_A_DB_MAP_t = std::map<uint16_t, float>; // map of rnti to rho_a
+
+  RHO_A_DB_MAP_t rho_a_db_map_[10];                 // vector of rho_a maps by subframe number
 
   // cyclic prefix normal or extended for this cell
   srslte_cp_t cell_cp_ = SRSLTE_CP_NORM;
@@ -1380,13 +1384,13 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   EMANELTE::MHAL::RxMessages messages;
 
-  struct timeval tv_sor;
+  struct timeval tv_tti;
 
-  EMANELTE::MHAL::ENB::get_messages(messages, tv_sor);
+  EMANELTE::MHAL::ENB::get_messages(messages, tv_tti);
 
   // set rx time 
-  ts->full_secs = tv_sor.tv_sec;
-  ts->frac_secs = tv_sor.tv_usec/1e6;
+  ts->full_secs = tv_tti.tv_sec;
+  ts->frac_secs = tv_tti.tv_usec/1e6;
 
   // for each msg rx ota
   for(auto iter = messages.begin(); iter != messages.end(); ++iter)
@@ -1397,7 +1401,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const auto & rxControl = iter->second;
 
-        Info("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti %u, tti %u, %s %s %s\n",
+        Info("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, %s %s %s\n",
                 __func__,
                 rxControl.rxData_.sf_time_.tv_sec,
                 rxControl.rxData_.sf_time_.tv_usec,
@@ -1413,7 +1417,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
         // check ul msg pci vs our pci
         if(pci != my_pci_)
          {
-           Debug("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
+           Info("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
          }
         else
          {
@@ -1575,17 +1579,18 @@ typedef struct SRSLTE_API {
   bool    valid;
 } srslte_uci_value_ack_t;
 
-typedef struct SRSLTE_API {
-  bool     pending_tb[SRSLTE_MAX_CODEWORDS];
-  uint32_t nof_acks;
+ typedef struct SRSLTE_API {
+  bool     pending_tb[SRSLTE_MAX_CODEWORDS]; //< Indicates whether there was a grant that requires an ACK/NACK
+  uint32_t nof_acks;                         //< Number of transport blocks, deduced from transmission mode
   uint32_t ncce[SRSLTE_UCI_MAX_M];
   uint32_t N_bundle;
   uint32_t tdd_ack_M;
   uint32_t tdd_ack_m;
-  bool     tdd_is_bundling;
-  bool     has_scell_ack;
+  bool     tdd_is_multiplex;
+  uint32_t tpc_for_pucch;
+  uint32_t grant_cc_idx;
 } srslte_uci_cfg_ack_t;
-    
+   
 typedef struct SRSLTE_API {
   srslte_uci_cfg_ack_t ack;
   srslte_cqi_cfg_t     cqi;
@@ -1601,6 +1606,7 @@ typedef struct SRSLTE_API {
     
 typedef struct SRSLTE_API {
   srslte_uci_value_t uci_data;
+  float              dmrs_correlation;
   float              correlation;
   bool               detected;
 } srslte_pucch_res_t; */
@@ -1622,6 +1628,8 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   // see lib/src/phy/enb/enb_ul.c get_pucch()
   if (!srslte_pucch_cfg_isvalid(cfg, q->cell.nof_prb)) {
     Error("PUCCH %s, Invalid PUCCH configuration\n", __func__);
+  
+    pthread_mutex_unlock(&ul_mutex_);
     return -1;
   }
 
@@ -1639,6 +1647,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   cfg->format = srslte_pucch_proc_select_format(&q->cell, cfg, &cfg->uci_cfg, NULL);
   if (cfg->format == SRSLTE_PUCCH_FORMAT_ERROR) {
     ERROR("Returned Error while selecting PUCCH format\n");
+    pthread_mutex_unlock(&ul_mutex_);
     return SRSLTE_ERROR;
   }
 
@@ -1646,6 +1655,7 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
   int nof_resources = srslte_pucch_proc_get_resources(&q->cell, cfg, &cfg->uci_cfg, NULL, n_pucch_i);
   if (nof_resources < 1 || nof_resources > SRSLTE_PUCCH_CS_MAX_ACK) {
     ERROR("No PUCCH resource could be calculated (%d)\n", nof_resources);
+    pthread_mutex_unlock(&ul_mutex_);
     return SRSLTE_ERROR;
   }
 
@@ -1665,8 +1675,9 @@ int enb_ul_get_pucch(srslte_enb_ul_t*    q,
 
   const auto rnti = cfg->rnti;
 
-  res->correlation = 1.0;
-  res->detected    = false;
+  res->dmrs_correlation = 1.0;
+  res->correlation      = 1.0;
+  res->detected         = false;
 
   // for each uplink message
   for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end() && !res->detected; ++ul_msg)
