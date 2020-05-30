@@ -266,7 +266,7 @@ void cc_worker::work_dl(const srslte_dl_sf_cfg_t&            dl_sf_cfg,
   Debug("cc_worker:%s cc_idx %u\n", __func__, cc_idx);
 
 #ifdef PHY_ADAPTER_ENABLE
-  phy_adapter::enb_dl_tx_init(&enb_dl, tti_tx_dl, dl_grants.cfi);
+  phy_adapter::enb_dl_cc_tx_init(&enb_dl, tti_tx_dl, dl_grants.cfi, cc_idx);
 #endif
 
   // Put DL grants to resource grid. PDSCH data will be encoded as well.
@@ -332,7 +332,7 @@ int cc_worker::decode_pusch(stack_interface_phy_lte::ul_sched_grant_t* grants, u
 #ifndef PHY_ADAPTER_ENABLE
         if (srslte_enb_ul_get_pusch(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res)) {
 #else
-        if (phy_adapter::enb_ul_get_pusch(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, rnti)) {
+        if (phy_adapter::enb_ul_cc_get_pusch(&enb_ul, &ul_sf, &ul_cfg.pusch, &pusch_res, rnti, cc_idx)) {
 #endif
           Error("Decoding PUSCH\n");
           return SRSLTE_ERROR;
@@ -405,7 +405,7 @@ int cc_worker::decode_pucch()
 #ifndef PHY_ADAPTER_ENABLE
         if (srslte_enb_ul_get_pucch(&enb_ul, &ul_sf, &ul_cfg.pucch, &pucch_res)) {
 #else
-        if (phy_adapter::enb_ul_get_pucch(&enb_ul, &ul_sf, &ul_cfg.pucch, &pucch_res)) {
+        if (phy_adapter::enb_ul_cc_get_pucch(&enb_ul, &ul_sf, &ul_cfg.pucch, &pucch_res, cc_idx)) {
 #endif
           ERROR("Error getting PUCCH\n");
           return SRSLTE_ERROR;
@@ -443,7 +443,7 @@ int cc_worker::encode_phich(stack_interface_phy_lte::ul_sched_ack_t* acks, uint3
 #ifndef PHY_ADAPTER_ENABLE
       srslte_enb_dl_put_phich(&enb_dl, &ue_db[acks[i].rnti]->phich_grant, acks[i].ack);
 #else
-      phy_adapter::enb_dl_put_phich(&enb_dl, &ue_db[acks[i].rnti]->phich_grant, &acks[i]);
+      phy_adapter::enb_dl_cc_put_phich(&enb_dl, &ue_db[acks[i].rnti]->phich_grant, &acks[i], cc_idx);
 #endif
 
       Info("PHICH: rnti=0x%x, hi=%d, I_lowest=%d, n_dmrs=%d, tti_tx_dl=%d\n",
@@ -465,7 +465,7 @@ int cc_worker::encode_pdcch_ul(stack_interface_phy_lte::ul_sched_grant_t* grants
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdcch_ul(&enb_dl, &dci_cfg, &grants[i].dci)) {
 #else
-      if (phy_adapter::enb_dl_put_pdcch_ul(&enb_dl, &dci_cfg, &grants[i].dci, i)) {
+      if (phy_adapter::enb_dl_cc_put_pdcch_ul(&enb_dl, &dci_cfg, &grants[i].dci, i, cc_idx)) {
 #endif
         ERROR("Error putting PUSCH %d\n", i);
         return SRSLTE_ERROR;
@@ -491,7 +491,7 @@ int cc_worker::encode_pdcch_dl(stack_interface_phy_lte::dl_sched_grant_t* grants
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdcch_dl(&enb_dl, &dci_cfg, &grants[i].dci)) {
 #else
-      if (phy_adapter::enb_dl_put_pdcch_dl(&enb_dl, &dci_cfg, &grants[i], i)) {
+      if (phy_adapter::enb_dl_cc_put_pdcch_dl(&enb_dl, &dci_cfg, &grants[i], i, cc_idx)) {
 #endif
         ERROR("Error putting PDCCH %d\n", i);
         return SRSLTE_ERROR;
@@ -522,7 +522,7 @@ int cc_worker::encode_pmch(stack_interface_phy_lte::dl_sched_grant_t* grant, srs
 #ifndef PHY_ADAPTER_ENABLE
   if (srslte_enb_dl_put_pmch(&enb_dl, &pmch_cfg, grant->data[0])) {
 #else
-  if (phy_adapter::enb_dl_put_pmch(&enb_dl, &pmch_cfg, grant)) {
+  if (phy_adapter::enb_dl_cc_put_pmch(&enb_dl, &pmch_cfg, grant, cc_idx)) {
 #endif
     Error("Error putting PMCH\n");
     return SRSLTE_ERROR;
@@ -566,7 +566,7 @@ int cc_worker::encode_pdsch(stack_interface_phy_lte::dl_sched_grant_t* grants, u
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdsch(&enb_dl, &dl_cfg.pdsch, grants[i].data)) {
 #else
-if (phy_adapter::enb_dl_put_pdsch_dl(&enb_dl, &dl_cfg.pdsch, &grants[i], i)) {
+if (phy_adapter::enb_dl_cc_put_pdsch_dl(&enb_dl, &dl_cfg.pdsch, &grants[i], i, cc_idx)) {
 #endif
         Error("Error putting PDSCH %d\n", i);
         return SRSLTE_ERROR;

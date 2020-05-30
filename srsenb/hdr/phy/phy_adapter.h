@@ -59,9 +59,10 @@ void enb_initialize(srslte::log*                   log_h,
  void enb_stop();
 
  // set base info
- void enb_dl_tx_init(const srslte_enb_dl_t* q,
-                     uint32_t               tti,
-                     uint32_t               cfi);
+ void enb_dl_cc_tx_init(const srslte_enb_dl_t* q,
+                        uint32_t               tti,
+                        uint32_t               cfi,
+                        uint32_t               cc_idx);
 
  // send to mhal with sot time
  bool enb_dl_send_signal(time_t sot_sec,
@@ -78,38 +79,44 @@ void enb_initialize(srslte::log*                   log_h,
                                   float    rho_b_db);
 
  // set dl pdcch
- int enb_dl_put_pdcch_dl(srslte_enb_dl_t*                     q, 
-                         srslte_dci_cfg_t* dci_cfg,
-                         mac_interface_phy_lte::dl_sched_grant_t* grant,
-                         uint32_t ref);
+ int enb_dl_cc_put_pdcch_dl(srslte_enb_dl_t*                         q, 
+                            srslte_dci_cfg_t*                        dci_cfg,
+                            mac_interface_phy_lte::dl_sched_grant_t* grant,
+                            uint32_t                                 ref,
+                            uint32_t                                 cc_idx);
  // set dl pdsch
- int enb_dl_put_pdsch_dl(srslte_enb_dl_t*                     q, 
-                         srslte_pdsch_cfg_t*                  pdsch, 
-                         mac_interface_phy_lte::dl_sched_grant_t* grant,
-                         uint32_t ref);
+ int enb_dl_cc_put_pdsch_dl(srslte_enb_dl_t*                         q, 
+                            srslte_pdsch_cfg_t*                      pdsch, 
+                            mac_interface_phy_lte::dl_sched_grant_t* grant,
+                            uint32_t                                 ref,
+                            uint32_t                                 cc_idx);
 
 
  // set dl pdsch
- int enb_dl_put_pdsch(srslte_enb_dl_t*    q, 
-                      srslte_pdsch_cfg_t* pdsch, 
-                      uint8_t*            data[SRSLTE_MAX_CODEWORDS],
-                      uint32_t            idx);
+ int enb_dl_cc_put_pdsch(srslte_enb_dl_t*    q, 
+                         srslte_pdsch_cfg_t* pdsch, 
+                         uint8_t*            data[SRSLTE_MAX_CODEWORDS],
+                         uint32_t            idx,
+                         uint32_t            cc_idx);
 
  // set dl mch
- int enb_dl_put_pmch(srslte_enb_dl_t*                     q,
-                     srslte_pmch_cfg_t*                   pmch_cfg,
-                     mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant);
+ int enb_dl_cc_put_pmch(srslte_enb_dl_t*                         q,
+                        srslte_pmch_cfg_t*                       pmch_cfg,
+                        mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant,
+                        uint32_t                                 cc_idx);
 
  //set ul pdcch
- int enb_dl_put_pdcch_ul(srslte_enb_dl_t*  q, 
-                         srslte_dci_cfg_t* dci_cfg, 
-                         srslte_dci_ul_t*  dci_ul,
-                         uint32_t          idx);
+ int enb_dl_cc_put_pdcch_ul(srslte_enb_dl_t*  q, 
+                            srslte_dci_cfg_t* dci_cfg, 
+                            srslte_dci_ul_t*  dci_ul,
+                            uint32_t          idx,
+                            uint32_t          cc_idx);
 
  // set phich
- int enb_dl_put_phich(srslte_enb_dl_t*                   q, 
-                      srslte_phich_grant_t*              grant,
-                      mac_interface_phy_lte::ul_sched_ack_t* ack);
+ int enb_dl_cc_put_phich(srslte_enb_dl_t*                       q, 
+                         srslte_phich_grant_t*                  grant,
+                         mac_interface_phy_lte::ul_sched_ack_t* ack,
+                         uint32_t                               cc_idx);
 
  // get prach
  int enb_ul_get_prach(uint32_t*  indicies, 
@@ -119,17 +126,19 @@ void enb_initialize(srslte::log*                   log_h,
                       uint32_t & num_detected);
 
  // get pucch
- int enb_ul_get_pucch(srslte_enb_ul_t*    q,
-                      srslte_ul_sf_cfg_t* ul_sf,
-                      srslte_pucch_cfg_t* cfg,
-                      srslte_pucch_res_t* res);
+ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
+                         srslte_ul_sf_cfg_t* ul_sf,
+                         srslte_pucch_cfg_t* cfg,
+                         srslte_pucch_res_t* res,
+                         uint32_t            cc_idx);
 
  // get pusch
- int enb_ul_get_pusch(srslte_enb_ul_t*    q,
-                      srslte_ul_sf_cfg_t* ul_sf,
-                      srslte_pusch_cfg_t* cfg,
-                      srslte_pusch_res_t* res,
-                      uint16_t            rnti);
+ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
+                         srslte_ul_sf_cfg_t* ul_sf,
+                         srslte_pusch_cfg_t* cfg,
+                         srslte_pusch_res_t* res,
+                         uint16_t            rnti,
+                         uint32_t            cc_idx);
  } 
 }
 #endif //EMU_SRSENB_PHY_ADAPTER_H
