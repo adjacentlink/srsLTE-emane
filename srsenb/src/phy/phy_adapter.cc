@@ -555,6 +555,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    data_message->set_tb(tb);
    data_message->set_tbs(grant.tb[tb].tbs);
    data_message->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
+   data_message->set_carrierid(cc_idx);
    
    ENBSTATS::putDLGrant(rnti);
 
@@ -1459,9 +1460,11 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
        {
          auto & rxControl = ul_msg->second;
 
-         if(!rxControl.SINRTester_.sinrCheck(EMANELTE::MHAL::CHAN_PRACH))
+         const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, 0);
+
+         if(! sinrResult.bPassed_)
            {
-             Info("PRACH:%s: fail snr\n", __func__);
+             Info("PRACH:%s: fail snr, %f\n", __func__, sinrResult.sinr_dB_);
              continue;
            }
 
@@ -1710,7 +1713,7 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
             {
               auto & rxControl = ul_msg->second;
 
-              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti);
+              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, cc_idx);
 
               if(sinrResult.bPassed_)
                 {
@@ -1884,7 +1887,7 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
             {
               auto & rxControl = ul_msg->second;
 
-              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti);
+              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, cc_idx);
 
               if(sinrResult.bPassed_)
                 {

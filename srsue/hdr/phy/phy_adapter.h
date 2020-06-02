@@ -85,39 +85,44 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync,
 float ue_dl_get_rssi(uint32_t cell_id);
 
 // get dl dci
-int ue_dl_find_dl_dci(srslte_ue_dl_t*            q,
-                             srslte_dl_sf_cfg_t* sf,
-                             srslte_ue_dl_cfg_t* cfg,
-                             uint16_t            rnti,
-                             srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG]);
+int ue_dl_cc_find_dl_dci(srslte_ue_dl_t*     q,
+                         srslte_dl_sf_cfg_t* sf,
+                         srslte_ue_dl_cfg_t* cfg,
+                         uint16_t            rnti,
+                         srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG],
+                         uint32_t            cc_idx);
 
 // get ul dci
-int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
-                      srslte_dl_sf_cfg_t* sf,
-                      srslte_ue_dl_cfg_t* cfg,
-                      uint16_t            rnti,
-                      srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG]);
+int ue_dl_cc_find_ul_dci(srslte_ue_dl_t*     q,
+                         srslte_dl_sf_cfg_t* sf,
+                         srslte_ue_dl_cfg_t* cfg,
+                         uint16_t            rnti,
+                         srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG],
+                         uint32_t cc_idx);
 
 // decode pdsch
-int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
-                       srslte_dl_sf_cfg_t* sf,
-                       srslte_pdsch_cfg_t* pdsch_cfg,
-                       srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS]);
+int ue_dl_cc_decode_pdsch(srslte_ue_dl_t*     q,
+                          srslte_dl_sf_cfg_t* sf,
+                          srslte_pdsch_cfg_t* pdsch_cfg,
+                          srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS],
+                          uint32_t cc_idx);
 
 // get phich
-int ue_dl_decode_phich(srslte_ue_dl_t*       q,
-                       srslte_dl_sf_cfg_t*   sf,
-                       srslte_ue_dl_cfg_t*   cfg,
-                       srslte_phich_grant_t* grant,
-                       srslte_phich_res_t*   result,
-                       uint16_t rnti);
+int ue_dl_cc_decode_phich(srslte_ue_dl_t*       q,
+                          srslte_dl_sf_cfg_t*   sf,
+                          srslte_ue_dl_cfg_t*   cfg,
+                          srslte_phich_grant_t* grant,
+                          srslte_phich_res_t*   result,
+                          uint16_t rnti,
+                          uint32_t cc_idx);
 
 
 // get pmch
-int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
-                      srslte_dl_sf_cfg_t* sf,
-                      srslte_pmch_cfg_t*  pmch_cfg,
-                      srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS]);
+int ue_dl_cc_decode_pmch(srslte_ue_dl_t*     q,
+                         srslte_dl_sf_cfg_t* sf,
+                         srslte_pmch_cfg_t*  pmch_cfg,
+                         srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS],
+                         uint32_t cc_idx);
 
 
 // tx init
@@ -130,7 +135,7 @@ void ue_ul_send_signal(time_t sot_secs, float frac_sec, const srslte_cell_t & ce
 void ue_ul_put_prach(int index);
 
 // set pucch, pusch
-int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data);
+int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data, uint32_t cc_idx);
 
 } // end namespace phy_adapter
 } // end namespace srsue

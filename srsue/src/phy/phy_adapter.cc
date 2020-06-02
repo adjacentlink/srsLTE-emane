@@ -334,7 +334,7 @@ static DL_ENB_Signals ue_dl_enb_subframe_get_i(srslte_ue_sync_t * ue_sync, const
 }
 
 
-static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
+static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 {
   UL_DCI_Results ul_dci_results;
 
@@ -348,7 +348,7 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
 
          if(ul_dci_message.rnti() == rnti)
            {
-             const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti);
+             const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, cc_idx);
 
              if(sinrResult.bPassed_)
                {
@@ -376,7 +376,7 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti)
 }
 
 
-static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti)
+static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 {
   DL_DCI_Results dl_dci_results;
 
@@ -390,7 +390,7 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti)
 
          if(dl_dci_message.rnti() == rnti)
            {
-             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti).bPassed_)
+             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, cc_idx).bPassed_)
                {
                  Info("PDSCH:%s: found dci rnti 0x%hx, refid %u\n", 
                         __func__, rnti, dl_dci_message.refid());
@@ -417,7 +417,7 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti)
 
 
 
-static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
+static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti, uint32_t cc_idx)
 {
   PDSCH_Results pdsch_results;
 
@@ -425,7 +425,9 @@ static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti)
     {
       const auto & pdsch_message = enb_dl_msg_.pdsch();
 
-      const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti);
+      Info("PDSCH:%s: have %u messages\n", __func__, pdsch_message.data().size());
+
+      const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti, cc_idx);
 
       if(sinrResult.bPassed_)
         {
@@ -828,7 +830,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
             {
               auto rxControl = dl_enb_signals[0].second;
 
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).bPassed_)
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, 0).bPassed_)
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
@@ -960,7 +962,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH).bPassed_)
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, 0).bPassed_)
                 {
                   if(enb_dl_msg.has_pss_sss())
                     {
@@ -1102,25 +1104,26 @@ typedef struct SRSLTE_API {
 //                              srslte_ue_dl_cfg_t* dl_cfg,
 //                              uint16_t            rnti,
 //                              srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
-int ue_dl_find_dl_dci(srslte_ue_dl_t*     q,
-                      srslte_dl_sf_cfg_t* sf,
-                      srslte_ue_dl_cfg_t* dl_cfg,
-                      uint16_t            rnti,
-                      srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG])
+int ue_dl_cc_find_dl_dci(srslte_ue_dl_t*     q,
+                         srslte_dl_sf_cfg_t* sf,
+                         srslte_ue_dl_cfg_t* dl_cfg,
+                         uint16_t            rnti,
+                         srslte_dci_dl_t     dci_dl[SRSLTE_MAX_DCI_MSG],
+                         uint32_t            cc_idx)
 
 {
   srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {{}};
 
   int nof_msg = 0;
 
-  const auto dl_dci_results = get_dl_dci_list_i(rnti);
+  const auto dl_dci_results = get_dl_dci_list_i(rnti, cc_idx);
 
   // expecting 1 dci/rnti
   if(dl_dci_results.size() == 1)
     {
       const auto & dci_message = dl_dci_results[0];
 
-      const auto pdsch_results = ue_dl_get_pdsch_data_list_i(dci_message.refid(), rnti);
+      const auto pdsch_results = ue_dl_get_pdsch_data_list_i(dci_message.refid(), rnti, cc_idx);
 
       // XXX TODO pass/fail
       UESTATS::getPDCCH(rnti, true);
@@ -1209,11 +1212,12 @@ typedef struct SRSLTE_API {
 } srslte_dci_msg_t; */
 
 // see lib/src/phy/ue/ue_dl.c
-int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
-                      srslte_dl_sf_cfg_t* sf,
-                      srslte_ue_dl_cfg_t* dl_cfg,
-                      uint16_t            rnti,
-                      srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG])
+int ue_dl_cc_find_ul_dci(srslte_ue_dl_t*     q,
+                         srslte_dl_sf_cfg_t* sf,
+                         srslte_ue_dl_cfg_t* dl_cfg,
+                         uint16_t            rnti,
+                         srslte_dci_ul_t     dci_ul[SRSLTE_MAX_DCI_MSG],
+                         uint32_t cc_idx)
 {
   srslte_dci_msg_t dci_msg[SRSLTE_MAX_DCI_MSG] = {{}};
 
@@ -1221,7 +1225,7 @@ int ue_dl_find_ul_dci(srslte_ue_dl_t*     q,
 
   if(rnti) 
    {
-     const auto ul_dci_results = get_ul_dci_list_i(rnti);
+     const auto ul_dci_results = get_ul_dci_list_i(rnti, cc_idx);
 
      // expecting 1 dci/rnti
      if(ul_dci_results.size() == 1)
@@ -1336,10 +1340,11 @@ typedef struct {
 } srslte_pdsch_res_t; */
 
 // see lib/src/phy/phch/pdsch.c srslte_pdsch_decode()
-int ue_dl_decode_pdsch(srslte_ue_dl_t*     q,
-                       srslte_dl_sf_cfg_t* sf,
-                       srslte_pdsch_cfg_t* cfg,
-                       srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS])
+int ue_dl_cc_decode_pdsch(srslte_ue_dl_t*     q,
+                          srslte_dl_sf_cfg_t* sf,
+                          srslte_pdsch_cfg_t* cfg,
+                          srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS],
+                          uint32_t cc_idx)
 {
    const auto rnti = cfg->rnti;
 
@@ -1403,12 +1408,13 @@ typedef struct SRSLTE_API {
 } srslte_ue_dl_cfg_t; */
 
 // see lib/src/phy/ue/ue_dl.c
-int ue_dl_decode_phich(srslte_ue_dl_t*       q,
-                       srslte_dl_sf_cfg_t*   sf,
-                       srslte_ue_dl_cfg_t*   cfg,
-                       srslte_phich_grant_t* grant,
-                       srslte_phich_res_t*   result,
-                       uint16_t rnti)
+int ue_dl_cc_decode_phich(srslte_ue_dl_t*       q,
+                          srslte_dl_sf_cfg_t*   sf,
+                          srslte_ue_dl_cfg_t*   cfg,
+                          srslte_phich_grant_t* grant,
+                          srslte_phich_res_t*   result,
+                          uint16_t rnti,
+                          uint32_t cc_idx)
 {
   srslte_phich_resource_t n_phich;
 
@@ -1418,7 +1424,7 @@ int ue_dl_decode_phich(srslte_ue_dl_t*       q,
    {
      const auto & phich_message = enb_dl_msg_.phich();
 
-     const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti);
+     const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti, cc_idx);
 
      ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
 
@@ -1517,10 +1523,11 @@ typedef struct {
   float    avg_iterations_block;
 } srslte_pdsch_res_t; */
 
-int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
-                      srslte_dl_sf_cfg_t* sf,
-                      srslte_pmch_cfg_t*  cfg,
-                      srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS])
+int ue_dl_cc_decode_pmch(srslte_ue_dl_t*     q,
+                         srslte_dl_sf_cfg_t* sf,
+                         srslte_pmch_cfg_t*  cfg,
+                         srslte_pdsch_res_t  data[SRSLTE_MAX_CODEWORDS],
+                         uint32_t cc_idx)
 {
    const auto area_id = cfg->area_id;
 
@@ -1534,7 +1541,7 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
 
             if(area_id == pmch.area_id())
              {
-               const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH);
+               const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH, cc_idx);
 
                ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
 
@@ -1545,8 +1552,6 @@ int ue_dl_decode_pmch(srslte_ue_dl_t*     q,
                    data[tb].avg_iterations_block = 1;
 
                    data[tb].crc = true;
-
-
 #ifdef DEBUG_HEX
                    InfoHex(pmch.data().data(), pmch.data().size(),
                            "PMCH:%s: areaid %d, tb[%d], payload %zu bytes, snr %f\n",
@@ -1730,7 +1735,8 @@ typedef struct SRSLTE_API {
 int ue_ul_put_pucch_i(srslte_ue_ul_t* q, 
                       srslte_ul_sf_cfg_t* sf,
                       srslte_ue_ul_cfg_t* cfg,
-                      srslte_uci_value_t* uci_data)
+                      srslte_uci_value_t* uci_data,
+                      uint32_t cc_idx)
 {
    pthread_mutex_lock(&ul_mutex_);
 
@@ -1894,7 +1900,7 @@ typedef struct SRSLTE_API {
   uint8_t*           ptr;
   srslte_uci_value_t uci;
 } srslte_pusch_data_t; */
-static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data)
+static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data, uint32_t cc_idx)
 {
    pthread_mutex_lock(&ul_mutex_);
 
@@ -1997,7 +2003,7 @@ typedef struct SRSLTE_API {
 //                     srslte_ue_ul_cfg_t* cfg,
 //                     srslte_pusch_data_t* data);
 //
-int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data)
+int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* cfg, srslte_pusch_data_t* data, uint32_t cc_idx)
 {
   /* Convert DTX to NACK in channel-selection mode (Release 10 only)*/
   if(cfg->ul_cfg.pucch.ack_nack_feedback_mode != SRSLTE_PUCCH_ACK_NACK_FEEDBACK_MODE_NORMAL) {
@@ -2021,13 +2027,13 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
 #define uci_pending(cfg) (srslte_uci_cfg_total_ack(&cfg) > 0 || cfg.cqi.data_enable || cfg.cqi.ri_len > 0)
    if(cfg->grant_available) 
     {
-      return ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data);
+      return ue_ul_put_pusch_i(&cfg->ul_cfg.pusch, data, cc_idx);
     } 
    else if((uci_pending(cfg->ul_cfg.pucch.uci_cfg) || 
             data->uci.scheduling_request) && cfg->cc_idx == 0)
     // Send PUCCH over PCell only
     {
-      return ue_ul_put_pucch_i(q, sf, cfg, &data->uci);
+      return ue_ul_put_pucch_i(q, sf, cfg, &data->uci, cc_idx);
     }
    else
     {

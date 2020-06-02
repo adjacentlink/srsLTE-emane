@@ -389,7 +389,7 @@ int cc_worker::decode_pdcch_dl()
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants                    = srslte_ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
 #else
-      nof_grants = phy_adapter::ue_dl_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci);
+      nof_grants = phy_adapter::ue_dl_cc_find_dl_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, dl_rnti, dci, cc_idx);
 #endif
       if (nof_grants < 0) {
         Error("Looking for DL grants\n");
@@ -450,7 +450,7 @@ int cc_worker::decode_pdsch(srslte_pdsch_ack_resource_t            ack_resource,
 #ifndef PHY_ADAPTER_ENABLE
     if (srslte_ue_dl_decode_pdsch(&ue_dl, &sf_cfg_dl, &ue_dl_cfg.cfg.pdsch, pdsch_dec)) {
 #else
-    if (phy_adapter::ue_dl_decode_pdsch(&ue_dl, &sf_cfg_dl, &ue_dl_cfg.cfg.pdsch, pdsch_dec)) {
+    if (phy_adapter::ue_dl_cc_decode_pdsch(&ue_dl, &sf_cfg_dl, &ue_dl_cfg.cfg.pdsch, pdsch_dec, cc_idx)) {
 #endif
       Error("ERROR: Decoding PDSCH\n");
     }
@@ -507,7 +507,7 @@ int cc_worker::decode_pmch(mac_interface_phy_lte::tb_action_dl_t* action, srslte
 #ifndef PHY_ADAPTER_ENABLE
     if (srslte_ue_dl_decode_pmch(&ue_dl, &sf_cfg_dl, &pmch_cfg, &pmch_dec)) {
 #else
-    if (phy_adapter::ue_dl_decode_pmch(&ue_dl, &sf_cfg_dl, &pmch_cfg, &pmch_dec)) {
+    if (phy_adapter::ue_dl_cc_decode_pmch(&ue_dl, &sf_cfg_dl, &pmch_cfg, &pmch_dec, cc_idx)) {
 #endif
       Error("Decoding PMCH\n");
       return -1;
@@ -547,7 +547,7 @@ void cc_worker::decode_phich()
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_ue_dl_decode_phich(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, &phich_grant, &phich_res)) {
 #else
-      if (phy_adapter::ue_dl_decode_phich(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, &phich_grant, &phich_res, dci_ul.rnti)) {
+      if (phy_adapter::ue_dl_cc_decode_phich(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, &phich_grant, &phich_res, dci_ul.rnti, cc_idx)) {
 #endif
         Error("Decoding PHICH\n");
       }
@@ -800,7 +800,7 @@ int cc_worker::decode_pdcch_ul()
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants                    = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
 #else
-      nof_grants = phy_adapter::ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
+      nof_grants = phy_adapter::ue_dl_cc_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci, cc_idx);
 #endif
       if (nof_grants < 0) {
         Error("Looking for UL grants\n");
@@ -863,7 +863,7 @@ bool cc_worker::encode_uplink(mac_interface_phy_lte::tb_action_ul_t* action, srs
 #ifndef PHY_ADAPTER_ENABLE
   int ret = srslte_ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
 #else
-  int ret = phy_adapter::ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data);
+  int ret = phy_adapter::ue_ul_encode(&ue_ul, &sf_cfg_ul, &ue_ul_cfg, &data, cc_idx);
 #endif
   if (ret < 0) {
     Error("Encoding UL cc=%d\n", cc_idx);
