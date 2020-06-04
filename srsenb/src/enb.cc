@@ -108,7 +108,7 @@ int enb::init(const all_args_t& args_, srslte::logger* logger_)
   log.console("Type <t> to view trace\n");
 
   // ALINK_XXX set log level to prevent info level logs srslte issue #393
-  log.set_level(srslte::LOG_LEVEL_WARNING);
+  // log.set_level(srslte::LOG_LEVEL_WARNING);
 
   started = (ret == SRSLTE_SUCCESS);
 
@@ -139,35 +139,19 @@ int enb::parse_args(const all_args_t& args_)
 {
   // set member variable
   args = args_;
+
   int result = enb_conf_sections::parse_cfg_files(&args, &rrc_cfg, &phy_cfg);
 
 #ifdef PHY_ADAPTER_ENABLE
   if(result != SRSLTE_ERROR)
    {
-     // ALINK_XXX multiple cell cfg
-     if(phy_cfg.phy_cell_cfg.size() == 1)
-      {
-        ENBSTATS::initialize(args.general.metrics_period_secs);
+     ENBSTATS::initialize(args.general.metrics_period_secs);
 
-        const auto & cell_cfg = phy_cfg.phy_cell_cfg.front();
-
-        phy_adapter::enb_initialize(&log, 
-                                    1, 
-                                    cell_cfg.cell.id, 
-                                    cell_cfg.cell.cp, 
-                                    cell_cfg.ul_freq_hz, 
-                                    cell_cfg.dl_freq_hz, 
-                                    cell_cfg.cell.nof_prb, 
-                                    args.mhal, 
-                                    &rrc_cfg);
-      }
-     else
-      {
-        log.console("TODO, only 1 phy_cell_cfg supported, found %zu phy_cell_cfg entries\n", 
-                    phy_cfg.phy_cell_cfg.size());
-
-        result = SRSLTE_ERROR;
-      }
+     phy_adapter::enb_initialize(&log, 
+                                 1, 
+                                 phy_cfg.phy_cell_cfg,
+                                 args.mhal, 
+                                 &rrc_cfg);
    }
 #endif
 

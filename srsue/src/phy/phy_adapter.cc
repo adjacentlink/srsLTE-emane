@@ -425,19 +425,20 @@ static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti, 
     {
       const auto & pdsch_message = enb_dl_msg_.pdsch();
 
-      Info("PDSCH:%s: have %u messages\n", __func__, pdsch_message.data().size());
-
       const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti, cc_idx);
 
       if(sinrResult.bPassed_)
         {
           for(int n = 0; n < pdsch_message.data().size(); ++n)
             {
-              const auto & data_message = pdsch_message.data(n);
+              const auto & pdsch_data = pdsch_message.data(n);
 
-              if(data_message.refid() == refid)
+              Info("PDSCH:%s: n %d, cc %u, refid %u, tb %u\n", 
+                   __func__, n, pdsch_data.carrierid(), pdsch_data.refid(), pdsch_data.tb());
+
+              if(pdsch_data.refid() == refid)
                 {
-                  pdsch_results.emplace_back(data_message, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
+                  pdsch_results.emplace_back(pdsch_data, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
                 }
             }
         }

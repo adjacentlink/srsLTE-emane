@@ -31,6 +31,7 @@
 #include "srslte/common/log.h"
 #include "srslte/phy/enb/enb_dl.h"
 #include "srslte/interfaces/enb_interfaces.h"
+#include "srsenb/hdr/phy/phy_interfaces.h"
 
 #include "srsenb/hdr/stack/rrc/rrc.h"
 
@@ -44,11 +45,7 @@ namespace phy_adapter {
 
 void enb_initialize(srslte::log*                   log_h, 
                     uint32_t                       sf_interval,
-                    uint32_t                       physical_cell_id,
-                    srslte_cp_t                    cp,
-                    float                          ul_freq,
-                    float                          dl_freq,
-                    int                            nprb, 
+                    phy_cell_cfg_list_t            cfg_list,
                     EMANELTE::MHAL::mhal_config_t& mhal_config,
                     rrc_cfg_t*                     rrc_cfg);
 

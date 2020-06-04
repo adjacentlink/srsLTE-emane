@@ -549,20 +549,24 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    auto pdsch_message = enb_dl_msg_.mutable_pdsch();
 
    // pdsch data
-   auto data_message = pdsch_message->add_data();
+   auto pdsch_data = pdsch_message->add_data();
 
-   data_message->set_refid(pdsch_ref_++);
-   data_message->set_tb(tb);
-   data_message->set_tbs(grant.tb[tb].tbs);
-   data_message->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
-   data_message->set_carrierid(cc_idx);
+   pdsch_data->set_refid(pdsch_ref_++);
+   pdsch_data->set_tb(tb);
+   pdsch_data->set_tbs(grant.tb[tb].tbs);
+   pdsch_data->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
+   pdsch_data->set_carrierid(cc_idx);
    
    ENBSTATS::putDLGrant(rnti);
 
 #ifdef DEBUG_HEX
    InfoHex(data, bits_to_bytes(grant.tb[tb].tbs),
-           "PDSCH:%s cc=%u, rnti=0x%hx, refid %d, tbs %d\n",
+           "PDSCH:%s cc %u, rnti 0x%hx, refid %d, tbs %d\n",
            __func__, cc_idx, rnti, pdsch_ref_ - 1, grant.tb[tb].tbs);
+#else
+   Info("PDSCH:%s cc %u, rnti 0x%hx, refid %d, tb %d, tbs %d\n",
+           __func__, cc_idx, rnti, pdsch_data->refid(), pdsch_data->tb(), pdsch_data->tbs());
+
 #endif
 
    return SRSLTE_SUCCESS;
@@ -664,48 +668,32 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 }
 
 
-// BEGIN phy_adapter enb api
-
-void enb_initialize(srslte::log * log_h, 
-                    uint32_t sf_interval_msec, 
-                    uint32_t physical_cell_id, 
-                    srslte_cp_t cp,
-                    float ul_freq,
-                    float dl_freq, 
-                    int n_prb, 
-                    EMANELTE::MHAL::mhal_config_t & mhal_config,
-                    rrc_cfg_t * rrc_cfg)
+void enb_init_i(uint32_t sf_interval_msec, 
+                uint32_t physical_cell_id, 
+                srslte_cp_t cp,
+                float ul_freq,
+                float dl_freq, 
+                int n_prb, 
+                EMANELTE::MHAL::mhal_config_t & mhal_config,
+                rrc_cfg_t * rrc_cfg)
 {
-  log_h_ = log_h;
-
   pdsch_rs_power_milliwatt_ = pow(10.0, static_cast<float>(rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr) / 10.0);
-
-  uint8_t p_b = rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b;
-
-#if 0 // TODO
-  if(p_b < 4)
-    {
-      // this table no longer resides in lib/include/srslte/phy/phch/pdsch_cfg.h
-      // new location unknown
-      pdsch_rho_b_over_rho_a_ = pdsch_cfg_cell_specific_ratio_table[0][p_b];
-    }
-#endif
 
   cell_cp_ = cp;
 
-  Info("INIT:%s sf_interval "
-       "%u msec, "
-       "ul_freq %6.4f MHz, "
-       "fl_freq %6.4f MHz, "
-       "n_prb %d, "
-       "rs_power=%d "
-       "pdsch_rs_power_milliwatt=%0.2f "
-       "p_b=%d "
-       "pdsch_rho_b_over_rho_a=%.02f\n",
+  Info("INIT:%s\n"
+       "\tsf_interval=%u msec\n"
+       "\tul_freq=%6.4f MHz\n"
+       "\tfl_freq=%6.4f MHz\n"
+       "\tn_prb=%d\n"
+       "\trs_power=%d\n"
+       "\tpdsch_rs_power_milliwatt=%0.2f\n"
+       "\tp_b=%d\n"
+       "\tpdsch_rho_b_over_rho_a=%.02f\n",
        __func__,
        sf_interval_msec,
-       ul_freq/1e6,
-       dl_freq/1e6,
+       roundf(ul_freq/1e6),
+       roundf(dl_freq/1e6),
        n_prb,
        rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr,
        pdsch_rs_power_milliwatt_,
@@ -723,6 +711,31 @@ void enb_initialize(srslte::log * log_h,
                                             pdsch_rs_power_milliwatt_,
                                             pdsch_rho_b_over_rho_a_));
 }
+
+
+
+// BEGIN phy_adapter enb api
+void enb_initialize(srslte::log * log_h, 
+                    uint32_t sf_interval_msec, 
+                    phy_cell_cfg_list_t            cfg_list,
+                    EMANELTE::MHAL::mhal_config_t & mhal_config,
+                    rrc_cfg_t * rrc_cfg)
+{
+   log_h_ = log_h;
+
+   for(auto & cell_cfg : cfg_list)
+     {
+        enb_init_i(sf_interval_msec, 
+                   cell_cfg.cell.id, 
+                   cell_cfg.cell.cp, 
+                   cell_cfg.ul_freq_hz, 
+                   cell_cfg.dl_freq_hz, 
+                   cell_cfg.cell.nof_prb, 
+                   mhal_config,
+                   rrc_cfg);
+     }
+}
+
 
 
 void enb_start()
