@@ -555,7 +555,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    pdsch_data->set_tb(tb);
    pdsch_data->set_tbs(grant.tb[tb].tbs);
    pdsch_data->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
-   pdsch_data->set_carrierid(cc_idx);
+   pdsch_data->set_carrierid(cc_idx); // XXX TODO is this where we should put this ???
    
    ENBSTATS::putDLGrant(rnti);
 
@@ -733,6 +733,9 @@ void enb_initialize(srslte::log * log_h,
                    cell_cfg.cell.nof_prb, 
                    mhal_config,
                    rrc_cfg);
+
+        // XXX TODO FIXME handle multiple cc workers
+        break;
      }
 }
 
@@ -804,6 +807,12 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
   // lock here, unlocked after tx_end to prevent any worker thread(s)
   // from attempting to start a new tx sequence before the current tx sequence
   // is finished
+
+  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
+    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+    return;
+  }
+
   pthread_mutex_lock(&dl_mutex_);
 
   enb_dl_msg_.Clear();
@@ -1131,6 +1140,11 @@ int enb_dl_cc_put_pdcch_dl(srslte_enb_dl_t* q,
                            uint32_t ref,
                            uint32_t cc_idx)
 {
+  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
+    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+    return SRSLTE_SUCCESS;
+  }
+
   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
       // check if data is ready
@@ -1193,6 +1207,11 @@ int enb_dl_cc_put_pdsch_dl(srslte_enb_dl_t* q,
                         uint32_t ref,
                         uint32_t cc_idx)
 {
+  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
+    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+    return SRSLTE_SUCCESS;
+  }
+
   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
       // check if data is ready
@@ -1221,6 +1240,11 @@ int enb_dl_cc_put_pmch(srslte_enb_dl_t* q,
                        mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant,
                        uint32_t cc_idx)
 {
+  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
+    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+    return SRSLTE_SUCCESS;
+  }
+
   if(dl_sched_grant->dci.rnti != 0)
    {
      return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti);
@@ -1241,6 +1265,11 @@ int enb_dl_cc_put_pdcch_ul(srslte_enb_dl_t* q,
                            uint32_t ref,
                            uint32_t cc_idx)
 {
+  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
+    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+    return SRSLTE_SUCCESS;
+  }
+
   srslte_dci_msg_t dci_msg;
   bzero(&dci_msg, sizeof(dci_msg));
 
@@ -1336,6 +1365,11 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
                         mac_interface_phy_lte::ul_sched_ack_t * ack,
                         uint32_t cc_idx)
 {
+  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
+    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+    return SRSLTE_SUCCESS;
+  }
+
   srslte_phich_resource_t resource;
   bzero(&resource, sizeof(resource));
 
