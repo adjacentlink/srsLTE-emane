@@ -641,7 +641,7 @@ void cc_worker::update_measurements()
 #else
   // ALINK_XXX TODO review these values/units
 
-  const float rssi = phy_adapter::ue_dl_get_rssi(cell.id);
+  const float rssi = phy_adapter::ue_dl_get_rssi(cell.id, cc_idx);
 
   dl_metrics.n        = phy->avg_noise[cc_idx]      = ue_dl.chest_res.noise_estimate ? ue_dl.chest_res.noise_estimate : 0;
   dl_metrics.rsrq     = phy->avg_rsrq_db[cc_idx]    = ue_dl.chest_res.snr_db         ? ue_dl.chest_res.snr_db         : rssi;

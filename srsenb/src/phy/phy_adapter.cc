@@ -297,7 +297,8 @@ typedef struct SRSLTE_API {
 static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
                                  const srslte_dci_msg_t * dci_msg,
                                  uint32_t ref,
-                                 int type) // 0 for DL, 1 for UL
+                                 int type,  // 0 for DL, 1 for UL
+                                 uint32_t cc_idx)
  {
    const auto rnti = dci_msg->rnti;
 
@@ -314,16 +315,17 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    if(!((dci_msg->location.ncce + PDCCH_FORMAT_NOF_CCE(dci_msg->location.L) <= NOF_CCE(q->dl_sf.cfi)) &&
         (dci_msg->nof_bits < (SRSLTE_DCI_MAX_BITS - 16)))) 
     {
-      Info("PDCCH:%s type %s, rnti 0x%hx, cfi %d, illegal dci msg, ncce %d, format_ncce %d, cfi_ncce %d, nof_bits %d, max_bits %d\n", 
-             __func__,
-             type ? "UL" : "DL",
-             rnti,
-             q->dl_sf.cfi,
-             dci_msg->location.ncce, 
-             PDCCH_FORMAT_NOF_CCE(dci_msg->location.L),
-             NOF_CCE(q->dl_sf.cfi),
-             dci_msg->nof_bits,
-             (SRSLTE_DCI_MAX_BITS - 16));
+      Info("PDCCH:%s cc %u, type %s, rnti 0x%hx, cfi %d, illegal dci msg, ncce %d, format_ncce %d, cfi_ncce %d, nof_bits %d, max_bits %d\n", 
+            __func__,
+            cc_idx,
+            type ? "UL" : "DL",
+            rnti,
+            q->dl_sf.cfi,
+            dci_msg->location.ncce, 
+            PDCCH_FORMAT_NOF_CCE(dci_msg->location.L),
+            NOF_CCE(q->dl_sf.cfi),
+            dci_msg->nof_bits,
+            (SRSLTE_DCI_MAX_BITS - 16));
 
       // ALINK_XXX TODO
       // srslte p/r #299 amd issue #347 temp fix set start_reg to 0
@@ -334,29 +336,31 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
 
    if(regs_len > NOF_REGS(q->dl_sf.cfi))
     {
-      Warning("PDCCH:%s type %s, rnti 0x%hx, cfi %d, pdccd->nof_regs %d, regs_len %u, ncce %d -> start_reg %d, L %d -> nof_regs %d\n", 
-            __func__,
-            type ? "UL" : "DL",
-            rnti,
-            q->dl_sf.cfi,
-            NOF_REGS(q->dl_sf.cfi),
-            regs_len,
-            dci_msg->location.ncce, 
-            start_reg,
-            dci_msg->location.L,
-            nof_regs);
+      Warning("PDCCH:%s cc %u, type %s, rnti 0x%hx, cfi %d, pdccd->nof_regs %d, regs_len %u, ncce %d -> start_reg %d, L %d -> nof_regs %d\n", 
+              __func__,
+              cc_idx,
+              type ? "UL" : "DL",
+              rnti,
+              q->dl_sf.cfi,
+              NOF_REGS(q->dl_sf.cfi),
+              regs_len,
+              dci_msg->location.ncce, 
+              start_reg,
+              dci_msg->location.L,
+              nof_regs);
 
       return SRSLTE_ERROR;
    }
 
-  auto pdcch_message   = enb_dl_msg_.add_pdcch();
+  auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+  auto pdcch_message   = carrier.add_pdcch();
   auto channel_message = downlink_control_message_->add_pdcch();
 
   initDownlinkChannelMessage(channel_message,
                              EMANELTE::MHAL::CHAN_PDCCH,
                              EMANELTE::MHAL::MOD_QPSK,
                              rnti,
-                                dci_msg->nof_bits);
+                             dci_msg->nof_bits);
 
 
   for(uint32_t i = start_reg; i < regs_len; ++i)
@@ -402,8 +406,8 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
 
 #ifdef DEBUG_HEX
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
-             "PDCCH_DL:%s rnti=0x%hx, refid %d, nof_bits %d\n",
-             __func__, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
+             "PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
+             __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
 #endif
    }
   else
@@ -424,8 +428,8 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
 
 #ifdef DEBUG_HEX
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
-             "PDCCH_UL:%s rnti=0x%hx, nof_bits %d\n",
-             __func__, rnti, dci_msg->nof_bits);
+             "PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
+             __func__, cc_idx, rnti, dci_msg->nof_bits);
 #endif
    }
 
@@ -546,7 +550,8 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
        }
     }
 
-   auto pdsch_message = enb_dl_msg_.mutable_pdsch();
+   auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+   auto pdsch_message = carrier.mutable_pdsch();
 
    // pdsch data
    auto pdsch_data = pdsch_message->add_data();
@@ -555,7 +560,6 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    pdsch_data->set_tb(tb);
    pdsch_data->set_tbs(grant.tb[tb].tbs);
    pdsch_data->set_data(data, bits_to_bytes(grant.tb[tb].tbs));
-   pdsch_data->set_carrierid(cc_idx); // XXX TODO is this where we should put this ???
    
    ENBSTATS::putDLGrant(rnti);
 
@@ -620,7 +624,8 @@ typedef struct SRSLTE_API {
 static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
                             srslte_pmch_cfg_t* pmch_cfg,
                             uint8_t* data,
-                            uint16_t rnti)
+                            uint16_t rnti,
+                            uint32_t cc_idx)
  {
    const auto pdsch_cfg = pmch_cfg->pdsch_cfg;
 
@@ -628,7 +633,8 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 
    if(grant.nof_tb != 1)
     {
-      Error("PMCH:%s rnti 0x%hx, nof_tb %u, expected 1\n", __func__, rnti, grant.nof_tb);
+      Error("PMCH:%s cc %u, rnti 0x%hx, nof_tb %u, expected 1\n", 
+            __func__, cc_idx, rnti, grant.nof_tb);
 
       return SRSLTE_ERROR;
     }
@@ -636,7 +642,8 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    const uint32_t tb = 0;
 
    // pmch
-   auto pmch_message = enb_dl_msg_.mutable_pmch();
+   auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+   auto pmch_message = carrier.mutable_pmch();
 
    pmch_message->set_area_id(pmch_cfg->area_id);
    pmch_message->set_tbs(grant.tb[tb].tbs);
@@ -660,8 +667,8 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 
 #ifdef DEBUG_HEX
    InfoHex(data, grant.tb[tb].tbs,
-           "PMCH:%s rnti=0x%hx, area_id %d, tbs %d\n",
-           __func__, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
+           "PMCH:%s cc %u, rnti=0x%hx, area_id %d, tbs %d\n",
+           __func__, cc_idx, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
 #endif
 
    return SRSLTE_SUCCESS;
@@ -808,8 +815,15 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
   // from attempting to start a new tx sequence before the current tx sequence
   // is finished
 
+  // cc workers called in sequence 0 -> n
   if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
     Info("%s skip cc_idx %u\n", __func__, cc_idx);
+
+    auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+
+    carrier.set_cfi(cfi);
+    carrier.set_phy_cell_id(q->cell.id);
+
     return;
   }
 
@@ -835,11 +849,14 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
   // always set cfi
   // note - cfi should be nof_ctrl_symbols on regular frames and
   //        non_mbsfn_region_length (from sib13) on mbsfn frames
-  enb_dl_msg_.set_cfi(cfi);
-  downlink_control_message_->set_cfi(enb_dl_msg_.cfi());
+  auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
 
+  carrier.set_cfi(cfi);
   // always set phy_cell_id to distinguish multiple cells
-  enb_dl_msg_.set_phy_cell_id(q->cell.id);
+  carrier.set_phy_cell_id(q->cell.id);
+
+  downlink_control_message_->set_cfi(carrier.cfi());
+
   tx_control_.set_phy_cell_id(q->cell.id);
 
   // save our pci
@@ -887,14 +904,14 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
       // physical cell group and id derived from pci
 
       // set cyclical prefix mode
-      enb_dl_msg_.mutable_pss_sss()->set_cp_mode(q->cell.cp == SRSLTE_CP_NORM ? 
+      carrier.mutable_pss_sss()->set_cp_mode(q->cell.cp == SRSLTE_CP_NORM ? 
                                                  EMANELTE::MHAL::CP_NORM : 
                                                  EMANELTE::MHAL::CP_EXTD);
 
       // MIB on first subframe
       if(sf_idx == 0)
        {
-         EMANELTE::MHAL::ENB_DL_Message_PBCH * pbch = enb_dl_msg_.mutable_pbch();
+         EMANELTE::MHAL::ENB_DL_Message_PBCH * pbch = carrier.mutable_pbch();
 
          EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pbch();
 
@@ -1082,14 +1099,15 @@ typedef struct SRSLTE_API {
 int enb_dl_put_pdcch_dl_i(srslte_enb_dl_t* q, 
                           srslte_dci_cfg_t* dci_cfg,
                           srslte_dci_dl_t* dci_dl, 
-                          uint32_t ref)
+                          uint32_t ref,
+                          uint32_t cc_idx)
 {
   srslte_dci_msg_t dci_msg;
   bzero(&dci_msg, sizeof(dci_msg));
 
   if(srslte_dci_msg_pack_pdsch(&q->cell, &q->dl_sf, dci_cfg, dci_dl, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 0); // DL
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 0, cc_idx); // DL
     }
   else
     {
@@ -1140,11 +1158,6 @@ int enb_dl_cc_put_pdcch_dl(srslte_enb_dl_t* q,
                            uint32_t ref,
                            uint32_t cc_idx)
 {
-  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
-    Info("%s skip cc_idx %u\n", __func__, cc_idx);
-    return SRSLTE_SUCCESS;
-  }
-
   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
       // check if data is ready
@@ -1153,7 +1166,7 @@ int enb_dl_cc_put_pdcch_dl(srslte_enb_dl_t* q,
          if(grant->dci.rnti != 0xffff) // to noisy
           Info("PDCCH:%s cc %u, put tb %d, rnti 0x%hx\n", __func__, cc_idx, tb, grant->dci.rnti);
 
-         if(enb_dl_put_pdcch_dl_i(q, dci_cfg, &grant->dci, ref))
+         if(enb_dl_put_pdcch_dl_i(q, dci_cfg, &grant->dci, ref, cc_idx))
           {
              Error("PDCCH:%s cc %u, Error ref %u, tb %u, rnti 0x%hx\n", 
                    __func__, cc_idx, ref, tb, grant->dci.rnti);
@@ -1207,11 +1220,6 @@ int enb_dl_cc_put_pdsch_dl(srslte_enb_dl_t* q,
                         uint32_t ref,
                         uint32_t cc_idx)
 {
-  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
-    Info("%s skip cc_idx %u\n", __func__, cc_idx);
-    return SRSLTE_SUCCESS;
-  }
-
   for(uint32_t tb = 0; tb < SRSLTE_MAX_TB; ++tb)
     {
       // check if data is ready
@@ -1240,14 +1248,9 @@ int enb_dl_cc_put_pmch(srslte_enb_dl_t* q,
                        mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant,
                        uint32_t cc_idx)
 {
-  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
-    Info("%s skip cc_idx %u\n", __func__, cc_idx);
-    return SRSLTE_SUCCESS;
-  }
-
   if(dl_sched_grant->dci.rnti != 0)
    {
-     return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti);
+     return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti, cc_idx);
    }
   else
    {
@@ -1265,17 +1268,12 @@ int enb_dl_cc_put_pdcch_ul(srslte_enb_dl_t* q,
                            uint32_t ref,
                            uint32_t cc_idx)
 {
-  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
-    Info("%s skip cc_idx %u\n", __func__, cc_idx);
-    return SRSLTE_SUCCESS;
-  }
-
   srslte_dci_msg_t dci_msg;
   bzero(&dci_msg, sizeof(dci_msg));
 
   if(srslte_dci_msg_pack_pusch(&q->cell, &q->dl_sf, dci_cfg, dci_ul, &dci_msg) == SRSLTE_SUCCESS)
     {
-      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 1); // UL
+      return enb_dl_put_dl_pdcch_i(q, &dci_msg, ref, 1, cc_idx); // UL
     }
   else
     {
@@ -1365,17 +1363,13 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
                         mac_interface_phy_lte::ul_sched_ack_t * ack,
                         uint32_t cc_idx)
 {
-  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
-    Info("%s skip cc_idx %u\n", __func__, cc_idx);
-    return SRSLTE_SUCCESS;
-  }
-
   srslte_phich_resource_t resource;
   bzero(&resource, sizeof(resource));
 
   srslte_phich_calc(&q->phich, grant, &resource);
 
-  auto phich = enb_dl_msg_.mutable_phich();
+  auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+  auto phich = carrier.mutable_phich();
 
   phich->set_rnti(ack->rnti);
   phich->set_ack(ack->ack);

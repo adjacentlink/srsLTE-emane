@@ -249,38 +249,42 @@ static DL_ENB_Signal_Map ue_dl_get_signals_i(srslte_timestamp_t * ts)
   DL_ENB_Signal_Map dl_signals;
 
   // for each message rx ota
-  for(auto msg_iter = message.second.begin(); 
-       msg_iter != message.second.end();
-         ++msg_iter)
+  for(auto ota_msg = message.second.begin(); ota_msg != message.second.end(); ++ota_msg)
    {
      EMANELTE::MHAL::ENB_DL_Message enb_dl_msg;
 
-     if(enb_dl_msg.ParseFromString(msg_iter->first))
+     if(enb_dl_msg.ParseFromString(ota_msg->first))
       {
-       const auto & rxControl = msg_iter->second;
+       const auto & rxControl = ota_msg->second;
 
-       const uint32_t & pci = enb_dl_msg.phy_cell_id();
+       for(auto carrier = enb_dl_msg.carriers().begin();
+           carrier != enb_dl_msg.carriers().end();
+           ++carrier)
+         {
+           const uint32_t & pci = carrier->second.phy_cell_id();
 
-       Debug("RX:%s rx_seq %lu, pci %u, sf_time %ld:%06ld, msg:%s\n",
-            __func__,
-            rxControl.rxData_.rx_seqnum_,
-            pci,
-            rxControl.rxData_.sf_time_.tv_sec,
-            rxControl.rxData_.sf_time_.tv_usec,
-            GetDebugString(enb_dl_msg.DebugString()).c_str());
+           Debug("RX:%s cc %u, rx_seq %lu, pci %u, sf_time %ld:%06ld, msg:%s\n",
+                 __func__,
+                 carrier->first,
+                 rxControl.rxData_.rx_seqnum_,
+                 pci,
+                 rxControl.rxData_.sf_time_.tv_sec,
+                 rxControl.rxData_.sf_time_.tv_usec,
+                 GetDebugString(enb_dl_msg.DebugString()).c_str());
 
-       auto signal_iter = dl_signals.find(pci);
+            auto signal_iter = dl_signals.find(pci);
 
-       // existing append
-       if(signal_iter != dl_signals.end())
-        {
-          signal_iter->second.emplace_back(enb_dl_msg, rxControl);
-        }
-       else
-        {
-          dl_signals.emplace(pci, DL_ENB_Signals{1, {enb_dl_msg, rxControl}});
-        }
-      }
+            // existing append
+            if(signal_iter != dl_signals.end())
+             {
+               signal_iter->second.emplace_back(enb_dl_msg, rxControl);
+             }
+            else
+             {
+               dl_signals.emplace(pci, DL_ENB_Signals{1, {enb_dl_msg, rxControl}});
+             }
+          }
+       }
      else
       {
         Error("MHAL:%s ParseFromString ERROR\n", __func__);
@@ -298,15 +302,15 @@ static DL_ENB_Signals ue_dl_enb_subframe_get_i(srslte_ue_sync_t * ue_sync, const
 
    const auto dl_signals = ue_dl_get_signals_i(&ue_sync->last_timestamp);
 
-   const auto iter = dl_signals.find(ue_sync->cell.id);
+   const auto signal_iter = dl_signals.find(ue_sync->cell.id);
 
-   if(iter != dl_signals.end())
+   if(signal_iter != dl_signals.end())
     {
       Debug("RX:%s sf available sot %12.06f, pci %hu\n",
             __func__,
             ue_sync->last_timestamp.full_secs +
             ue_sync->last_timestamp.frac_secs,
-            iter->first);
+            signal_iter->first);
 
       const uint32_t sf_idx = tti ? (*tti) % 10 : 0;
 
@@ -323,7 +327,7 @@ static DL_ENB_Signals ue_dl_enb_subframe_get_i(srslte_ue_sync_t * ue_sync, const
          ++ue_sync->frame_total_cnt;
        }
 
-      return iter->second;
+      return signal_iter->second;
     }
    else
     {
@@ -338,38 +342,43 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 {
   UL_DCI_Results ul_dci_results;
 
-  for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
+  const auto carrier = enb_dl_msg_.carriers().find(cc_idx);
+
+  if(carrier != enb_dl_msg_.carriers().end())
    {
-     const auto & pdcch_message = enb_dl_msg_.pdcch(n);
-
-     if(pdcch_message.has_ul_dci())
+     for(int n = 0; n < carrier->second.pdcch_size(); ++n)
       {
-         const auto & ul_dci_message = pdcch_message.ul_dci();
+        const auto & pdcch_message = carrier->second.pdcch(n);
 
-         if(ul_dci_message.rnti() == rnti)
-           {
-             const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, cc_idx);
+        if(pdcch_message.has_ul_dci())
+         {
+           const auto & ul_dci_message = pdcch_message.ul_dci();
 
-             if(sinrResult.bPassed_)
+           if(ul_dci_message.rnti() == rnti)
+            {
+              const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, cc_idx);
+
+              if(sinrResult.bPassed_)
                {
-                 Info("PUCCH:%s: found dci rnti 0x%hx\n", __func__, rnti);
+                 Info("PUCCH:%s: found cc %u, dci rnti 0x%hx\n", __func__, cc_idx, rnti);
 
                  // message, sinr
                  ul_dci_results.emplace_back(ul_dci_message, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
 
                  break; // we expect 1 and only 1 match
                }
-             else
+              else
                {
-                 Info("PUCCH:%s: fail snr rnti 0x%hx\n", __func__, rnti);
+                 Info("PUCCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
                }
-           }
-         else
-           {
-             Debug("PUCCH:%s: rnti 0x%hx != ul_dci_rnti 0x%hx, skip\n", 
-                    __func__, rnti, ul_dci_message.rnti());
-           }
-       }
+            }
+           else
+            {
+              Debug("PUCCH:%s: cc %u, rnti 0x%hx != ul_dci_rnti 0x%hx, skip\n", 
+                     __func__, cc_idx, rnti, ul_dci_message.rnti());
+            }
+         }
+      }
    }
 
   return ul_dci_results;
@@ -380,36 +389,41 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 {
   DL_DCI_Results dl_dci_results;
 
-  for(int n = 0; n < enb_dl_msg_.pdcch_size(); ++n)
+  const auto carrier = enb_dl_msg_.carriers().find(cc_idx);
+
+  if(carrier != enb_dl_msg_.carriers().end())
    {
-     const auto & pdcch_message = enb_dl_msg_.pdcch(n);
+     for(int n = 0; n < carrier->second.pdcch_size(); ++n)
+      {
+        const auto & pdcch_message = carrier->second.pdcch(n);
 
-     if(pdcch_message.has_dl_dci())
-       {
-         const auto & dl_dci_message = pdcch_message.dl_dci();
+        if(pdcch_message.has_dl_dci())
+         {
+           const auto & dl_dci_message = pdcch_message.dl_dci();
 
-         if(dl_dci_message.rnti() == rnti)
-           {
-             if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, cc_idx).bPassed_)
+           if(dl_dci_message.rnti() == rnti)
+            {
+              if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, cc_idx).bPassed_)
                {
-                 Info("PDSCH:%s: found dci rnti 0x%hx, refid %u\n", 
-                        __func__, rnti, dl_dci_message.refid());
+                 Info("PDSCH:%s: found cc %u, dci rnti 0x%hx, refid %u\n", 
+                        __func__, cc_idx, rnti, dl_dci_message.refid());
 
                  dl_dci_results.emplace_back(dl_dci_message);
 
                  break; // XXX expect 1 and only 1 match
                }
-             else
+              else
                {
-                 Info("PDSCH:%s: fail snr rnti 0x%hx\n", __func__, rnti);
+                 Info("PDSCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
                }
-           }
-         else
-           {
-             Debug("PDSCH:%s: rnti 0x%hx != dl_dci_rnti 0x%hx, refid %u, skip\n", 
-                    __func__, rnti, dl_dci_message.rnti(), dl_dci_message.refid());
-           }
-       }
+            }
+          else
+            {
+              Debug("PDSCH:%s: cc %u, rnti 0x%hx != dl_dci_rnti 0x%hx, refid %u, skip\n", 
+                     __func__, cc_idx, rnti, dl_dci_message.rnti(), dl_dci_message.refid());
+            }
+         }
+      }
    }
 
   return dl_dci_results;
@@ -421,32 +435,37 @@ static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti, 
 {
   PDSCH_Results pdsch_results;
 
-  if(enb_dl_msg_.has_pdsch())
-    {
-      const auto & pdsch_message = enb_dl_msg_.pdsch();
+  const auto carrier = enb_dl_msg_.carriers().find(cc_idx);
 
-      const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti, cc_idx);
+  if(carrier != enb_dl_msg_.carriers().end())
+   {
+     if(carrier->second.has_pdsch())
+      {
+        const auto & pdsch_message = carrier->second.pdsch();
 
-      if(sinrResult.bPassed_)
-        {
-          for(int n = 0; n < pdsch_message.data().size(); ++n)
+        const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti, cc_idx);
+
+        if(sinrResult.bPassed_)
+         {
+           for(int n = 0; n < pdsch_message.data().size(); ++n)
             {
               const auto & pdsch_data = pdsch_message.data(n);
 
               Info("PDSCH:%s: n %d, cc %u, refid %u, tb %u\n", 
-                   __func__, n, pdsch_data.carrierid(), pdsch_data.refid(), pdsch_data.tb());
+                   __func__, n, cc_idx, pdsch_data.refid(), pdsch_data.tb());
 
               if(pdsch_data.refid() == refid)
-                {
-                  pdsch_results.emplace_back(pdsch_data, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
-                }
+               {
+                 pdsch_results.emplace_back(pdsch_data, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
+               }
             }
-        }
-      else
-        {
-          Info("PDSCH:%s: fail snr rnti 0x%hx\n", __func__, rnti);
-        }
-    }
+         }
+        else
+         {
+           Info("PDSCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
+         }
+      }
+   }
 
   return pdsch_results;
 }
@@ -643,7 +662,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
             continue;
          }
 
-       if(! iter->second.empty())
+        if(! iter->second.empty())
          {
            float peak_sum = 0.0;
 
@@ -653,72 +672,77 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
            // for all gathered signals
            for(size_t n = 0; n < iter->second.size(); ++n)
-             {
-               const auto & enb_dl_msg = iter->second[n].first;
-
-               // search for pss/sss
-               if(enb_dl_msg.has_pss_sss())
-                {
-                  const auto & pss_sss = enb_dl_msg.pss_sss();
- 
-                  // should all be the same
-                  cp = pss_sss.cp_mode() == EMANELTE::MHAL::CP_NORM ? SRSLTE_CP_NORM : SRSLTE_CP_EXT;
-
-                  peak_sum = iter->second[n].second.rxData_.peak_sum_;
-
-                  num_samples = iter->second[n].second.rxData_.num_samples_;
-
-                  ++num_pss_sss_found;
-
-                  Debug("RX:%s: found pss_sss %s, peak_sum %0.1f, num_samples %u\n",
-                       __func__,
-                       GetDebugString(pss_sss.DebugString()).c_str(),
-                       iter->second[n].second.rxData_.peak_sum_,
-                       iter->second[n].second.rxData_.num_samples_);
-                }
-             }
-
-          if(num_samples > 0)
             {
-              const float peak_avg = peak_sum / num_samples;
+              const auto & enb_dl_msg = iter->second[n].first;
 
-              // save cell info
-              cells[pci] = peak_avg;
+              const auto carrier = enb_dl_msg.carriers().find(0); // cc 0
 
-              // cell id [0,1,2]
-              if(n_id2s.insert(n_id_2).second == true)
+              if(carrier != enb_dl_msg.carriers().end())
                {
-                 res[n_id_2].cell_id     = pci;
-                 res[n_id_2].cp          = cp;
-                 res[n_id_2].peak        = peak_avg;
-                 res[n_id_2].mode        = 1.0;
-                 res[n_id_2].psr         = 0.0;
-                 res[n_id_2].cfo         = 0.0;
-                 res[n_id_2].frame_type  = SRSLTE_FDD;
-
-                 Info("RX:%s: new PCI %u, n_id_1 %u, n_id_2 %u, peak_avg %f\n",
-                      __func__,
-                      pci,
-                      n_id_1,
-                      n_id_2,
-                      peak_avg);
-               }
-             else
-               {
-                // tie goes to the first entry (numeric lowest id)
-                if(peak_avg > res[n_id_2].peak)
+                 // search for pss/sss
+                 if(carrier->second.has_pss_sss())
                   {
-                     Info("RX:%s: replace PCI %u, n_id_1 %u, n_id_2 %u, peak_avg %f\n",
-                           __func__,
-                           pci,
-                           n_id_1,
-                           n_id_2,
-                           peak_avg);
+                    const auto & pss_sss = carrier->second.pss_sss();
+ 
+                    // should all be the same
+                    cp = pss_sss.cp_mode() == EMANELTE::MHAL::CP_NORM ? SRSLTE_CP_NORM : SRSLTE_CP_EXT;
 
-                     res[n_id_2].cell_id = pci;
-                     res[n_id_2].cp      = cp;
-                     res[n_id_2].peak    = peak_avg;
+                    peak_sum = iter->second[n].second.rxData_.peak_sum_;
+
+                    num_samples = iter->second[n].second.rxData_.num_samples_;
+
+                    ++num_pss_sss_found;
+
+                    Debug("RX:%s: found pss_sss %s, peak_sum %0.1f, num_samples %u\n",
+                          __func__,
+                          GetDebugString(pss_sss.DebugString()).c_str(),
+                          iter->second[n].second.rxData_.peak_sum_,
+                          iter->second[n].second.rxData_.num_samples_);
                   }
+               }
+
+              if(num_samples > 0)
+               {
+                 const float peak_avg = peak_sum / num_samples;
+
+                 // save cell info
+                 cells[pci] = peak_avg;
+
+                 // cell id [0,1,2]
+                 if(n_id2s.insert(n_id_2).second == true)
+                  {
+                    res[n_id_2].cell_id     = pci;
+                    res[n_id_2].cp          = cp;
+                    res[n_id_2].peak        = peak_avg;
+                    res[n_id_2].mode        = 1.0;
+                    res[n_id_2].psr         = 0.0;
+                    res[n_id_2].cfo         = 0.0;
+                    res[n_id_2].frame_type  = SRSLTE_FDD;
+
+                    Info("RX:%s: new PCI %u, n_id_1 %u, n_id_2 %u, peak_avg %f\n",
+                         __func__,
+                         pci,
+                         n_id_1,
+                         n_id_2,
+                         peak_avg);
+                  }
+                 else
+                  {
+                    // tie goes to the first entry (numeric lowest id)
+                    if(peak_avg > res[n_id_2].peak)
+                     {
+                       Info("RX:%s: replace PCI %u, n_id_1 %u, n_id_2 %u, peak_avg %f\n",
+                             __func__,
+                             pci,
+                             n_id_1,
+                             n_id_2,
+                             peak_avg);
+ 
+                         res[n_id_2].cell_id = pci;
+                         res[n_id_2].cp      = cp;
+                         res[n_id_2].peak    = peak_avg;
+                     }
+                  } 
                }
             }
          }
@@ -814,78 +838,83 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
   uint32_t try_num         = 0;
 
   while(++try_num <= max_tries)
-    {
-      // radio recv called here
-      sync_->radio_recv_fnc(buffer_, 0, 0);
+   {
+     // radio recv called here
+     sync_->radio_recv_fnc(buffer_, 0, 0);
 
-      const auto dl_enb_signals = ue_dl_enb_subframe_get_i(&ue_mib_sync->ue_sync, NULL);
+     const auto dl_enb_signals = ue_dl_enb_subframe_get_i(&ue_mib_sync->ue_sync, NULL);
 
-      Debug("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
-            ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dl_enb_signals.size());
+     Debug("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
+           ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dl_enb_signals.size());
 
-      if(! dl_enb_signals.empty())
-        {
-          const auto enb_dl_msg = dl_enb_signals[0].first;
+     if(! dl_enb_signals.empty())
+      {
+        const auto & enb_dl_msg = dl_enb_signals[0].first;
 
-          if(enb_dl_msg.has_pbch())
+        const auto carrier = enb_dl_msg.carriers().find(0); // cc 0
+
+        if(carrier != enb_dl_msg.carriers().end())
+         {
+           if(carrier->second.has_pbch())
             {
               auto rxControl = dl_enb_signals[0].second;
 
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, 0).bPassed_)
-                {
-                  if(enb_dl_msg.has_pss_sss())
-                    {
-                      const auto & pss_sss = enb_dl_msg.pss_sss();
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, 0).bPassed_) // cc 0
+               {
+                 if(carrier->second.has_pss_sss())
+                  {
+                    const auto & pss_sss = carrier->second.pss_sss();
 
-                      const auto & pbch = enb_dl_msg.pbch();
+                    const auto & pbch = carrier->second.pbch();
 
-                      Info("RX:ue_dl_mib_search: found PBCH %s\n", GetDebugString(pbch.DebugString()).c_str());
+                    Info("RX:ue_dl_mib_search: found PBCH %s\n", GetDebugString(pbch.DebugString()).c_str());
 
-                      cell->nof_prb   = pbch.num_prb();
-                      cell->nof_ports = pbch.num_antennas();
+                    cell->nof_prb   = pbch.num_prb();
+                    cell->nof_ports = pbch.num_antennas();
 
-                      ue_mib_sync->ue_sync.state          = SF_TRACK;
-                      ue_mib_sync->ue_sync.pss_stable_cnt = 1;
-                      ue_mib_sync->ue_sync.pss_is_stable  = true;
+                    ue_mib_sync->ue_sync.state          = SF_TRACK;
+                    ue_mib_sync->ue_sync.pss_stable_cnt = 1;
+                    ue_mib_sync->ue_sync.pss_is_stable  = true;
 
-                      switch(pbch.phich_resources())
-                        {
-                        case EMANELTE::MHAL::PR_ONE_SIXTH:
-                          cell->phich_resources = SRSLTE_PHICH_R_1_6;
-                          break;
+                    switch(pbch.phich_resources())
+                     {
+                       case EMANELTE::MHAL::PR_ONE_SIXTH:
+                        cell->phich_resources = SRSLTE_PHICH_R_1_6;
+                       break;
 
-                        case EMANELTE::MHAL::PR_ONE_HALF:
-                          cell->phich_resources = SRSLTE_PHICH_R_1_2;
-                          break;
+                       case EMANELTE::MHAL::PR_ONE_HALF:
+                        cell->phich_resources = SRSLTE_PHICH_R_1_2;
+                       break;
 
-                        case EMANELTE::MHAL::PR_ONE:
-                          cell->phich_resources = SRSLTE_PHICH_R_1;
-                          break;
+                       case EMANELTE::MHAL::PR_ONE:
+                        cell->phich_resources = SRSLTE_PHICH_R_1;
+                       break;
 
-                        case EMANELTE::MHAL::PR_TWO:
-                          cell->phich_resources = SRSLTE_PHICH_R_2;
-                          break;
-                        }
+                       case EMANELTE::MHAL::PR_TWO:
+                        cell->phich_resources = SRSLTE_PHICH_R_2;
+                       break;
+                     }
 
-                      switch(pbch.phich_length())
-                        {
-                        case EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_NORM:
-                          cell->phich_length = SRSLTE_PHICH_NORM;
-                          break;
+                    switch(pbch.phich_length())
+                     {
+                       case EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_NORM:
+                        cell->phich_length = SRSLTE_PHICH_NORM;
+                       break;
 
-                        case EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_EXTD:
-                          cell->phich_length = SRSLTE_PHICH_EXT;
-                          break;
-                        }
+                       case EMANELTE::MHAL::ENB_DL_Message_PBCH_PHICH_LENGTH_LEN_EXTD:
+                        cell->phich_length = SRSLTE_PHICH_EXT;
+                       break;
+                     }
 
-                      UESTATS::enterMibSearch(true);
+                    UESTATS::enterMibSearch(true);
 
-                      return 1;
+                    return 1;
+                  }
                 }
-             }
-            else
-             {
-               Info("MIB:%s: fail snr\n", __func__);
+               else
+                {
+                  Info("MIB:%s: fail snr\n", __func__);
+                }
              }
           }
        }
@@ -948,34 +977,38 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
   uint32_t try_num = 0;
 
   while(++try_num <= max_tries)
-    {
-      // radio recv called here
-      sync_->radio_recv_fnc(buffer_, 0, 0);
+   {
+     // radio recv called here
+     sync_->radio_recv_fnc(buffer_, 0, 0);
 
-      const auto dl_enb_signals = ue_dl_enb_subframe_get_i(ue_sync, NULL);
+     const auto dl_enb_signals = ue_dl_enb_subframe_get_i(ue_sync, NULL);
 
-      if(! dl_enb_signals.empty())
-        {
-          const auto enb_dl_msg = dl_enb_signals[0].first;
+     if(! dl_enb_signals.empty())
+      {
+        const auto enb_dl_msg = dl_enb_signals[0].first;
 
-          if(enb_dl_msg.has_pbch())
+        const auto carrier = enb_dl_msg.carriers().find(0); // cc 0
+
+        if(carrier != enb_dl_msg.carriers().end())
+         {
+           if(carrier->second.has_pbch())
             {
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
               if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, 0).bPassed_)
-                {
-                  if(enb_dl_msg.has_pss_sss())
-                    {
-                      const auto & pss_sss = enb_dl_msg.pss_sss();
+               {
+                 if(carrier->second.has_pss_sss())
+                  {
+                    const auto & pss_sss = carrier->second.pss_sss();
 
-                      const auto & pbch = enb_dl_msg.pbch();
+                    const auto & pbch = carrier->second.pbch();
 
-                      Info("RX:%s: found PBCH %s, try %u/%u\n",
-                           __func__,
-                           GetDebugString(pbch.DebugString()).c_str(),
-                           try_num,
-                           max_tries);
+                    Info("RX:%s: found PBCH %s, try %u/%u\n",
+                         __func__,
+                          GetDebugString(pbch.DebugString()).c_str(),
+                          try_num,
+                          max_tries);
 
                       ue_sync->state           = SF_TRACK;
                       ue_sync->pss_stable_cnt  = 1;
@@ -987,15 +1020,16 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
                       UESTATS::enterSysFrameSearch(true);
 
                       return 1;
-                    }
-                }
+                  }
+               }
               else
-                {
-                  Info("PBCH:%s: fail snr\n", __func__);
-                }
+               {
+                 Info("PBCH:%s: fail snr\n", __func__);
+               }
             }
-        }
-    }
+         }
+      }
+   }
 
   UESTATS::enterSysFrameSearch(false);
 
@@ -1049,31 +1083,36 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 }
 
 
-float ue_dl_get_rssi(uint32_t cell_id)
+float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
 {
    float rssi = 0.0;
 
    if(enb_dl_msg_.IsInitialized())
-     {
-       const uint32_t & pci = enb_dl_msg_.phy_cell_id();
+    {
+      const auto carrier = enb_dl_msg_.carriers().find(cc_idx);
 
-       // check dl msg src vs our selected cell
-       if(pci != cell_id)
-         {
-           Info("RX:%s: pci 0x%x != cell_id 0x%x, ignore\n",
-                __func__, pci, cell_id);
-         }
-       else
-         {
-          rssi = 10.0; // ALINK_XXX TODO
+      if(carrier != enb_dl_msg_.carriers().end())
+       {
+         const uint32_t & pci = carrier->second.phy_cell_id();
+
+         // check dl msg src vs our selected cell
+         if(pci != cell_id)
+          {
+            Info("RX:%s: cc %u, pci 0x%x != cell_id 0x%x, ignore\n",
+                 __func__, cc_idx, pci, cell_id);
+          }
+         else
+          {
+            rssi = 10.0; // ALINK_XXX TODO
  
-          Debug("RX:%s: pci %u, rssi %f\n", __func__, pci, rssi);
-        }
-     }
+            Debug("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
+          }
+       }
+    }
    else
-     {
-       Info("RX:%s: empty msg, rssi %f\n", __func__, rssi);
-     }
+    {
+      Info("RX:%s: empty msg, rssi %f\n", __func__, rssi);
+    }
 
    return rssi;
 }
@@ -1421,39 +1460,44 @@ int ue_dl_cc_decode_phich(srslte_ue_dl_t*       q,
 
   srslte_phich_calc(&q->phich, grant, &n_phich);
 
-  if(enb_dl_msg_.has_phich())
+  const auto carrier = enb_dl_msg_.carriers().find(cc_idx);
+
+  if(carrier != enb_dl_msg_.carriers().end())
    {
-     const auto & phich_message = enb_dl_msg_.phich();
-
-     const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti, cc_idx);
-
-     ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
-
-     if(sinrResult.bPassed_)
+     if(carrier->second.has_phich())
       {
-       if(rnti                == phich_message.rnti()        && 
-          grant->n_prb_lowest == phich_message.num_prb_low() &&
-          grant->n_dmrs       == phich_message.num_dmrs())
-         {
-           result->ack_value = phich_message.ack();
-           result->distance  = 1.0;
+       const auto & phich_message = carrier->second.phich();
+
+       const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti, cc_idx);
+
+       ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
+
+       if(sinrResult.bPassed_)
+        {
+          if(rnti                == phich_message.rnti()        && 
+             grant->n_prb_lowest == phich_message.num_prb_low() &&
+             grant->n_dmrs       == phich_message.num_dmrs())
+           {
+             result->ack_value = phich_message.ack();
+             result->distance  = 1.0;
+           }
+
+          Info("PHICH:%s cc=%u, sf_idx=%d, n_prb_l=%d, n_dmrs=%d, I_phich=%d, rnti 0x%hx, ack %d, dist %f\n",
+               __func__,
+               cc_idx,
+               sf->tti % 10,
+               grant->n_prb_lowest,
+               grant->n_dmrs,
+               grant->I_phich,
+               rnti,
+               result->ack_value,
+               result->distance);
          }
-
-        Info("PHICH:%s sf_idx=%d, n_prb_l=%d, n_dmrs=%d, I_phich=%d, rnti 0x%hx, ack %d, dist %f\n",
-             __func__,
-             sf->tti % 10,
-             grant->n_prb_lowest,
-             grant->n_dmrs,
-             grant->I_phich,
-             rnti,
-             result->ack_value,
-             result->distance);
-
-       }
-     else
-       {
-         Info("PHICH:%s: fail snr\n", __func__);
-       }
+        else
+         {
+           Info("PHICH:%s: fail snr\n", __func__);
+         }
+      }
    }
 
    return SRSLTE_SUCCESS;
@@ -1536,38 +1580,42 @@ int ue_dl_cc_decode_pmch(srslte_ue_dl_t*     q,
     {
       if(cfg->pdsch_cfg.grant.tb[tb].enabled)
        {
-         if(enb_dl_msg_.has_pmch())
+         const auto carrier = enb_dl_msg_.carriers().find(cc_idx);
+
+         if(carrier != enb_dl_msg_.carriers().end())
           {
-            const auto & pmch = enb_dl_msg_.pmch();
-
-            if(area_id == pmch.area_id())
+            if(carrier->second.has_pmch())
              {
-               const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH, cc_idx);
+               const auto & pmch = carrier->second.pmch();
 
-               ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
+               if(area_id == pmch.area_id())
+                {
+                  const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH, cc_idx);
 
-               if(sinrResult.bPassed_)
-                 {
-                   memcpy(data[tb].payload, pmch.data().data(), pmch.data().length());
+                  ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
+
+                  if(sinrResult.bPassed_)
+                   {
+                     memcpy(data[tb].payload, pmch.data().data(), pmch.data().length());
  
-                   data[tb].avg_iterations_block = 1;
+                     data[tb].avg_iterations_block = 1;
 
-                   data[tb].crc = true;
+                     data[tb].crc = true;
 #ifdef DEBUG_HEX
-                   InfoHex(pmch.data().data(), pmch.data().size(),
-                           "PMCH:%s: areaid %d, tb[%d], payload %zu bytes, snr %f\n",
-                           __func__, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
+                     InfoHex(pmch.data().data(), pmch.data().size(),
+                             "PMCH:%s: cc %u, areaid %d, tb[%d], payload %zu bytes, snr %f\n",
+                             __func__, cc_idx, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
 #endif
-                 }
-               else
-                 {
-                   Info("PMCH:%s: area_id %d, fail snr\n", __func__, area_id);
-                 }
-             }
-            else
-             {
-               Info("MHAL:%s: dl_area_id %u != area_id %hu, skip\n",
-                       __func__, pmch.area_id(), area_id);
+                   }
+                  else
+                   {
+                     Info("PMCH:%s: cc %u, area_id %d, fail snr\n", __func__, cc_idx, area_id);
+                   }
+                }
+              else
+                {
+                  Info("MHAL:%s: cc %u, dl_area_id %u != area_id %hu, skip\n", __func__, cc_idx, pmch.area_id(), area_id);
+                }
              }
           }
        }
