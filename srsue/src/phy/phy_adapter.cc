@@ -58,7 +58,6 @@
 namespace {
  EMANELTE::MHAL::UE_UL_Message     ue_ul_msg_;
  EMANELTE::MHAL::TxControlMessage  tx_control_;
- EMANELTE::MHAL::UplinkMessage    *uplink_control_message_;
 
  // enb dl msg and rx control info
  using DL_ENB_Signal = std::pair<EMANELTE::MHAL::ENB_DL_Message, EMANELTE::MHAL::RxControl>;
@@ -541,10 +540,6 @@ void ue_start()
 
   tx_control_.Clear();
 
-  uplink_control_message_ = tx_control_.mutable_uplink();
-
-  uplink_control_message_->Clear();
-
   EMANELTE::MHAL::UE::start();
 }
 
@@ -851,7 +846,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
       {
         const auto & enb_dl_msg = dl_enb_signals[0].first;
 
-        const auto carrier = enb_dl_msg.carriers().find(0); // cc 0
+        const auto carrier = enb_dl_msg.carriers().find(0); // carrier 0
 
         if(carrier != enb_dl_msg.carriers().end())
          {
@@ -987,7 +982,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
       {
         const auto enb_dl_msg = dl_enb_signals[0].first;
 
-        const auto carrier = enb_dl_msg.carriers().find(0); // cc 0
+        const auto carrier = enb_dl_msg.carriers().find(0); // carrier 0
 
         if(carrier != enb_dl_msg.carriers().end())
          {
@@ -1641,7 +1636,14 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
   txinfo->set_crnti(crnti_);
 
   txinfo->set_phy_cell_id(cell.id);
-  tx_control_.set_phy_cell_id(cell.id);
+
+  // XXX TODO multiple carriers
+  const uint32_t cc_idx = 0;
+
+  auto & carrier_ctrl = (*tx_control_.mutable_carriers())[cc_idx];
+
+  carrier_ctrl.set_phy_cell_id(cell.id);
+  carrier_ctrl.set_carrier_id(cc_idx);
 
   txinfo->set_tti(tti_tx_);
 
@@ -1675,9 +1677,7 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
 
   tx_control_.Clear();
 
-  uplink_control_message_ = tx_control_.mutable_uplink();
 
-  uplink_control_message_->Clear();
 
   pthread_mutex_unlock(&ul_mutex_);
 }
@@ -1687,7 +1687,9 @@ void ue_ul_put_prach(int index)
 {
   pthread_mutex_lock(&ul_mutex_);
 
-  auto channel_message = uplink_control_message_->mutable_prach();
+  // carrier 0
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[0];
+  auto channel_message = carrier_ctrl.mutable_uplink()->mutable_prach();
 
   initUplinkChannelMessage(channel_message,
                            EMANELTE::MHAL::CHAN_PRACH,
@@ -1836,7 +1838,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
              pucch_cfg.format);
      }
 
-   auto channel_message = uplink_control_message_->add_pucch();
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+   auto channel_message = carrier_ctrl.mutable_uplink()->add_pucch();
 
    initUplinkChannelMessage(channel_message,
                             EMANELTE::MHAL::CHAN_PUCCH,
@@ -1953,7 +1956,8 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   auto channel_message = uplink_control_message_->add_pusch();
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+   auto channel_message = carrier_ctrl.mutable_uplink()->add_pucch();
 
    const auto grant = &cfg->grant;
    const auto rnti  = cfg->rnti;

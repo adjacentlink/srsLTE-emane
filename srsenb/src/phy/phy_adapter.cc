@@ -64,7 +64,6 @@ extern "C" {
 namespace {
   EMANELTE::MHAL::ENB_DL_Message     enb_dl_msg_;
   EMANELTE::MHAL::TxControlMessage   tx_control_;
-  EMANELTE::MHAL::DownlinkMessage   *downlink_control_message_;
 
   // ul ue msg with emane ota info
   using UE_UL_Message = std::pair<EMANELTE::MHAL::UE_UL_Message, EMANELTE::MHAL::RxControl>;
@@ -134,7 +133,9 @@ namespace {
     channel_message->set_tx_power_scale_db(txPowerScaledB);
 
     if(rnti)
-      channel_message->set_rnti(rnti);
+     {
+       channel_message->set_rnti(rnti);
+     }
   }
 
   inline int bits_to_bytes(int bits) { return bits/8; }
@@ -352,9 +353,11 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
       return SRSLTE_ERROR;
    }
 
-  auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
-  auto pdcch_message   = carrier.add_pdcch();
-  auto channel_message = downlink_control_message_->add_pdcch();
+  auto & carrier     = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+  auto pdcch_message = carrier.add_pdcch();
+
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+  auto channel_message = carrier_ctrl.mutable_downlink()->add_pdcch();
 
   initDownlinkChannelMessage(channel_message,
                              EMANELTE::MHAL::CHAN_PDCCH,
@@ -408,6 +411,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
              "PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
              __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
+#else
+     Info("PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
+           __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
 #endif
    }
   else
@@ -430,6 +436,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
              "PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
              __func__, cc_idx, rnti, dci_msg->nof_bits);
+#else
+     Info("PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
+           __func__, cc_idx, rnti, dci_msg->nof_bits);
 #endif
    }
 
@@ -527,7 +536,8 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
       rho_a_db = riter->second;
     }
 
-   auto channel_message = downlink_control_message_->add_pdsch();
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+   auto channel_message = carrier_ctrl.mutable_downlink()->add_pdsch();
 
    initDownlinkChannelMessage(channel_message,
                               EMANELTE::MHAL::CHAN_PDSCH,
@@ -650,7 +660,8 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    pmch_message->set_rnti(rnti);
    pmch_message->set_data(data ? data : zeros_, grant.tb[tb].tbs);
 
-   auto channel_message = downlink_control_message_->mutable_pmch();
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+   auto channel_message = carrier_ctrl.mutable_downlink()->mutable_pmch();
 
    initDownlinkChannelMessage(channel_message,
                               EMANELTE::MHAL::CHAN_PMCH,
@@ -669,6 +680,9 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    InfoHex(data, grant.tb[tb].tbs,
            "PMCH:%s cc %u, rnti=0x%hx, area_id %d, tbs %d\n",
            __func__, cc_idx, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
+#else
+   Info("PMCH:%s cc %u, rnti=0x%hx, area_id %d, tbs %d\n",
+         __func__, cc_idx, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
 #endif
 
    return SRSLTE_SUCCESS;
@@ -787,10 +801,6 @@ void enb_start()
 
   tx_control_.Clear();
 
-  downlink_control_message_ = tx_control_.mutable_downlink();
-
-  downlink_control_message_->Clear();
-
   EMANELTE::MHAL::ENB::start();
 }
 
@@ -811,62 +821,51 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
                        uint32_t cfi,
                        uint32_t cc_idx)
 {
-  // lock here, unlocked after tx_end to prevent any worker thread(s)
-  // from attempting to start a new tx sequence before the current tx sequence
-  // is finished
-
   // cc workers called in sequence 0 -> n
-  if(cc_idx != 0) { // XXX TODO FIXME handle multiple cc workers
-    Info("%s skip cc_idx %u\n", __func__, cc_idx);
+  if(cc_idx == 0)
+   {
+     // lock here, unlocked after tx_end to prevent any worker thread(s)
+     // from attempting to start a new tx sequence before the current tx sequence
+     // is finished
+     pthread_mutex_lock(&dl_mutex_);
 
-    auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+     enb_dl_msg_.Clear();
 
-    carrier.set_cfi(cfi);
-    carrier.set_phy_cell_id(q->cell.id);
-
-    return;
-  }
-
-  pthread_mutex_lock(&dl_mutex_);
-
-  enb_dl_msg_.Clear();
-
-  tx_control_.Clear();
-
-  downlink_control_message_ = tx_control_.mutable_downlink();
-
-  downlink_control_message_->Clear();
-  downlink_control_message_->set_num_resource_blocks(q->cell.nof_prb);
+     tx_control_.Clear();
+   }
 
   // subframe index
   const uint32_t sf_idx = (tti_tx % 10);
 
   rho_a_db_map_[sf_idx].clear();
 
-  // always set tti for timing tracking
   enb_dl_msg_.set_tti(tti_tx);
 
-  // always set cfi
   // note - cfi should be nof_ctrl_symbols on regular frames and
   //        non_mbsfn_region_length (from sib13) on mbsfn frames
   auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
 
+  auto & carrier_ctrl = (*tx_control_.mutable_carriers())[cc_idx];
+  auto downlink       = carrier_ctrl.mutable_downlink();
+
+  carrier.set_carrier_id(cc_idx);
   carrier.set_cfi(cfi);
-  // always set phy_cell_id to distinguish multiple cells
   carrier.set_phy_cell_id(q->cell.id);
 
-  downlink_control_message_->set_cfi(carrier.cfi());
+  downlink->set_num_resource_blocks(q->cell.nof_prb);
+  downlink->set_cfi(carrier.cfi());
 
-  tx_control_.set_phy_cell_id(q->cell.id);
+  carrier_ctrl.set_carrier_id(cc_idx);
+  carrier_ctrl.set_phy_cell_id(q->cell.id);
 
-  // save our pci
+  // XXX TODO multiple pci 
   my_pci_ = q->cell.id;
 
   // save the tti_tx
   tti_tx_ = tti_tx;
 
   // PCFICH encoding
-  EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pcfich();
+  auto channel_message = downlink->mutable_pcfich();
 
   initDownlinkChannelMessage(channel_message,
                              EMANELTE::MHAL::CHAN_PCFICH,
@@ -911,9 +910,9 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
       // MIB on first subframe
       if(sf_idx == 0)
        {
-         EMANELTE::MHAL::ENB_DL_Message_PBCH * pbch = carrier.mutable_pbch();
+         auto pbch = carrier.mutable_pbch();
 
-         EMANELTE::MHAL::ChannelMessage * channel_message = downlink_control_message_->mutable_pbch();
+         auto channel_message = downlink->mutable_pbch();
 
          initDownlinkChannelMessage(channel_message,
                                     EMANELTE::MHAL::CHAN_PBCH,
@@ -992,7 +991,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       // align sot to sf time
       const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
      
-      EMANELTE::MHAL::Timestamp * const ts = tx_control_.mutable_sf_time();
+      auto ts = tx_control_.mutable_sf_time();
       ts->set_ts_sec(tv_sf_time.tv_sec);
       ts->set_ts_usec(tv_sf_time.tv_usec);
 
@@ -1369,14 +1368,15 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
   srslte_phich_calc(&q->phich, grant, &resource);
 
   auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
-  auto phich = carrier.mutable_phich();
+  auto phich     = carrier.mutable_phich();
 
   phich->set_rnti(ack->rnti);
   phich->set_ack(ack->ack);
   phich->set_num_prb_low(grant->n_prb_lowest);
   phich->set_num_dmrs(grant->n_dmrs);
 
-  auto channel_message = downlink_control_message_->add_phich();
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+  auto channel_message = carrier_ctrl.mutable_downlink()->add_phich();
 
   initDownlinkChannelMessage(channel_message,
                              EMANELTE::MHAL::CHAN_PHICH,
