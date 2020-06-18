@@ -738,7 +738,7 @@ void enb_init_i(uint32_t sf_interval_msec,
 // BEGIN phy_adapter enb api
 void enb_initialize(srslte::log * log_h, 
                     uint32_t sf_interval_msec, 
-                    phy_cell_cfg_list_t            cfg_list,
+                    phy_cell_cfg_list_t cfg_list,
                     EMANELTE::MHAL::mhal_config_t & mhal_config,
                     rrc_cfg_t * rrc_cfg)
 {
@@ -755,7 +755,7 @@ void enb_initialize(srslte::log * log_h,
                    mhal_config,
                    rrc_cfg);
 
-        // XXX TODO FIXME handle multiple cc workers
+        // XXX TODO remove to handle multiple cc workers only 1 supported now
         break;
      }
 }
@@ -1422,9 +1422,9 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   EMANELTE::MHAL::ENB::set_tti(tti);
 
-  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end(); ++ul_msg)
+  for(auto ul_msg_iter = ue_ul_msgs_.begin(); ul_msg_iter != ue_ul_msgs_.end(); ++ul_msg_iter)
     {
-      ul_msg->second.SINRTester_.release();
+      ul_msg_iter->second.SINRTester_.release();
     }
 
   ue_ul_msgs_.clear();
@@ -1440,35 +1440,37 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
   ts->frac_secs = tv_tti.tv_usec/1e6;
 
   // for each msg rx ota
-  for(auto iter = messages.begin(); iter != messages.end(); ++iter)
+  for(auto msg_iter = messages.begin(); msg_iter != messages.end(); ++msg_iter)
    {
      EMANELTE::MHAL::UE_UL_Message ue_ul_msg;
 
-     if(ue_ul_msg.ParseFromString(iter->first))
+     if(ue_ul_msg.ParseFromString(msg_iter->first))
       {
-        const auto & rxControl = iter->second;
+        const auto & rxControl = msg_iter->second;
 
-        Info("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, %s %s %s\n",
+        Info("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, cariers %lu\n",
                 __func__,
                 rxControl.rxData_.sf_time_.tv_sec,
                 rxControl.rxData_.sf_time_.tv_usec,
                 rxControl.rxData_.rx_seqnum_,
-                ue_ul_msg.transmitter().crnti(),
-                ue_ul_msg.transmitter().tti(),
-                ue_ul_msg.has_prach() ? "prach" : "",
-                ue_ul_msg.has_pucch() ? "pucch" : "",
-                ue_ul_msg.has_pusch() ? "pusch" : "");
+                ue_ul_msg.crnti(),
+                ue_ul_msg.tti(),
+                ue_ul_msg.carriers().size());
 
-        const uint32_t & pci = ue_ul_msg.transmitter().phy_cell_id();
+        for(auto & carrier_iter : ue_ul_msg.carriers())
+         {
+           const uint32_t & pci = carrier_iter.second.phy_cell_id();
 
-        // check ul msg pci vs our pci
-        if(pci != my_pci_)
-         {
-           Info("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
-         }
-        else
-         {
-           ue_ul_msgs_.emplace_back(UE_UL_Message(ue_ul_msg, rxControl));
+           // check ul msg pci vs our pci
+           // XXX TODO multiple pci 
+           if(pci != my_pci_)
+            {
+              Info("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
+            }
+           else
+            {
+              ue_ul_msgs_.emplace_back(UE_UL_Message(ue_ul_msg, rxControl));
+            }
          }
       }
     else
@@ -1493,54 +1495,57 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   std::set<uint32_t> unique;
 
-  for(auto ul_msg = ue_ul_msgs_.begin(); 
-       (ul_msg != ue_ul_msgs_.end()) && (num_entries < max_entries); 
-         ++ul_msg)
+  for(auto ul_msg_iter = ue_ul_msgs_.begin(); 
+       (ul_msg_iter != ue_ul_msgs_.end()) && (num_entries < max_entries); 
+         ++ul_msg_iter)
     {
-      if(ul_msg->first.has_prach())
+      const uint32_t cc_idx = 0; // carrier 0
+
+      const auto carrier_iter = ul_msg_iter->first.carriers().find(cc_idx);
+ 
+      if(carrier_iter != ul_msg_iter->first.carriers().end())
        {
-         auto & rxControl = ul_msg->second;
-
-         const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, 0);
-
-         if(! sinrResult.bPassed_)
-           {
-             Info("PRACH:%s: fail snr, %f\n", __func__, sinrResult.sinr_dB_);
-             continue;
-           }
-
-         const auto & prach    = ul_msg->first.prach();
-         const auto & preamble = prach.preamble();
-
-         if(unique.count(preamble.index()) == 0) // unique
-           {
-             unique.insert(preamble.index());
-
-             indices[num_entries] = preamble.index();
-
-             // timing offset estimation not currently implemented
-             offsets[num_entries] = 0.0;
-             p2avg[num_entries]   = 0.0;
-
-             ++num_entries;
-
-             Info("PRACH:%s entry[%u], accept index %d\n",
-                  __func__,
-                  num_entries, 
-                  preamble.index());
-           }
-         else
+         if(carrier_iter->second.has_prach())
           {
+            auto & rxControl = ul_msg_iter->second;
+
+            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, 0);
+
+            if(! sinrResult.bPassed_)
+             {
+               Info("PRACH:%s: fail snr, %f\n", __func__, sinrResult.sinr_dB_);
+               continue;
+             }
+
+            const auto & prach    = carrier_iter->second.prach();
+            const auto & preamble = prach.preamble();
+
+            if(unique.count(preamble.index()) == 0) // unique
+             {
+              unique.insert(preamble.index());
+
+              indices[num_entries] = preamble.index();
+
+              // timing offset estimation not currently implemented
+              offsets[num_entries] = 0.0;
+              p2avg[num_entries]   = 0.0;
+
+              ++num_entries;
+
+              Info("PRACH:%s entry[%u], accept index %d\n",
+                   __func__, num_entries, preamble.index());
+            }
+          else
+           {
              Info("PRACH:%s entry[%u], ignore duplicate index %d\n",
-                  __func__,
-                  num_entries, 
-                  preamble.index());
+                  __func__, num_entries, preamble.index());
           }
-       }
-     else
-       {
-         Info("PRACH:%s no preambles\n", __func__);
-       }
+        }
+       else
+        {
+          Info("PRACH:%s no preambles\n", __func__);
+        }
+      }
     }
 
   pthread_mutex_unlock(&ul_mutex_);
@@ -1730,88 +1735,98 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   res->detected         = false;
 
   // for each uplink message
-  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end() && !res->detected; ++ul_msg)
+  for(auto ul_msg_iter = ue_ul_msgs_.begin(); 
+       ul_msg_iter != ue_ul_msgs_.end() && !res->detected;
+         ++ul_msg_iter)
    {
-     if(ul_msg->first.has_pucch())
+     const auto carrier_iter = ul_msg_iter->first.carriers().find(cc_idx);
+ 
+     if(carrier_iter != ul_msg_iter->first.carriers().end())
       {
-        const auto & pucch_message = ul_msg->first.pucch();
-
-        // for each grant
-        for(int n = 0; n < pucch_message.grant_size(); ++n)
+        if(carrier_iter->second.has_pucch())
          {
-           const auto & grant_message = pucch_message.grant(n);
+           const auto & pucch_message = carrier_iter->second.pucch();
 
-           Info("PUCCH:%s cc %u, sr %d, acks %d, ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
-                __func__,
-                cc_idx,
-                cfg->uci_cfg.is_scheduling_request_tti,
-                srslte_uci_cfg_total_ack(&cfg->uci_cfg),
-                grant_message.rnti(), rnti, n+1, pucch_message.grant_size());
-
-           std::string format;
-
-           if(grant_message.rnti() == rnti)
+           // for each grant
+           for(int n = 0; n < pucch_message.grant_size(); ++n)
             {
-              auto & rxControl = ul_msg->second;
+              const auto & grant_message = pucch_message.grant(n);
 
-              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, cc_idx);
+              Info("PUCCH:%s cc %u, sr %d, acks %d, ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
+                   __func__,
+                   cc_idx,
+                   cfg->uci_cfg.is_scheduling_request_tti,
+                   srslte_uci_cfg_total_ack(&cfg->uci_cfg),
+                   grant_message.rnti(), rnti, n+1, pucch_message.grant_size());
 
-              if(sinrResult.bPassed_)
-                {
-                  const auto & uci_message = grant_message.uci();
+              std::string format;
 
-                  memcpy(&res->uci_data, uci_message.data(), uci_message.length());
+              if(grant_message.rnti() == rnti)
+               {
+                 auto & rxControl = ul_msg_iter->second;
 
-                  res->detected = true;
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, cc_idx);
 
-                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
-                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
+                 if(sinrResult.bPassed_)
+                  {
+                    const auto & uci_message = grant_message.uci();
 
-                  // from lib/src/phy/phch/pucch.c srslte_pucch_decode()
-                  switch (cfg->format) {
-                   case SRSLTE_PUCCH_FORMAT_1A:
-                   case SRSLTE_PUCCH_FORMAT_1B:
-                     res->uci_data.ack.valid = true;
-                     format = "1A/1B";
-                   break;
+                    memcpy(&res->uci_data, uci_message.data(), uci_message.length());
 
-                   case SRSLTE_PUCCH_FORMAT_2:
-                   case SRSLTE_PUCCH_FORMAT_2A:
-                   case SRSLTE_PUCCH_FORMAT_2B:
-                     res->uci_data.ack.valid    = true;
-                     res->uci_data.cqi.data_crc = true;
-                     format = "2";
-                   break;
+                    res->detected = true;
 
-                   case SRSLTE_PUCCH_FORMAT_1:
-                   case SRSLTE_PUCCH_FORMAT_3:
-                     format = "1/3";
-                   break;
+                    q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                    q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
-                   default:
-                     format = "default";
-                  }
+                    // from lib/src/phy/phch/pucch.c srslte_pucch_decode()
+                    switch (cfg->format) {
+                     case SRSLTE_PUCCH_FORMAT_1A:
+                     case SRSLTE_PUCCH_FORMAT_1B:
+                       res->uci_data.ack.valid = true;
+                       format = "1A/1B";
+                     break;
+
+                     case SRSLTE_PUCCH_FORMAT_2:
+                     case SRSLTE_PUCCH_FORMAT_2A:
+                     case SRSLTE_PUCCH_FORMAT_2B:
+                       res->uci_data.ack.valid    = true;
+                       res->uci_data.cqi.data_crc = true;
+                       format = "2";
+                     break;
+
+                     case SRSLTE_PUCCH_FORMAT_1:
+                     case SRSLTE_PUCCH_FORMAT_3:
+                       format = "1/3";
+                     break;
+
+                     default:
+                       format = "default";
+                    }
 
 #ifdef DEBUG_HEX
-                  InfoHex(uci_message.data(), uci_message.length(),
-                          "PUCCH:%s cc %u, found pucch format %s, rnti %hx, corr %f\n",
+                    InfoHex(uci_message.data(), uci_message.length(),
+                            "PUCCH:%s cc %u, found pucch format %s, rnti %hx, corr %f\n",
+                            __func__, cc_idx, format.c_str(), rnti, res->correlation);
+#else
+                    Info("PUCCH:%s cc %u, found pucch format %s, rnti %hx, corr %f\n",
                           __func__, cc_idx, format.c_str(), rnti, res->correlation);
 #endif
 
-                  // pass
-                  ENBSTATS::getPUCCH(rnti, true);
-                }
-              else
-                {
-                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
-                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
+                    // pass
+                    ENBSTATS::getPUCCH(rnti, true);
+                  }
+                 else
+                  {
+                    q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                    q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
-                  // PUCCH failed snr, ignore
-                  ENBSTATS::getPUCCH(rnti, false);
-                }
+                    // PUCCH failed snr, ignore
+                    ENBSTATS::getPUCCH(rnti, false);
+                  }
 
-               // done with this rnti
-               break;
+                 // done with this rnti
+                 break;
+                }
              }
           }
        }
@@ -1910,69 +1925,79 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
   res->uci.ack.valid  = false;
 
   // for each uplink message
-  for(auto ul_msg = ue_ul_msgs_.begin(); ul_msg != ue_ul_msgs_.end() && !res->crc; ++ul_msg)
+  for(auto ul_msg_iter = ue_ul_msgs_.begin(); 
+        ul_msg_iter != ue_ul_msgs_.end() && !res->crc;
+          ++ul_msg_iter)
    {
-     if(ul_msg->first.has_pusch())
+     const auto carrier_iter = ul_msg_iter->first.carriers().find(cc_idx);
+ 
+     if(carrier_iter != ul_msg_iter->first.carriers().end())
       {
-        const auto & pusch_message = ul_msg->first.pusch();
-
-        // for each grant
-        for(int n = 0; n < pusch_message.grant_size(); ++n)
+        if(carrier_iter->second.has_pusch())
          {
-           const auto & grant_message = pusch_message.grant(n);
+           const auto & pusch_message = carrier_iter->second.pusch();
 
-           Info("PUSCH:%s cc %u, check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n",
+           // for each grant
+           for(int n = 0; n < pusch_message.grant_size(); ++n)
+            {
+              const auto & grant_message = pusch_message.grant(n);
+
+              Info("PUSCH:%s cc %u, check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n",
                    __func__, cc_idx, grant_message.rnti(), rnti, n+1, pusch_message.grant_size());
 
-           if(grant_message.rnti() == rnti)
-            {
-              auto & rxControl = ul_msg->second;
+              if(grant_message.rnti() == rnti)
+               {
+                 auto & rxControl = ul_msg_iter->second;
 
-              const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, cc_idx);
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, cc_idx);
 
-              if(sinrResult.bPassed_)
-                {
-                  const auto & ul_grant_message = grant_message.ul_grant();
-                  const auto & uci_message      = grant_message.uci();
-                  const auto & payload          = grant_message.payload();
+                 if(sinrResult.bPassed_)
+                  {
+                    const auto & ul_grant_message = grant_message.ul_grant();
+                    const auto & uci_message      = grant_message.uci();
+                    const auto & payload          = grant_message.payload();
 
-                  // srslte_pusch_grant_t  
-                  memcpy(&cfg->grant, ul_grant_message.data(), ul_grant_message.length());
+                    // srslte_pusch_grant_t  
+                    memcpy(&cfg->grant, ul_grant_message.data(), ul_grant_message.length());
 
-                  // srslte_uci_value_t
-                  memcpy(&res->uci, uci_message.data(), uci_message.length());
+                    // srslte_uci_value_t
+                    memcpy(&res->uci, uci_message.data(), uci_message.length());
 
-                  // payload
-                  memcpy(res->data, payload.data(), payload.length());
+                    // payload
+                    memcpy(res->data, payload.data(), payload.length());
 
-                  // see lib/src/phy/phch/pusch.c srslte_pusch_decode()
-                  res->avg_iterations_block = 1;
-                  res->crc                  = true;
-                  res->uci.ack.valid        = true;
+                    // see lib/src/phy/phch/pusch.c srslte_pusch_decode()
+                    res->avg_iterations_block = 1;
+                    res->crc                  = true;
+                    res->uci.ack.valid        = true;
 
-                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
-                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
+                    q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                    q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
  
 #ifdef DEBUG_HEX
-                  InfoHex(payload.data(), payload.length(),
-                          "PUSCH:%s cc %u, rnti %hx, snr_db %f\n",
+                    InfoHex(payload.data(), payload.length(),
+                            "PUSCH:%s cc %u, rnti %hx, snr_db %f\n",
+                            __func__, cc_idx, rnti, q->chest_res.snr_db);
+#else
+                    Info("PUSCH:%s cc %u, rnti %hx, snr_db %f\n",
                           __func__, cc_idx, rnti, q->chest_res.snr_db);
 #endif
 
-                  // pass
-                  ENBSTATS::getPUSCH(rnti, true);
-                }
-              else
-                {
-                  q->chest_res.snr_db             = sinrResult.sinr_dB_;
-                  q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
+                    // pass
+                    ENBSTATS::getPUSCH(rnti, true);
+                  }
+                else
+                  {
+                    q->chest_res.snr_db             = sinrResult.sinr_dB_;
+                    q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
-                  // PUSCH failed snr, ignore
-                  ENBSTATS::getPUSCH(rnti, false);
-                }
+                    // PUSCH failed snr, ignore
+                    ENBSTATS::getPUSCH(rnti, false);
+                  }
 
-              // done with this rnti
-              break;
+                // done with this rnti
+                break;
+              }
             }
          }
       }

@@ -1098,7 +1098,7 @@ float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
           }
          else
           {
-            rssi = 10.0; // ALINK_XXX TODO
+            rssi = 10.0; // ALINK_XXX TODO need actual value
  
             Debug("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
           }
@@ -1196,6 +1196,9 @@ int ue_dl_cc_find_dl_dci(srslte_ue_dl_t*     q,
           InfoHex(dl_dci_message_data.data(), dl_dci_message_data.size(),
                   "PDCCH:%s dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
                   __func__, dci_message.refid(), rnti, dl_dci_message_data.size());
+#else
+          Info("PDCCH:%s dl_dci ref id %u, rnti 0x%hx, dci_len %zu\n", 
+                __func__, dci_message.refid(), rnti, dl_dci_message_data.size());
 #endif
 
           // Unpack DCI messages see lib/src/phy/phch/dci.c
@@ -1406,6 +1409,9 @@ int ue_dl_cc_decode_pdsch(srslte_ue_dl_t*     q,
              InfoHex(pdsch_data.data(), pdsch_data.size(),
                      "PDSCH:%s: rnti 0x%hx, refid %d, tb[%d], payload %zu bytes, snr %f\n",
                      __func__, rnti, pdsch_message.refid(), tb, pdsch_data.size(), q->chest_res.snr_db);
+#else
+             Info("PDSCH:%s: rnti 0x%hx, refid %d, tb[%d], payload %zu bytes, snr %f\n",
+                   __func__, rnti, pdsch_message.refid(), tb, pdsch_data.size(), q->chest_res.snr_db);
 #endif
            }
          else
@@ -1600,6 +1606,9 @@ int ue_dl_cc_decode_pmch(srslte_ue_dl_t*     q,
                      InfoHex(pmch.data().data(), pmch.data().size(),
                              "PMCH:%s: cc %u, areaid %d, tb[%d], payload %zu bytes, snr %f\n",
                              __func__, cc_idx, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
+#else
+                     Info("PMCH:%s: cc %u, areaid %d, tb[%d], payload %zu bytes, snr %f\n",
+                          __func__, cc_idx, area_id, tb, pmch.data().size(), q->chest_res.snr_db);
 #endif
                    }
                   else
@@ -1631,21 +1640,24 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
   // end of tx sequence, tx_end will release lock
   pthread_mutex_lock(&ul_mutex_);
 
-  auto txinfo = ue_ul_msg_.mutable_transmitter();
+  ue_ul_msg_.set_crnti(crnti_);
+  ue_ul_msg_.set_tti(tti_tx_);
 
-  txinfo->set_crnti(crnti_);
+  // finalize carrier info
+  for(auto iter = ue_ul_msg_.carriers().begin(); iter != ue_ul_msg_.carriers().end(); ++iter)
+   {
+     auto & carrier = (*ue_ul_msg_.mutable_carriers())[iter->first];
+     carrier.set_phy_cell_id(cell.id);
+     carrier.set_carrier_id(iter->first);
+   }
 
-  txinfo->set_phy_cell_id(cell.id);
-
-  // XXX TODO multiple carriers
-  const uint32_t cc_idx = 0;
-
-  auto & carrier_ctrl = (*tx_control_.mutable_carriers())[cc_idx];
-
-  carrier_ctrl.set_phy_cell_id(cell.id);
-  carrier_ctrl.set_carrier_id(cc_idx);
-
-  txinfo->set_tti(tti_tx_);
+  // finalize txctrl carrier info
+  for(auto iter = tx_control_.carriers().begin(); iter != tx_control_.carriers().end(); ++iter)
+   {
+     auto & carrier_ctrl = (*tx_control_.mutable_carriers())[iter->first];
+     carrier_ctrl.set_phy_cell_id(cell.id);
+     carrier_ctrl.set_carrier_id(iter->first);
+   }
 
   EMANELTE::MHAL::Data data;
 
@@ -1662,9 +1674,7 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-      Debug("TX:%s tx_ctrl:%s\n",
-           __func__,
-           tx_control_.DebugString().c_str());
+      Debug("TX:%s tx_ctrl:%s\n", __func__, tx_control_.DebugString().c_str());
 
       EMANELTE::MHAL::UE::send_msg(data, tx_control_);
     }
@@ -1677,8 +1687,6 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
 
   tx_control_.Clear();
 
-
-
   pthread_mutex_unlock(&ul_mutex_);
 }
 
@@ -1687,8 +1695,9 @@ void ue_ul_put_prach(int index)
 {
   pthread_mutex_lock(&ul_mutex_);
 
-  // carrier 0
-  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[0];
+  const std::uint32_t cc_idx = 0; // carrier 0
+
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
   auto channel_message = carrier_ctrl.mutable_uplink()->mutable_prach();
 
   initUplinkChannelMessage(channel_message,
@@ -1700,13 +1709,14 @@ void ue_ul_put_prach(int index)
   // and can span 2 or 3 subframes. Set slot1 and slot2 resource blocks the same.
   // prach spans the 6 resource blocks starting from prach_freq_offset
   for(int i = 0; i < 6; ++i)
-    {
-      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
-      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
-    }
+   {
+     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
+     channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
+   }
 
-  auto prach    = ue_ul_msg_.mutable_prach();
-  auto preamble = prach->mutable_preamble();
+  auto & carrier = (*ue_ul_msg_.mutable_carriers())[cc_idx];
+  auto prach     = carrier.mutable_prach();
+  auto preamble  = prach->mutable_preamble();
 
   preamble->set_index(index);
 
@@ -1791,7 +1801,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   auto pucch_message = ue_ul_msg_.mutable_pucch();
+   auto & carrier     = (*ue_ul_msg_.mutable_carriers())[cc_idx];
+   auto pucch_message = carrier.mutable_pucch();
    auto grant_message = pucch_message->add_grant();
    auto pucch_cfg     = cfg->ul_cfg.pucch;
    const auto rnti    = pucch_cfg.rnti;
@@ -1881,6 +1892,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
 #ifdef DEBUG_HEX
    InfoHex(&uci_value2, sizeof(srslte_uci_value_t), 
            "PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
+#else
+   Info("PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
 #endif
 
    pthread_mutex_unlock(&ul_mutex_);
@@ -1970,12 +1983,13 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
    channel_message->set_rnti(rnti);
 
    for(size_t i = 0; i < grant->L_prb; ++i)
-     {
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i));
-       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i));
-     }
+    {
+      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i));
+      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i));
+    }
 
-   auto pusch_message = ue_ul_msg_.mutable_pusch();
+   auto & carrier     = (*ue_ul_msg_.mutable_carriers())[cc_idx];
+   auto pusch_message = carrier.mutable_pusch();
    auto grant_message = pusch_message->add_grant();
 
    grant_message->set_rnti(rnti);
@@ -1992,6 +2006,8 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
 #ifdef DEBUG_HEX
    InfoHex(data->ptr, bits_to_bytes(grant->tb.tbs), 
            "PUSCH:%s: rnti 0x%hx\n", __func__, rnti);
+#else
+   Info("PUSCH:%s: rnti 0x%hx\n", __func__, rnti);
 #endif
 
    UESTATS::putULGrant(rnti);
