@@ -32,6 +32,10 @@
 #include "srslte/srslte.h"
 #include "srsue/hdr/phy/phy.h"
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "srsue/hdr/phy/phy_adapter.h"
+#endif
+
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -450,6 +454,10 @@ void phy::set_config(srslte::phy_cfg_t& config_, uint32_t cc_idx, uint32_t earfc
         double ul_freq = srslte_band_fu(common.get_ul_earfcn(earfcn)) * 1e6;
         radio->set_rx_freq(cc_idx, dl_freq);
         radio->set_tx_freq(cc_idx, ul_freq);
+  
+#ifdef PHY_ADAPTER_ENABLE
+       phy_adapter::ue_set_frequency(cc_idx, dl_freq, ul_freq);
+#endif
       }
 
       // Store SCell earfcn and pci

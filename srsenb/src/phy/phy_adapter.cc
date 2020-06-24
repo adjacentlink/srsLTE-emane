@@ -58,7 +58,7 @@ extern "C" {
 
 #include <vector>
 #include <set>
-
+#include <map>
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -71,7 +71,13 @@ namespace {
   // 0 or more ue ul messages for this tti
   using UE_UL_Messages = std::vector<UE_UL_Message>;
 
+  using FrequencyPair = std::pair<double, double>;
+
+  using FrequencyTable = std::map<uint32_t, FrequencyPair>;
+
   UE_UL_Messages ue_ul_msgs_;
+
+  FrequencyTable frequencyTable_;
 
   uint64_t tx_seqnum_ = 0;
   uint8_t  my_pci_    = 0;
@@ -744,6 +750,8 @@ void enb_initialize(srslte::log * log_h,
 {
    log_h_ = log_h;
 
+   frequencyTable_.clear();
+
    for(auto & cell_cfg : cfg_list)
      {
         enb_init_i(sf_interval_msec, 
@@ -758,6 +766,14 @@ void enb_initialize(srslte::log * log_h,
         // XXX TODO remove to handle multiple cc workers only 1 supported now
         break;
      }
+}
+
+
+void enb_set_frequency(uint32_t cc_idx,
+                       double dl_freq_hz,
+                       double ul_freq_hz)
+{
+   frequencyTable_[cc_idx] = FrequencyPair{dl_freq_hz, ul_freq_hz};
 }
 
 
@@ -983,7 +999,17 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
   bool result = false;
 
   EMANELTE::MHAL::Data data;
-  
+
+  // load our carrier freqs dl/ul 
+  for(auto f : frequencyTable_)
+   {
+     // note must get entry as a reference otherwise you get a copy of the map entry
+     auto & frequencies = (*enb_dl_msg_.mutable_frequencies())[f.first];
+
+     frequencies.set_dl_frequency_hz(f.second.first);
+     frequencies.set_ul_frequency_hz(f.second.second);
+   }
+ 
   if(enb_dl_msg_.SerializeToString(&data))
     {
       tx_control_.set_reference_signal_power_milliwatt(pdsch_rs_power_milliwatt_);

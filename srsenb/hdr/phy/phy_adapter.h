@@ -49,6 +49,10 @@ void enb_initialize(srslte::log*                   log_h,
                     EMANELTE::MHAL::mhal_config_t& mhal_config,
                     rrc_cfg_t*                     rrc_cfg);
 
+ void enb_set_frequency(uint32_t cc_idx,
+                        double dl_freq_hz,
+                        double ul_freq_hz);
+
  // state start
  void enb_start();
 

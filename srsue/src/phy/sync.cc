@@ -777,7 +777,8 @@ bool sync::set_frequency()
     radio_h->set_tx_freq(0, set_ul_freq);
 
 #ifdef PHY_ADAPTER_ENABLE
-    phy_adapter::ue_set_frequencies(set_ul_freq, set_dl_freq, current_earfcn);
+    phy_adapter::ue_set_earfcn(set_ul_freq, set_dl_freq, current_earfcn);
+    phy_adapter::ue_set_frequency(0, set_dl_freq, set_ul_freq);
     phy_adapter::ue_set_sync(this);
 #endif
 

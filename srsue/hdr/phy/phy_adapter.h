@@ -48,7 +48,13 @@ void ue_start();
 
 void ue_stop();
 
-void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn);
+void ue_set_frequency(uint32_t cc_idx,
+                      double dl_freq_hz,
+                      double ul_freq_hz);
+
+void ue_set_earfcn(float ul_freq,
+                   float dl_freq,
+                   uint32_t earfcn);
 
 void ue_set_bandwidth(int n_prb);
 

@@ -70,6 +70,12 @@ namespace {
 
  using DL_ENB_Messages = std::vector<std::pair<struct timeval, EMANELTE::MHAL::RxMessages>>;
 
+ using FrequencyPair = std::pair<double, double>;
+
+ using FrequencyTable = std::map<uint32_t, FrequencyPair>;
+
+ FrequencyTable frequencyTable_;
+
  srslte::rf_buffer_t buffer_(1);
 
  DL_ENB_Messages dl_enb_messages_;
@@ -474,13 +480,15 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
 {
   log_h_ = log_h;
 
+  frequencyTable_.clear();
+
   Info("INIT:%s sf_interval %u msec\n", __func__, sf_interval_msec);
 
   EMANELTE::MHAL::UE::initialize(sf_interval_msec, mhal_config);
 }
 
 
-void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn)
+void ue_set_earfcn(float ul_freq, float dl_freq, uint32_t earfcn)
 {
   Info("INIT:%s ul_freq %6.4f MHz, fl_freq %6.4f MHz, earfcn %u -> %u\n",
        __func__,
@@ -493,6 +501,14 @@ void ue_set_frequencies(float ul_freq, float dl_freq, uint32_t earfcn)
 
   EMANELTE::MHAL::UE::set_frequencies(ul_freq, dl_freq);
 }
+
+void ue_set_frequency(uint32_t cc_idx,
+                      double dl_freq_hz,
+                      double ul_freq_hz)
+{
+   frequencyTable_[cc_idx] = FrequencyPair{dl_freq_hz, ul_freq_hz};
+}
+
 
 void ue_set_sync(srsue::sync * sync)
 {
@@ -688,11 +704,15 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
                     ++num_pss_sss_found;
 
-                    Debug("RX:%s: found pss_sss %s, peak_sum %0.1f, num_samples %u\n",
+                    const auto frequencies = enb_dl_msg.frequencies();
+
+                    Info("RX:%s: PCI %u, pss_sss %s, peak_sum %0.1f, num_samples %u, frequencies %lu\n",
                           __func__,
+                          pci,
                           GetDebugString(pss_sss.DebugString()).c_str(),
                           iter->second[n].second.rxData_.peak_sum_,
-                          iter->second[n].second.rxData_.num_samples_);
+                          iter->second[n].second.rxData_.num_samples_,
+                          frequencies.size());
                   }
                }
 
