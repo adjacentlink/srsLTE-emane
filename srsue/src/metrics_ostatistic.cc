@@ -35,7 +35,7 @@ void metrics_ostatistic::set_ue_handle(ue_metrics_interface *ue_)
 
 void metrics_ostatistic::set_metrics(const ue_metrics_t &m, const uint32_t)
 {
-#if 0 // ALINK_XXX FIXME
+#if 0 // ALINK_XXX REMOVE
   UESTATS::RLCQueueMetricsList rlcQueueMetrics;
   UESTATS::RLCQueueMetricsList rlcMrbQueueMetrics;
 

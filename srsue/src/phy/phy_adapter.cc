@@ -70,7 +70,7 @@ namespace {
 
  using DL_ENB_Messages = std::vector<std::pair<struct timeval, EMANELTE::MHAL::RxMessages>>;
 
- using FrequencyPair = std::pair<double, double>;
+ using FrequencyPair = std::pair<double, double>; // rx/tx
 
  using FrequencyTable = std::map<uint32_t, FrequencyPair>;
 
@@ -488,25 +488,31 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
 }
 
 
-void ue_set_earfcn(float ul_freq, float dl_freq, uint32_t earfcn)
+void ue_set_earfcn(double rx_freq_hz, double tx_freq_hz, uint32_t earfcn)
 {
-  Info("INIT:%s ul_freq %6.4f MHz, fl_freq %6.4f MHz, earfcn %u -> %u\n",
+  Info("INIT:%s rx_freq %6.4f MHz, tx_freq %6.4f MHz, earfcn %u -> %u\n",
        __func__,
-       ul_freq/1e6,
-       dl_freq/1e6,
+       rx_freq_hz/1e6,
+       tx_freq_hz/1e6,
        earfcn_,
        earfcn);
 
   earfcn_ = earfcn;
-
-  EMANELTE::MHAL::UE::set_frequencies(ul_freq, dl_freq);
 }
 
 void ue_set_frequency(uint32_t cc_idx,
-                      double dl_freq_hz,
-                      double ul_freq_hz)
+                      double rx_freq_hz,
+                      double tx_freq_hz)
 {
-   frequencyTable_[cc_idx] = FrequencyPair{dl_freq_hz, ul_freq_hz};
+   frequencyTable_[cc_idx] = FrequencyPair{rx_freq_hz, tx_freq_hz}; // rx/tx
+
+   Info("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
+       __func__,
+       cc_idx,
+       rx_freq_hz/1e6,
+       tx_freq_hz/1e6);
+
+   EMANELTE::MHAL::UE::set_frequencies(cc_idx, rx_freq_hz, tx_freq_hz);
 }
 
 
@@ -514,6 +520,12 @@ void ue_set_sync(srsue::sync * sync)
 {
   sync_ = sync;
 }
+
+void ue_set_cell(const phy_interface_rrc_lte::phy_cell_t* cell)
+{
+  // XXX_CC TODO
+}
+
 
 
 void ue_set_bandwidth(int n_prb)

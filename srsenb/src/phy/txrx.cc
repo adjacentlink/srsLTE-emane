@@ -114,7 +114,7 @@ void txrx::run_thread()
     radio_h->set_rx_freq(rf_port, rx_freq_hz);
 
 #ifdef PHY_ADAPTER_ENABLE
-    phy_adapter::enb_set_frequency(cc_idx, tx_freq_hz, rx_freq_hz);
+    phy_adapter::enb_set_frequency(cc_idx, rx_freq_hz, tx_freq_hz);
 #endif 
   }
 

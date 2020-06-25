@@ -269,6 +269,10 @@ bool sync::cell_select(const phy_interface_rrc_lte::phy_cell_t* new_cell)
       return ret;
     }
     Info("Cell Select: Starting cell selection for PCI=%d, EARFCN=%d\n", new_cell->pci, new_cell->earfcn);
+
+#ifdef PHY_ADAPTER_ENABLE
+    phy_adapter::ue_set_cell(new_cell);
+#endif
   }
 
   // Wait for any pending PHICH
@@ -777,8 +781,8 @@ bool sync::set_frequency()
     radio_h->set_tx_freq(0, set_ul_freq);
 
 #ifdef PHY_ADAPTER_ENABLE
-    phy_adapter::ue_set_earfcn(set_ul_freq, set_dl_freq, current_earfcn);
-    phy_adapter::ue_set_frequency(0, set_dl_freq, set_ul_freq);
+    phy_adapter::ue_set_earfcn(set_dl_freq, set_ul_freq, current_earfcn); // rx/tx
+    phy_adapter::ue_set_frequency(0, set_dl_freq, set_ul_freq);           // rx/tx
     phy_adapter::ue_set_sync(this);
 #endif
 

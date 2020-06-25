@@ -49,11 +49,13 @@ void ue_start();
 void ue_stop();
 
 void ue_set_frequency(uint32_t cc_idx,
-                      double dl_freq_hz,
-                      double ul_freq_hz);
+                      double rx_freq_hz,
+                      double tx_freq_hz);
 
-void ue_set_earfcn(float ul_freq,
-                   float dl_freq,
+void ue_set_cell(const phy_interface_rrc_lte::phy_cell_t* cell);
+
+void ue_set_earfcn(double rx_freq_hz,
+                   double tx_freq_hz,
                    uint32_t earfcn);
 
 void ue_set_bandwidth(int n_prb);

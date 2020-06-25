@@ -71,7 +71,7 @@ namespace {
   // 0 or more ue ul messages for this tti
   using UE_UL_Messages = std::vector<UE_UL_Message>;
 
-  using FrequencyPair = std::pair<double, double>;
+  using FrequencyPair = std::pair<double, double>; // rx/tx
 
   using FrequencyTable = std::map<uint32_t, FrequencyPair>;
 
@@ -695,11 +695,12 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
 }
 
 
-void enb_init_i(uint32_t sf_interval_msec, 
+void enb_init_i(uint32_t idx,
+                uint32_t sf_interval_msec, 
                 uint32_t physical_cell_id, 
                 srslte_cp_t cp,
-                float ul_freq,
-                float dl_freq, 
+                double ul_freq_hz, // rx
+                double dl_freq_hz, // tx
                 int n_prb, 
                 EMANELTE::MHAL::mhal_config_t & mhal_config,
                 rrc_cfg_t * rrc_cfg)
@@ -708,32 +709,34 @@ void enb_init_i(uint32_t sf_interval_msec,
 
   cell_cp_ = cp;
 
-  Info("INIT:%s\n"
+  Info("INIT:%s idx=%u, PCI=%u\n"
        "\tsf_interval=%u msec\n"
-       "\tul_freq=%6.4f MHz\n"
-       "\tfl_freq=%6.4f MHz\n"
+       "\trx_freq=%6.4f MHz\n"
+       "\ttx_freq=%6.4f MHz\n"
        "\tn_prb=%d\n"
        "\trs_power=%d\n"
        "\tpdsch_rs_power_milliwatt=%0.2f\n"
        "\tp_b=%d\n"
        "\tpdsch_rho_b_over_rho_a=%.02f\n",
        __func__,
+       idx,
+       physical_cell_id,
        sf_interval_msec,
-       roundf(ul_freq/1e6),
-       roundf(dl_freq/1e6),
+       ul_freq_hz/1e6,
+       dl_freq_hz/1e6,
        n_prb,
        rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.ref_sig_pwr,
        pdsch_rs_power_milliwatt_,
        rrc_cfg->sibs[1].sib2().rr_cfg_common.pdsch_cfg_common.p_b,
        pdsch_rho_b_over_rho_a_);
 
-  EMANELTE::MHAL::ENB::initialize(
+  EMANELTE::MHAL::ENB::initialize(idx,
      mhal_config,
      EMANELTE::MHAL::ENB::mhal_enb_config_t(physical_cell_id,
                                             sf_interval_msec,
                                             cp == SRSLTE_CP_NORM ? SRSLTE_CP_NORM_NSYMB : SRSLTE_CP_EXT_NSYMB,
-                                            ul_freq,
-                                            dl_freq,
+                                            ul_freq_hz, // rx
+                                            dl_freq_hz, // tx
                                             n_prb,
                                             pdsch_rs_power_milliwatt_,
                                             pdsch_rho_b_over_rho_a_));
@@ -752,9 +755,11 @@ void enb_initialize(srslte::log * log_h,
 
    frequencyTable_.clear();
 
+   uint32_t idx = 0;
    for(auto & cell_cfg : cfg_list)
      {
-        enb_init_i(sf_interval_msec, 
+        enb_init_i(idx++,
+                   sf_interval_msec, 
                    cell_cfg.cell.id, 
                    cell_cfg.cell.cp, 
                    cell_cfg.ul_freq_hz, 
@@ -762,18 +767,21 @@ void enb_initialize(srslte::log * log_h,
                    cell_cfg.cell.nof_prb, 
                    mhal_config,
                    rrc_cfg);
-
-        // XXX TODO remove to handle multiple cc workers only 1 supported now
-        break;
      }
 }
 
 
 void enb_set_frequency(uint32_t cc_idx,
-                       double dl_freq_hz,
-                       double ul_freq_hz)
+                       double rx_freq_hz,
+                       double tx_freq_hz)
 {
-   frequencyTable_[cc_idx] = FrequencyPair{dl_freq_hz, ul_freq_hz};
+   frequencyTable_[cc_idx] = FrequencyPair{rx_freq_hz, tx_freq_hz};
+
+   Info("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
+       __func__,
+       cc_idx,
+       rx_freq_hz/1e6,
+       tx_freq_hz/1e6);
 }
 
 
@@ -874,7 +882,7 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
   carrier_ctrl.set_carrier_id(cc_idx);
   carrier_ctrl.set_phy_cell_id(q->cell.id);
 
-  // XXX TODO multiple pci 
+  // XXX_CC TODO multiple carriers 
   my_pci_ = q->cell.id;
 
   // save the tti_tx
@@ -1000,14 +1008,14 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
 
   EMANELTE::MHAL::Data data;
 
-  // load our carrier freqs dl/ul 
+  // load our carrier freqs rx/tx
   for(auto f : frequencyTable_)
    {
      // note must get entry as a reference otherwise you get a copy of the map entry
      auto & frequencies = (*enb_dl_msg_.mutable_frequencies())[f.first];
 
-     frequencies.set_dl_frequency_hz(f.second.first);
-     frequencies.set_ul_frequency_hz(f.second.second);
+     frequencies.set_rx_frequency_hz(f.second.first);  // rx
+     frequencies.set_tx_frequency_hz(f.second.second); // tx
    }
  
   if(enb_dl_msg_.SerializeToString(&data))
@@ -1488,10 +1496,10 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
            const uint32_t & pci = carrier_iter.second.phy_cell_id();
 
            // check ul msg pci vs our pci
-           // XXX TODO multiple pci 
+           // XXX_CC TODO multiple carriers
            if(pci != my_pci_)
             {
-              Info("RX:%s: pci 0x%x != my_pci 0x%x, ignore\n", __func__, pci, my_pci_);
+              Info("RX:%s: PCI 0x%x != my_PCI 0x%x, ignore\n", __func__, pci, my_pci_);
             }
            else
             {
