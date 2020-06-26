@@ -521,11 +521,11 @@ void ue_set_sync(srsue::sync * sync)
   sync_ = sync;
 }
 
+
 void ue_set_cell(const phy_interface_rrc_lte::phy_cell_t* cell)
 {
   // XXX_CC TODO
 }
-
 
 
 void ue_set_bandwidth(int n_prb)
@@ -716,15 +716,12 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
                     ++num_pss_sss_found;
 
-                    const auto frequencies = enb_dl_msg.frequencies();
-
-                    Info("RX:%s: PCI %u, pss_sss %s, peak_sum %0.1f, num_samples %u, frequencies %lu\n",
+                    Info("RX:%s: PCI %u, pss_sss %s, peak_sum %0.1f, num_samples %u\n",
                           __func__,
                           pci,
                           GetDebugString(pss_sss.DebugString()).c_str(),
                           iter->second[n].second.rxData_.peak_sum_,
-                          iter->second[n].second.rxData_.num_samples_,
-                          frequencies.size());
+                          iter->second[n].second.rxData_.num_samples_);
                   }
                }
 
@@ -1681,7 +1678,14 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
      auto & carrier = (*ue_ul_msg_.mutable_carriers())[iter->first];
      carrier.set_phy_cell_id(cell.id);
      carrier.set_carrier_id(iter->first);
+
+     const auto & freqPair = frequencyTable_.at(iter->first);
+     auto frequencies = carrier.mutable_frequencies();
+
+     frequencies->set_rx_frequency_hz(freqPair.first);
+     frequencies->set_tx_frequency_hz(freqPair.second);
    }
+
 
   // finalize txctrl carrier info
   for(auto iter = tx_control_.carriers().begin(); iter != tx_control_.carriers().end(); ++iter)
@@ -1742,8 +1746,8 @@ void ue_ul_put_prach(int index)
   // prach spans the 6 resource blocks starting from prach_freq_offset
   for(int i = 0; i < 6; ++i)
    {
-     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
-     channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i));
+     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i, cc_idx));
+     channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i, cc_idx));
    }
 
   auto & carrier = (*ue_ul_msg_.mutable_carriers())[cc_idx];
@@ -1913,8 +1917,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
      }
 
    // flag when resource blocks are different on slot 1 and 2 of the subframe
-   channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0]));
-   channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1]));
+   channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0], cc_idx));
+   channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1], cc_idx));
 
    grant_message->set_num_prb(n_prb[1]);
    grant_message->set_num_pucch(pucch_cfg.n_pucch);
@@ -2016,8 +2020,8 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
 
    for(size_t i = 0; i < grant->L_prb; ++i)
     {
-      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i));
-      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i));
+      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i, cc_idx));
+      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i, cc_idx));
     }
 
    auto & carrier     = (*ue_ul_msg_.mutable_carriers())[cc_idx];

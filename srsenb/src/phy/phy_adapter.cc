@@ -77,10 +77,13 @@ namespace {
 
   UE_UL_Messages ue_ul_msgs_;
 
+  // track carrier to rx/tx freq
   FrequencyTable frequencyTable_;
 
+  // track pci to carrier
+  std::map<uint8_t,uint32_t> pciTable_;
+
   uint64_t tx_seqnum_ = 0;
-  uint8_t  my_pci_    = 0;
   uint32_t curr_tti_  = 0;
   uint32_t tti_tx_    = 0;
 
@@ -322,7 +325,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
    if(!((dci_msg->location.ncce + PDCCH_FORMAT_NOF_CCE(dci_msg->location.L) <= NOF_CCE(q->dl_sf.cfi)) &&
         (dci_msg->nof_bits < (SRSLTE_DCI_MAX_BITS - 16)))) 
     {
-      Info("PDCCH:%s cc %u, type %s, rnti 0x%hx, cfi %d, illegal dci msg, ncce %d, format_ncce %d, cfi_ncce %d, nof_bits %d, max_bits %d\n", 
+      Warning("PDCCH:%s cc %u, type %s, rnti 0x%hx, cfi %d, illegal dci msg, ncce %d, format_ncce %d, cfi_ncce %d, nof_bits %d, max_bits %d\n", 
             __func__,
             cc_idx,
             type ? "UL" : "DL",
@@ -392,7 +395,7 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
              "k[2]=%u "
              "k[3]=%u) in rb=%u\n", tti_tx_ % 10, i, rnti, l, k0, k[0], k[1], k[2], k[3], rb);
 
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
      }
    }
 
@@ -418,8 +421,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
              "PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
              __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
 #else
-     Info("PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
-           __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
+     if(rnti != 0xffff)
+       Info("PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
+             __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
 #endif
    }
   else
@@ -443,8 +447,9 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
              "PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
              __func__, cc_idx, rnti, dci_msg->nof_bits);
 #else
-     Info("PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
-           __func__, cc_idx, rnti, dci_msg->nof_bits);
+     if(rnti != 0xffff)
+       Info("PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
+            __func__, cc_idx, rnti, dci_msg->nof_bits);
 #endif
    }
 
@@ -557,12 +562,12 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
     {
       if(grant.prb_idx[0][rb])
        {
-         channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+         channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
        }
 
       if(grant.prb_idx[1][rb])
        {
-         channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+         channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
        }
     }
 
@@ -584,7 +589,8 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
            "PDSCH:%s cc %u, rnti 0x%hx, refid %d, tbs %d\n",
            __func__, cc_idx, rnti, pdsch_ref_ - 1, grant.tb[tb].tbs);
 #else
-   Info("PDSCH:%s cc %u, rnti 0x%hx, refid %d, tb %d, tbs %d\n",
+   if(rnti != 0xffff)
+     Info("PDSCH:%s cc %u, rnti 0x%hx, refid %d, tb %d, tbs %d\n",
            __func__, cc_idx, rnti, pdsch_data->refid(), pdsch_data->tb(), pdsch_data->tbs());
 
 #endif
@@ -678,8 +684,8 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    // channel_message.add_resource_blocks();
    for(uint32_t rb = 0; rb < q->cell.nof_prb; ++rb)
      {
-       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
-       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+       channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
+       channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
      }
 
 #ifdef DEBUG_HEX
@@ -882,8 +888,8 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
   carrier_ctrl.set_carrier_id(cc_idx);
   carrier_ctrl.set_phy_cell_id(q->cell.id);
 
-  // XXX_CC TODO multiple carriers 
-  my_pci_ = q->cell.id;
+  // save cell id's
+  pciTable_[cc_idx] = q->cell.id;
 
   // save the tti_tx
   tti_tx_ = tti_tx;
@@ -918,7 +924,7 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
             "k[2]=%u "
             "k[3]=%u) in resource block=%u\n", __func__, cc_idx, i, l, k0, k[0], k[1], k[2], k[3], rb);
 
-      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
     }
 
   // Set side chain PSS, SSS and MIB information on appropriate subframes
@@ -954,7 +960,7 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
 
          for(int i=0; i<num_prb; ++i)
            {
-             channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(first_prb + i));
+             channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::ENB::get_tx_prb_frequency(first_prb + i, cc_idx));
            }
 
          switch(q->cell.phich_resources) 
@@ -1009,15 +1015,19 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
   EMANELTE::MHAL::Data data;
 
   // load our carrier freqs rx/tx
-  for(auto f : frequencyTable_)
+  for(auto iter = enb_dl_msg_.carriers().begin(); iter != enb_dl_msg_.carriers().end(); ++iter)
    {
-     // note must get entry as a reference otherwise you get a copy of the map entry
-     auto & frequencies = (*enb_dl_msg_.mutable_frequencies())[f.first];
+      auto & carrier = (*enb_dl_msg_.mutable_carriers())[iter->first];
 
-     frequencies.set_rx_frequency_hz(f.second.first);  // rx
-     frequencies.set_tx_frequency_hz(f.second.second); // tx
+      const auto & freqPair = frequencyTable_.at(iter->first);
+
+      auto frequencies = (*enb_dl_msg_.mutable_carriers())[iter->first].mutable_frequencies();
+
+      frequencies->set_rx_frequency_hz(freqPair.first); // rx
+      frequencies->set_tx_frequency_hz(freqPair.second);// tx
    }
- 
+
+
   if(enb_dl_msg_.SerializeToString(&data))
     {
       tx_control_.set_reference_signal_power_milliwatt(pdsch_rs_power_milliwatt_);
@@ -1196,9 +1206,6 @@ int enb_dl_cc_put_pdcch_dl(srslte_enb_dl_t* q,
       // check if data is ready
       if(grant->data[tb])
        {
-         if(grant->dci.rnti != 0xffff) // to noisy
-          Info("PDCCH:%s cc %u, put tb %d, rnti 0x%hx\n", __func__, cc_idx, tb, grant->dci.rnti);
-
          if(enb_dl_put_pdcch_dl_i(q, dci_cfg, &grant->dci, ref, cc_idx))
           {
              Error("PDCCH:%s cc %u, Error ref %u, tb %u, rnti 0x%hx\n", 
@@ -1258,9 +1265,6 @@ int enb_dl_cc_put_pdsch_dl(srslte_enb_dl_t* q,
       // check if data is ready
       if(grant->data[tb])
        {
-         if(grant->dci.rnti != 0xffff) // too noisy
-           Info("PDSCH:%s cc %u, put tb %d, rnti 0x%hx\n", __func__, cc_idx, tb, grant->dci.rnti);
-
          if(enb_dl_put_dl_pdsch_i(q, pdsch, grant->data[tb], ref, tb, cc_idx) != SRSLTE_SUCCESS)
            {
              Error("PDSCH:%s cc %u, Error ref %u, tb %u, rnti 0x%hx\n", 
@@ -1433,7 +1437,7 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
    for (uint32_t i = 0; i < rch.nof_regs; i++) {
      uint32_t rb = rch.regs[i]->k0 / 12;
 
-     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb));
+     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, cc_idx));
    }
 
    Info("PHICH:%s cc %u, rnti 0x%hx, ack %d, n_prb_L %d, n_dmrs %d\n", 
@@ -1495,11 +1499,10 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
          {
            const uint32_t & pci = carrier_iter.second.phy_cell_id();
 
-           // check ul msg pci vs our pci
-           // XXX_CC TODO multiple carriers
-           if(pci != my_pci_)
+           // check ul msg pci vs our pci(s)
+           if(! pciTable_.count(pci))
             {
-              Info("RX:%s: PCI 0x%x != my_PCI 0x%x, ignore\n", __func__, pci, my_pci_);
+              Info("RX:%s: PCI 0x%x not found, ignore\n", __func__, pci);
             }
            else
             {
