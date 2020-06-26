@@ -1680,10 +1680,20 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
      carrier.set_carrier_id(iter->first);
 
      const auto & freqPair = frequencyTable_.at(iter->first);
-     auto frequencies = carrier.mutable_frequencies();
 
-     frequencies->set_rx_frequency_hz(freqPair.first);
-     frequencies->set_tx_frequency_hz(freqPair.second);
+     {
+       auto frequencies = carrier.mutable_frequencies();
+
+       frequencies->set_rx_frequency_hz(freqPair.first);
+       frequencies->set_tx_frequency_hz(freqPair.second);
+     }
+
+     {
+       auto frequencies = (*tx_control_.mutable_carriers())[iter->first].mutable_frequencies();
+
+       frequencies->set_rx_frequency_hz(freqPair.first); // rx
+       frequencies->set_tx_frequency_hz(freqPair.second);// tx
+     }
    }
 
 

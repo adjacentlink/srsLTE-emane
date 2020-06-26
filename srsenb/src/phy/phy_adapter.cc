@@ -1021,10 +1021,19 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
 
       const auto & freqPair = frequencyTable_.at(iter->first);
 
-      auto frequencies = (*enb_dl_msg_.mutable_carriers())[iter->first].mutable_frequencies();
+      {
+        auto frequencies = (*enb_dl_msg_.mutable_carriers())[iter->first].mutable_frequencies();
 
-      frequencies->set_rx_frequency_hz(freqPair.first); // rx
-      frequencies->set_tx_frequency_hz(freqPair.second);// tx
+        frequencies->set_rx_frequency_hz(freqPair.first); // rx
+        frequencies->set_tx_frequency_hz(freqPair.second);// tx
+      }
+
+      {
+        auto frequencies = (*tx_control_.mutable_carriers())[iter->first].mutable_frequencies();
+
+        frequencies->set_rx_frequency_hz(freqPair.first); // rx
+        frequencies->set_tx_frequency_hz(freqPair.second);// tx
+      }
    }
 
 
