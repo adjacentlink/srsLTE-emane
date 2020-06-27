@@ -219,8 +219,9 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
   try {
    const auto & freqPair = frequencyTable_.at(cc_idx);
 
-   for(auto carrier : enb_dl_msg.carriers())
+   for(auto & carrier : enb_dl_msg.carriers())
      {
+       // match our rx freq to the msg tx freq
        if(freqPair.first == carrier.second.frequencies().tx_frequency_hz())
         {
           return std::pair<bool, const EMANELTE::MHAL::ENB_DL_Message_CarrierMessage &>(true, carrier.second);
@@ -232,6 +233,7 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
     fprintf(stderr, "caught %s\n", ex.what());
   }
   
+  fprintf(stderr, "NOT found cc %u\n", cc_idx);
   return std::pair<bool, const EMANELTE::MHAL::ENB_DL_Message_CarrierMessage &>(false, EMANELTE::MHAL::ENB_DL_Message_CarrierMessage{});
  }
 
@@ -735,11 +737,14 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
               if(carrier_result.first)
                {
-                 // search for pss/sss
+#if 1
+                Info("RX:%s: carrier %s\n", __func__, carrier_result.second.DebugString().c_str());
+#endif
+                // search for pss/sss
                  if(carrier_result.second.has_pss_sss())
                   {
                     const auto & pss_sss = carrier_result.second.pss_sss();
- 
+
                     // should all be the same
                     cp = pss_sss.cp_mode() == EMANELTE::MHAL::CP_NORM ? SRSLTE_CP_NORM : SRSLTE_CP_EXT;
 
@@ -900,7 +905,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 
      const auto dl_enb_signals = ue_dl_enb_subframe_get_i(&ue_mib_sync->ue_sync, NULL);
 
-     Debug("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
+     Info("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
            ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dl_enb_signals.size());
 
      if(! dl_enb_signals.empty())
@@ -911,6 +916,9 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 
         if(carrier_result.first)
          {
+#if 1
+           Info("RX:%s: carrier %s\n", __func__, carrier_result.second.DebugString().c_str());
+#endif
            if(carrier_result.second.has_pbch())
             {
               auto rxControl = dl_enb_signals[0].second;
@@ -1049,6 +1057,10 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
          {
            if(carrier_result.second.has_pbch())
             {
+#if 1
+             Info("RX:%s: carrier %s\n", __func__, carrier_result.second.DebugString().c_str());
+#endif
+
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
@@ -1092,7 +1104,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
 }
 
 
-// 4 
+// 4 this is the main rx handler
 int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 {
    // set next tx tti
@@ -1126,7 +1138,7 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
      }
    else
      {
-       // save enb_dl_msg and rxControl for further processing
+       // save enb_dl_msg and rxControl for this frame
        enb_dl_msg_ = dl_enb_signals[0].first;
 
        rx_control_ = dl_enb_signals[0].second;
@@ -1719,6 +1731,8 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
 
            frequencies->set_rx_frequency_hz(rx_freq_hz); // rx
            frequencies->set_tx_frequency_hz(tx_freq_hz); // tx
+
+           (*ue_ul_msg_.mutable_carriers())[tx_freq_hz].set_phy_cell_id(cell.id);
          }
 
          {
@@ -1770,7 +1784,9 @@ void ue_ul_put_prach(int index)
 
   const std::uint32_t cc_idx = 0; // carrier 0
 
-  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
+  const auto tx_freq_hz = getTxFrequency(cc_idx);
+
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[tx_freq_hz];
   auto channel_message = carrier_ctrl.mutable_uplink()->mutable_prach();
 
   initUplinkChannelMessage(channel_message,
@@ -1783,11 +1799,11 @@ void ue_ul_put_prach(int index)
   // prach spans the 6 resource blocks starting from prach_freq_offset
   for(int i = 0; i < 6; ++i)
    {
-     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i, cc_idx));
-     channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i, cc_idx));
+     channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i, tx_freq_hz));
+     channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(prach_freq_offset_ + i, tx_freq_hz));
    }
 
-  auto & carrier = (*ue_ul_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
+  auto & carrier = (*ue_ul_msg_.mutable_carriers())[tx_freq_hz];
   auto prach     = carrier.mutable_prach();
   auto preamble  = prach->mutable_preamble();
 
@@ -1874,7 +1890,9 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   auto & carrier     = (*ue_ul_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
+   const auto tx_freq_hz = getTxFrequency(cc_idx);
+
+   auto & carrier     = (*ue_ul_msg_.mutable_carriers())[tx_freq_hz];
    auto pucch_message = carrier.mutable_pucch();
    auto grant_message = pucch_message->add_grant();
    auto pucch_cfg     = cfg->ul_cfg.pucch;
@@ -1922,7 +1940,7 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
              pucch_cfg.format);
      }
 
-   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[tx_freq_hz];
    auto channel_message = carrier_ctrl.mutable_uplink()->add_pucch();
 
    initUplinkChannelMessage(channel_message,
@@ -1954,8 +1972,8 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
      }
 
    // flag when resource blocks are different on slot 1 and 2 of the subframe
-   channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0], cc_idx));
-   channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1], cc_idx));
+   channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[0], tx_freq_hz));
+   channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(n_prb[1], tx_freq_hz));
 
    grant_message->set_num_prb(n_prb[1]);
    grant_message->set_num_pucch(pucch_cfg.n_pucch);
@@ -2042,7 +2060,9 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
 {
    pthread_mutex_lock(&ul_mutex_);
 
-   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
+   const auto tx_freq_hz = getTxFrequency(cc_idx);
+
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[tx_freq_hz];
    auto channel_message = carrier_ctrl.mutable_uplink()->add_pucch();
 
    const auto grant = &cfg->grant;
@@ -2057,11 +2077,11 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
 
    for(size_t i = 0; i < grant->L_prb; ++i)
     {
-      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i, cc_idx));
-      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i, cc_idx));
+      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[0] + i, tx_freq_hz));
+      channel_message->add_resource_block_frequencies_slot2(EMANELTE::MHAL::UE::get_tx_prb_frequency(grant->n_prb[1] + i, tx_freq_hz));
     }
 
-   auto & carrier     = (*ue_ul_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
+   auto & carrier     = (*ue_ul_msg_.mutable_carriers())[tx_freq_hz];
    auto pusch_message = carrier.mutable_pusch();
    auto grant_message = pusch_message->add_grant();
 
