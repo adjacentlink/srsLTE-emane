@@ -71,7 +71,7 @@ namespace {
   // 0 or more ue ul messages for this tti
   using UE_UL_Messages = std::vector<UE_UL_Message>;
 
-  using FrequencyPair = std::pair<double, double>; // rx/tx
+  using FrequencyPair = std::pair<uint64_t, uint64_t>; // rx/tx
 
   using FrequencyTable = std::map<uint32_t, FrequencyPair>;
 
@@ -118,16 +118,6 @@ namespace {
 
   const uint8_t zeros_[0xffff] = {0};
 
-  inline std::string GetDebugString(const std::string & str)
-   {
-#ifdef ENABLE_DEBUG_STRING
-       return str;
-#else
-       return "";
-#endif
-   }
-
-
   inline void
   initDownlinkChannelMessage(EMANELTE::MHAL::ChannelMessage * channel_message,
                              EMANELTE::MHAL::CHANNEL_TYPE ctype,
@@ -154,7 +144,7 @@ namespace {
 namespace srsenb {
 namespace phy_adapter {
 
-static EMANELTE::MHAL::DCI_FORMAT convert(srslte_dci_format_t format)
+static inline EMANELTE::MHAL::DCI_FORMAT convert(srslte_dci_format_t format)
  {
    switch(format)
     {
@@ -192,7 +182,7 @@ static EMANELTE::MHAL::DCI_FORMAT convert(srslte_dci_format_t format)
    }
 }
 
-static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
+static inline EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 {
    switch(type)
     {
@@ -214,6 +204,48 @@ static EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
        return (EMANELTE::MHAL::MOD_ERR);
     }
 }
+
+// lookup carrier that matches the frequencies associated with the cc_idx
+std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &> 
+findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
+ {
+   try {
+     const auto & freqPair = frequencyTable_.at(cc_idx);
+
+     for(auto carrier : ue_ul_msg.carriers())
+      {
+         if(freqPair.first == carrier.second.frequencies().tx_frequency_hz())
+          {
+            return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(true, carrier.second);
+          }
+      }      
+   }
+  catch(const std::exception & ex)
+   {
+     fprintf(stderr, "caught %s\n", ex.what());
+   }
+  
+  return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
+ }
+
+
+// lookup tx freq that matches the frequencies associated with the cc_idx
+static inline uint64_t getTxFrequency(uint32_t cc_idx)
+{
+   const auto & freqPair = frequencyTable_.at(cc_idx);
+
+   return freqPair.second;
+ }
+
+// lookup rx freq that matches the frequencies associated with the cc_idx
+static inline uint64_t getRxFrequency(uint32_t cc_idx)
+{
+   const auto & freqPair = frequencyTable_.at(cc_idx);
+
+   return freqPair.first;
+ }
+
+
 
 /*
 typedef struct SRSLTE_API {
@@ -362,10 +394,10 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
       return SRSLTE_ERROR;
    }
 
-  auto & carrier     = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+  auto & carrier     = (*enb_dl_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
   auto pdcch_message = carrier.add_pdcch();
 
-  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
   auto channel_message = carrier_ctrl.mutable_downlink()->add_pdcch();
 
   initDownlinkChannelMessage(channel_message,
@@ -547,7 +579,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
       rho_a_db = riter->second;
     }
 
-   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
    auto channel_message = carrier_ctrl.mutable_downlink()->add_pdsch();
 
    initDownlinkChannelMessage(channel_message,
@@ -571,7 +603,7 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
        }
     }
 
-   auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+   auto & carrier = (*enb_dl_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
    auto pdsch_message = carrier.mutable_pdsch();
 
    // pdsch data
@@ -664,7 +696,7 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    const uint32_t tb = 0;
 
    // pmch
-   auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+   auto & carrier = (*enb_dl_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
    auto pmch_message = carrier.mutable_pmch();
 
    pmch_message->set_area_id(pmch_cfg->area_id);
@@ -672,7 +704,7 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    pmch_message->set_rnti(rnti);
    pmch_message->set_data(data ? data : zeros_, grant.tb[tb].tbs);
 
-   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+   auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
    auto channel_message = carrier_ctrl.mutable_downlink()->mutable_pmch();
 
    initDownlinkChannelMessage(channel_message,
@@ -781,7 +813,7 @@ void enb_set_frequency(uint32_t cc_idx,
                        double rx_freq_hz,
                        double tx_freq_hz)
 {
-   frequencyTable_[cc_idx] = FrequencyPair{rx_freq_hz, tx_freq_hz};
+   frequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)};
 
    Info("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
        __func__,
@@ -873,19 +905,17 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
 
   // note - cfi should be nof_ctrl_symbols on regular frames and
   //        non_mbsfn_region_length (from sib13) on mbsfn frames
-  auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+  auto & carrier      = (*enb_dl_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
+  auto & carrier_ctrl = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
 
-  auto & carrier_ctrl = (*tx_control_.mutable_carriers())[cc_idx];
-  auto downlink       = carrier_ctrl.mutable_downlink();
+  auto downlink     = carrier_ctrl.mutable_downlink();
 
-  carrier.set_carrier_id(cc_idx);
   carrier.set_cfi(cfi);
   carrier.set_phy_cell_id(q->cell.id);
 
   downlink->set_num_resource_blocks(q->cell.nof_prb);
   downlink->set_cfi(carrier.cfi());
 
-  carrier_ctrl.set_carrier_id(cc_idx);
   carrier_ctrl.set_phy_cell_id(q->cell.id);
 
   // save cell id's
@@ -934,8 +964,8 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
 
       // set cyclical prefix mode
       carrier.mutable_pss_sss()->set_cp_mode(q->cell.cp == SRSLTE_CP_NORM ? 
-                                                 EMANELTE::MHAL::CP_NORM : 
-                                                 EMANELTE::MHAL::CP_EXTD);
+                                              EMANELTE::MHAL::CP_NORM : 
+                                              EMANELTE::MHAL::CP_EXTD);
 
       // MIB on first subframe
       if(sf_idx == 0)
@@ -1014,25 +1044,30 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
 
   EMANELTE::MHAL::Data data;
 
-  // load our carrier freqs rx/tx
-  for(auto iter = enb_dl_msg_.carriers().begin(); iter != enb_dl_msg_.carriers().end(); ++iter)
+  // finalize carrier info for msg/txcontrol
+  for(auto freqPair : frequencyTable_)
    {
-      auto & carrier = (*enb_dl_msg_.mutable_carriers())[iter->first];
+     const auto & tx_freq_hz = freqPair.second.second;
 
-      const auto & freqPair = frequencyTable_.at(iter->first);
+     auto carrier = enb_dl_msg_.carriers().find(tx_freq_hz); // tx freq
 
-      {
-        auto frequencies = (*enb_dl_msg_.mutable_carriers())[iter->first].mutable_frequencies();
+     if(carrier != enb_dl_msg_.carriers().end())
+       {
+         const auto & rx_freq_hz = freqPair.second.first;
 
-        frequencies->set_rx_frequency_hz(freqPair.first); // rx
-        frequencies->set_tx_frequency_hz(freqPair.second);// tx
-      }
+         {
+           auto frequencies = (*enb_dl_msg_.mutable_carriers())[tx_freq_hz].mutable_frequencies();
 
-      {
-        auto frequencies = (*tx_control_.mutable_carriers())[iter->first].mutable_frequencies();
+           frequencies->set_rx_frequency_hz(rx_freq_hz); // rx
+           frequencies->set_tx_frequency_hz(tx_freq_hz); // tx
+         }
 
-        frequencies->set_rx_frequency_hz(freqPair.first); // rx
-        frequencies->set_tx_frequency_hz(freqPair.second);// tx
+         {
+           auto frequencies = (*tx_control_.mutable_carriers())[tx_freq_hz].mutable_frequencies();
+
+           frequencies->set_rx_frequency_hz(rx_freq_hz); // rx
+           frequencies->set_tx_frequency_hz(tx_freq_hz); // tx
+         }
       }
    }
 
@@ -1053,10 +1088,10 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       tx_control_.set_tti_tx(tti_tx_);
 
 #if 0
-      Debug("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
+      Info("TX:%s tx_ctrl:%s\n \t\tmsg:%s\n",
            __func__,
-           GetDebugString(tx_control_.DebugString()).c_str(),
-           GetDebugString(enb_dl_msg_.DebugString()).c_str());
+           tx_control_.DebugString().c_str(),
+           enb_dl_msg_.DebugString().c_str());
 #endif
 
       EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
@@ -1414,7 +1449,7 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
 
   srslte_phich_calc(&q->phich, grant, &resource);
 
-  auto & carrier = (*enb_dl_msg_.mutable_carriers())[cc_idx];
+  auto & carrier = (*enb_dl_msg_.mutable_carriers())[getTxFrequency(cc_idx)];
   auto phich     = carrier.mutable_phich();
 
   phich->set_rnti(ack->rnti);
@@ -1422,7 +1457,7 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
   phich->set_num_prb_low(grant->n_prb_lowest);
   phich->set_num_dmrs(grant->n_dmrs);
 
-  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[cc_idx];
+  auto & carrier_ctrl  = (*tx_control_.mutable_carriers())[getTxFrequency(cc_idx)];
   auto channel_message = carrier_ctrl.mutable_downlink()->add_phich();
 
   initDownlinkChannelMessage(channel_message,
@@ -1504,9 +1539,9 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
                 ue_ul_msg.tti(),
                 ue_ul_msg.carriers().size());
 
-        for(auto & carrier_iter : ue_ul_msg.carriers())
+        for(auto & carrier : ue_ul_msg.carriers())
          {
-           const uint32_t & pci = carrier_iter.second.phy_cell_id();
+           const uint32_t & pci = carrier.second.phy_cell_id();
 
            // check ul msg pci vs our pci(s)
            if(! pciTable_.count(pci))
@@ -1547,15 +1582,15 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
     {
       const uint32_t cc_idx = 0; // carrier 0
 
-      const auto carrier_iter = ul_msg_iter->first.carriers().find(cc_idx);
+      const auto carrier_result = findCarrier(ul_msg_iter->first, cc_idx);
  
-      if(carrier_iter != ul_msg_iter->first.carriers().end())
+      if(carrier_result.first)
        {
-         if(carrier_iter->second.has_prach())
+         if(carrier_result.second.has_prach())
           {
             auto & rxControl = ul_msg_iter->second;
 
-            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, 0);
+            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, carrier_result.second.frequencies().tx_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1563,7 +1598,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
                continue;
              }
 
-            const auto & prach    = carrier_iter->second.prach();
+            const auto & prach    = carrier_result.second.prach();
             const auto & preamble = prach.preamble();
 
             if(unique.count(preamble.index()) == 0) // unique
@@ -1785,13 +1820,13 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
        ul_msg_iter != ue_ul_msgs_.end() && !res->detected;
          ++ul_msg_iter)
    {
-     const auto carrier_iter = ul_msg_iter->first.carriers().find(cc_idx);
+     const auto carrier_result = findCarrier(ul_msg_iter->first, cc_idx);
  
-     if(carrier_iter != ul_msg_iter->first.carriers().end())
+     if(carrier_result.first)
       {
-        if(carrier_iter->second.has_pucch())
+        if(carrier_result.second.has_pucch())
          {
-           const auto & pucch_message = carrier_iter->second.pucch();
+           const auto & pucch_message = carrier_result.second.pucch();
 
            // for each grant
            for(int n = 0; n < pucch_message.grant_size(); ++n)
@@ -1811,7 +1846,7 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                {
                  auto & rxControl = ul_msg_iter->second;
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, cc_idx);
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, carrier_result.second.frequencies().tx_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -1975,13 +2010,13 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
         ul_msg_iter != ue_ul_msgs_.end() && !res->crc;
           ++ul_msg_iter)
    {
-     const auto carrier_iter = ul_msg_iter->first.carriers().find(cc_idx);
+     const auto carrier_result = findCarrier(ul_msg_iter->first, cc_idx);
  
-     if(carrier_iter != ul_msg_iter->first.carriers().end())
+     if(carrier_result.first)
       {
-        if(carrier_iter->second.has_pusch())
+        if(carrier_result.second.has_pusch())
          {
-           const auto & pusch_message = carrier_iter->second.pusch();
+           const auto & pusch_message = carrier_result.second.pusch();
 
            // for each grant
            for(int n = 0; n < pusch_message.grant_size(); ++n)
@@ -1995,7 +2030,7 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                {
                  auto & rxControl = ul_msg_iter->second;
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, cc_idx);
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, carrier_result.second.frequencies().tx_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
