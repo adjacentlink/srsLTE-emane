@@ -929,7 +929,7 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
   carrier_ctrl.set_phy_cell_id(q->cell.id);
 
   // save cell id's
-  pciTable_[cc_idx] = q->cell.id;
+  pciTable_[q->cell.id] = cc_idx;
 
   // save the tti_tx
   tti_tx_ = tti_tx;
@@ -1097,7 +1097,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
-#if 1
+#if 0
       Info("TX:%s msg: %s\n", __func__, enb_dl_msg_.DebugString().c_str());
 #endif
 
@@ -1560,7 +1560,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
            // check ul msg pci vs our pci(s)
            if(! pciTable_.count(pci))
             {
-              Info("RX:%s: PCI 0x%x not found, ignore\n", __func__, pci);
+              Info("RX:%s: PCI 0x%x not found in table size %zu, ignore\n", __func__, pci, pciTable_.size());
             }
            else
             {

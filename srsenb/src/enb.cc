@@ -108,7 +108,7 @@ int enb::init(const all_args_t& args_, srslte::logger* logger_)
   log.console("Type <t> to view trace\n");
 
   // ALINK_XXX set log level to prevent info level logs srslte issue #393
-  // log.set_level(srslte::LOG_LEVEL_WARNING);
+  log.set_level(srslte::LOG_LEVEL_INFO);
 
   started = (ret == SRSLTE_SUCCESS);
 
