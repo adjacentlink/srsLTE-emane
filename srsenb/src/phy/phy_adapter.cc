@@ -209,22 +209,23 @@ static inline EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &> 
 findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
  {
-   try {
-     const auto & freqPair = frequencyTable_.at(cc_idx);
+   try
+    {
+      const auto & freqPair = frequencyTable_.at(cc_idx);
 
-     for(auto & carrier : ue_ul_msg.carriers())
-      {
-         // match our rx freq to the msg carrier center freq
-         if(freqPair.first == carrier.second.center_frequency_hz())
-          {
-            return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(true, carrier.second);
-          }
-      }      
-   }
-  catch(const std::exception & ex)
-   {
-     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
-   }
+      for(auto & carrier : ue_ul_msg.carriers())
+       {
+          // match our rx freq to the msg carrier center freq
+          if(freqPair.first == carrier.second.center_frequency_hz())
+           {
+             return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(true, carrier.second);
+           }
+       }      
+    }
+   catch(const std::exception & ex)
+    {
+      fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
+    }
   
   return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
  }
@@ -233,17 +234,35 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
 // lookup tx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getTxFrequency(uint32_t cc_idx)
 {
-   const auto & freqPair = frequencyTable_.at(cc_idx);
+  try
+   {
+     const auto & freqPair = frequencyTable_.at(cc_idx);
 
-   return freqPair.second;
+     return freqPair.second;
+   } 
+  catch(const std::exception & ex)
+   {
+     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
+   }
+
+   return 0;
  }
 
 // lookup rx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getRxFrequency(uint32_t cc_idx)
 {
-   const auto & freqPair = frequencyTable_.at(cc_idx);
+  try
+   {
+     const auto & freqPair = frequencyTable_.at(cc_idx);
 
-   return freqPair.first;
+     return freqPair.first;
+   }
+  catch(const std::exception & ex)
+   {
+     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
+   }
+
+   return 0;
  }
 
 

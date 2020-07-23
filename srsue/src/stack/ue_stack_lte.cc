@@ -315,7 +315,8 @@ void ue_stack_lte::run_tti_impl(uint32_t tti, uint32_t tti_jump)
 
   // print warning if PHY pushes new TTI messages faster than we process them
   if (pending_tasks.size(sync_queue_id) > SYNC_QUEUE_WARN_THRESHOLD) {
-    stack_log->warning("Detected slow task processing (sync_queue_len=%zd).\n", pending_tasks.size(sync_queue_id));
+    // ALINK too noisy, change from warning to debug
+    stack_log->debug("Detected slow task processing (sync_queue_len=%zd).\n", pending_tasks.size(sync_queue_id));
   }
 }
 
