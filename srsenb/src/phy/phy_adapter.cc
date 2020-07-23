@@ -214,8 +214,8 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
 
      for(auto & carrier : ue_ul_msg.carriers())
       {
-         // match our rx freq to the msg tx freq
-         if(freqPair.first == carrier.second.frequencies().tx_frequency_hz())
+         // match our rx freq to the msg carrier center freq
+         if(freqPair.first == carrier.second.center_frequency_hz())
           {
             return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(true, carrier.second);
           }
@@ -223,10 +223,9 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
    }
   catch(const std::exception & ex)
    {
-     fprintf(stderr, "caught %s\n", ex.what());
+     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
    }
   
-  fprintf(stderr, "NOT found cc %u\n", cc_idx);
   return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
  }
 
@@ -1059,26 +1058,12 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
    {
      const auto & tx_freq_hz = freqPair.second.second;
 
-     auto carrier = enb_dl_msg_.carriers().find(tx_freq_hz); // tx freq
+     auto carrier = enb_dl_msg_.carriers().find(tx_freq_hz); // center freq for this carrier
 
      if(carrier != enb_dl_msg_.carriers().end())
        {
-         const auto & rx_freq_hz = freqPair.second.first;
-
-         {
-           auto frequencies = (*enb_dl_msg_.mutable_carriers())[tx_freq_hz].mutable_frequencies();
-
-           frequencies->set_rx_frequency_hz(rx_freq_hz); // rx
-           frequencies->set_tx_frequency_hz(tx_freq_hz); // tx
-         }
-
-         {
-           auto frequencies = (*tx_control_.mutable_carriers())[tx_freq_hz].mutable_frequencies();
-
-           frequencies->set_rx_frequency_hz(rx_freq_hz); // rx
-           frequencies->set_tx_frequency_hz(tx_freq_hz); // tx
-         }
-      }
+         (*enb_dl_msg_.mutable_carriers())[tx_freq_hz].set_center_frequency_hz(tx_freq_hz);
+       }
    }
 
 
@@ -1104,7 +1089,6 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
 #if 0
       Info("TX:%s ctrl:%s\n", __func__, tx_control_.DebugString().c_str());
 #endif
-
 
       EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
     }
@@ -1604,7 +1588,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
           {
             auto & rxControl = ul_msg_iter->second;
 
-            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, carrier_result.second.frequencies().tx_frequency_hz());
+            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, carrier_result.second.center_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1860,7 +1844,7 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                {
                  auto & rxControl = ul_msg_iter->second;
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, carrier_result.second.frequencies().tx_frequency_hz());
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, carrier_result.second.center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -2044,7 +2028,7 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                {
                  auto & rxControl = ul_msg_iter->second;
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, carrier_result.second.frequencies().tx_frequency_hz());
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, carrier_result.second.center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
