@@ -209,22 +209,18 @@ static inline EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &> 
 findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
  {
-   try
-    {
-      const auto & freqPair = frequencyTable_.at(cc_idx);
+   const auto iter = frequencyTable_.find(cc_idx);
 
+   if(iter != frequencyTable_.end())
+    {
       for(auto & carrier : ue_ul_msg.carriers())
        {
           // match our rx freq to the msg carrier center freq
-          if(freqPair.first == carrier.second.center_frequency_hz())
+          if(iter->second.first == carrier.second.center_frequency_hz())
            {
              return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(true, carrier.second);
            }
        }      
-    }
-   catch(const std::exception & ex)
-    {
-      fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
     }
   
   return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
