@@ -410,7 +410,9 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 
            if(ul_dci_message.rnti() == rnti)
             {
-              const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, carrier_result.second.center_frequency_hz());
+              const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH,
+                                                                         rnti, 
+                                                                         carrier_result.second.center_frequency_hz());
 
               if(sinrResult.bPassed_)
                {
@@ -457,7 +459,9 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 
            if(dl_dci_message.rnti() == rnti)
             {
-              if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH, rnti, carrier_result.second.center_frequency_hz()).bPassed_)
+              if(rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDCCH,
+                                                    rnti,
+                                                    carrier_result.second.center_frequency_hz()).bPassed_)
                {
                  Info("PDSCH:%s: found cc %u, dci rnti 0x%hx, refid %u\n", 
                         __func__, cc_idx, rnti, dl_dci_message.refid());
@@ -497,7 +501,9 @@ static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti, 
       {
         const auto & pdsch_message = carrier_result.second.pdsch();
 
-        const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH, rnti, carrier_result.second.center_frequency_hz());
+        const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PDSCH,
+                                                                   rnti,
+                                                                   carrier_result.second.center_frequency_hz());
 
         if(sinrResult.bPassed_)
          {
@@ -937,7 +943,8 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
             {
               auto rxControl = dl_enb_signals[0].second;
 
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, carrier_result.second.center_frequency_hz()).bPassed_)
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH,
+                                                  carrier_result.second.center_frequency_hz()).bPassed_)
                {
                  if(carrier_result.second.has_pss_sss())
                   {
@@ -1078,7 +1085,8 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
-              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH, carrier_result.second.center_frequency_hz()).bPassed_)
+              if(rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PBCH,
+                                                  carrier_result.second.center_frequency_hz()).bPassed_)
                {
                  if(carrier_result.second.has_pss_sss())
                   {
@@ -1179,14 +1187,14 @@ float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
          // check dl msg src vs our selected cell
          if(pci != cell_id)
           {
-            Info("RX:%s: cc %u, pci 0x%x != cell_id 0x%x, ignore\n",
+            Debug("RX:%s: cc %u, pci 0x%x != cell_id 0x%x, ignore\n",
                  __func__, cc_idx, pci, cell_id);
           }
          else
           {
             rssi = 10.0; // ALINK_XXX TODO need actual value
  
-            Debug("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
+            Info("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
           }
        }
     }
@@ -1555,7 +1563,9 @@ int ue_dl_cc_decode_phich(srslte_ue_dl_t*       q,
       {
        const auto & phich_message = carrier_result.second.phich();
 
-       const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH, rnti, carrier_result.second.center_frequency_hz());
+       const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PHICH,
+                                                                  rnti,
+                                                                  carrier_result.second.center_frequency_hz());
 
        ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
 
@@ -1677,7 +1687,8 @@ int ue_dl_cc_decode_pmch(srslte_ue_dl_t*     q,
 
                if(area_id == pmch.area_id())
                 {
-                  const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH, carrier_result.second.center_frequency_hz());
+                  const auto sinrResult = rx_control_.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PMCH,
+                                                                             carrier_result.second.center_frequency_hz());
 
                   ue_dl_update_chest_i(&q->chest_res, sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_);
 

@@ -1603,7 +1603,8 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
           {
             auto & rxControl = ul_msg_iter->second;
 
-            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH, carrier_result.second.center_frequency_hz());
+            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
+                                                                     carrier_result.second.center_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1859,7 +1860,9 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                {
                  auto & rxControl = ul_msg_iter->second;
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, rnti, carrier_result.second.center_frequency_hz());
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
+                                                                          rnti, 
+                                                                          carrier_result.second.center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -2043,8 +2046,9 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                {
                  auto & rxControl = ul_msg_iter->second;
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH, rnti, carrier_result.second.center_frequency_hz());
-
+                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
+                                                                          rnti,
+                                                                          carrier_result.second.center_frequency_hz());
                  if(sinrResult.bPassed_)
                   {
                     const auto & ul_grant_message = grant_message.ul_grant();
