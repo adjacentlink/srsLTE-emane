@@ -304,23 +304,21 @@ static DL_ENB_Signal_Map ue_dl_get_signals_i(srslte_timestamp_t * ts)
   DL_ENB_Signal_Map dl_signals;
 
   // for each message rx ota
-  for(auto ota_msg = message.second.begin(); ota_msg != message.second.end(); ++ota_msg)
+  for(const auto & ota_msg : message.second)
    {
      EMANELTE::MHAL::ENB_DL_Message enb_dl_msg;
 
-     if(enb_dl_msg.ParseFromString(ota_msg->first))
+     if(enb_dl_msg.ParseFromString(ota_msg.first))
       {
-       const auto & rxControl = ota_msg->second;
+       const auto & rxControl = ota_msg.second;
 
-       for(auto carrier = enb_dl_msg.carriers().begin();
-           carrier != enb_dl_msg.carriers().end();
-           ++carrier)
+       for(const auto & carrier : enb_dl_msg.carriers())
          {
-           const uint32_t & pci = carrier->second.phy_cell_id();
+           const uint32_t & pci = carrier.second.phy_cell_id();
 
-           Debug("RX:%s freq %lu, rx_seq %lu, pci %u, sf_time %ld:%06ld\n",
+           Debug("RX:%s carrier %lu Hz, rx_seq %lu, pci %u, sf_time %ld:%06ld\n",
                  __func__,
-                 carrier->first,
+                 carrier.first,
                  rxControl.rxData_.rx_seqnum_,
                  pci,
                  rxControl.rxData_.sf_time_.tv_sec,
@@ -335,7 +333,7 @@ static DL_ENB_Signal_Map ue_dl_get_signals_i(srslte_timestamp_t * ts)
              }
             else
              {
-               dl_signals.emplace(pci, DL_ENB_Signals{1, {enb_dl_msg, rxControl}});
+               dl_signals.emplace(pci, DL_ENB_Signals{{enb_dl_msg, rxControl}});
              }
           }
        }
@@ -400,13 +398,11 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 
   if(carrier_result.first)
    {
-     for(int n = 0; n < carrier_result.second.pdcch_size(); ++n)
+     for(const auto & pdcch : carrier_result.second.pdcch())
       {
-        const auto & pdcch_message = carrier_result.second.pdcch(n);
-
-        if(pdcch_message.has_ul_dci())
+        if(pdcch.has_ul_dci())
          {
-           const auto & ul_dci_message = pdcch_message.ul_dci();
+           const auto & ul_dci_message = pdcch.ul_dci();
 
            if(ul_dci_message.rnti() == rnti)
             {
@@ -449,13 +445,11 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti, uint32_t cc_idx)
 
   if(carrier_result.first)
    {
-     for(int n = 0; n < carrier_result.second.pdcch_size(); ++n)
+     for(const auto & pdcch : carrier_result.second.pdcch())
       {
-        const auto & pdcch_message = carrier_result.second.pdcch(n);
-
-        if(pdcch_message.has_dl_dci())
+        if(pdcch.has_dl_dci())
          {
-           const auto & dl_dci_message = pdcch_message.dl_dci();
+           const auto & dl_dci_message = pdcch.dl_dci();
 
            if(dl_dci_message.rnti() == rnti)
             {
@@ -507,16 +501,13 @@ static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti, 
 
         if(sinrResult.bPassed_)
          {
-           for(int n = 0; n < pdsch_message.data().size(); ++n)
+           for(const auto & data : pdsch_message.data())
             {
-              const auto & pdsch_data = pdsch_message.data(n);
+              Info("PDSCH:%s: cc %u, refid %u, tb %u\n", __func__, cc_idx, data.refid(), data.tb());
 
-              Info("PDSCH:%s: n %d, cc %u, refid %u, tb %u\n", 
-                   __func__, n, cc_idx, pdsch_data.refid(), pdsch_data.tb());
-
-              if(pdsch_data.refid() == refid)
+              if(data.refid() == refid)
                {
-                 pdsch_results.emplace_back(pdsch_data, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
+                 pdsch_results.emplace_back(data, SignalQuality(sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_));
                }
             }
          }
@@ -725,9 +716,9 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
      const auto dl_signals = ue_dl_get_signals_i(&cs->ue_sync.last_timestamp);
 
      // for each enb
-     for(auto iter = dl_signals.begin(); iter != dl_signals.end(); ++iter)
+     for(const auto & signal : dl_signals)
       {
-        const uint32_t pci    = iter->first;
+        const uint32_t pci    = signal.first;
         const uint32_t n_id_1 = pci / 3;
         const uint32_t n_id_2 = pci % 3;
 
@@ -740,7 +731,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
             continue;
          }
 
-        if(! iter->second.empty())
+        if(! signal.second.empty())
          {
            float peak_sum = 0.0;
 
@@ -749,9 +740,9 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
            size_t num_samples = 0;
 
            // for all gathered signals
-           for(size_t n = 0; n < iter->second.size(); ++n)
+           for(size_t n = 0; n < signal.second.size(); ++n)
             {
-              const auto & enb_dl_msg = iter->second[n].first;
+              const auto & enb_dl_msg = signal.second[n].first;
 
               const auto carrier_result = findCarrier(enb_dl_msg, 0); // cc_idx 0
 
@@ -768,17 +759,17 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                     // should all be the same
                     cp = pss_sss.cp_mode() == EMANELTE::MHAL::CP_NORM ? SRSLTE_CP_NORM : SRSLTE_CP_EXT;
 
-                    peak_sum = iter->second[n].second.rxData_.peak_sum_;
+                    peak_sum = signal.second[n].second.rxData_.peak_sum_;
 
-                    num_samples = iter->second[n].second.rxData_.num_samples_;
+                    num_samples = signal.second[n].second.rxData_.num_samples_;
 
                     ++num_pss_sss_found;
 
                     Info("RX:%s: PCI %u, peak_sum %0.1f, num_samples %u\n",
                           __func__,
                           pci,
-                          iter->second[n].second.rxData_.peak_sum_,
-                          iter->second[n].second.rxData_.num_samples_);
+                          signal.second[n].second.rxData_.peak_sum_,
+                          signal.second[n].second.rxData_.num_samples_);
                   }
                }
 
@@ -836,13 +827,13 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
   float max_avg = 0.0f;
 
   // now find the best
-  for(auto iter = n_id2s.begin(); iter != n_id2s.end(); ++iter)
+  for(const auto & id : n_id2s)
     {
-      if(res[*iter].peak > max_avg)
+      if(res[id].peak > max_avg)
         {
-          *max_peak = *iter;
+          *max_peak = id;
 
-          max_avg = res[*iter].peak;
+          max_avg = res[id].peak;
         }
     }
 
@@ -1184,18 +1175,13 @@ float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
        {
          const uint32_t & pci = carrier_result.second.phy_cell_id();
 
-         // check dl msg src vs our selected cell
-         if(pci != cell_id)
-          {
-            Debug("RX:%s: cc %u, pci 0x%x != cell_id 0x%x, ignore\n",
-                 __func__, cc_idx, pci, cell_id);
-          }
-         else
-          {
-            rssi = 10.0; // ALINK_XXX TODO need actual value
+         rssi = 10.0; // ALINK_XXX TODO need actual value
  
-            Debug("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
-          }
+         Debug("RX:%s: cc %u, cell_id %u, pci %u, rssi %f\n", __func__, cc_idx, cell_id, pci, rssi);
+       }
+      else
+       {
+         Debug("RX:%s: cc %u, not found\n", __func__, cc_idx);
        }
     }
    else
