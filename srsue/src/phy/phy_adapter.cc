@@ -219,8 +219,8 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
   const auto iter = frequencyTable_.find(cc_idx);
 
    if(iter != frequencyTable_.end())
-   {
-    for(auto & carrier : enb_dl_msg.carriers())
+    {
+     for(auto & carrier : enb_dl_msg.carriers())
       {
         // match our rx freq to the msg carrier center freq
         if(iter->second.first == carrier.second.center_frequency_hz())
@@ -228,7 +228,7 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
            return std::pair<bool, const EMANELTE::MHAL::ENB_DL_Message_CarrierMessage &>(true, carrier.second);
          }
       }
-   }
+    }
   
   return std::pair<bool, const EMANELTE::MHAL::ENB_DL_Message_CarrierMessage &>(false, EMANELTE::MHAL::ENB_DL_Message_CarrierMessage{});
  }
@@ -385,7 +385,7 @@ static DL_ENB_Signals ue_dl_enb_subframe_get_i(srslte_ue_sync_t * ue_sync, const
     }
    else
     {
-      Info("RX:%s nothing found for pci %hu\n", __func__, ue_sync->cell.id);
+      Debug("RX:%s nothing found for pci %hu\n", __func__, ue_sync->cell.id);
 
       return DL_ENB_Signals{};
     }
@@ -1148,7 +1148,7 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
    // single antenna mode expect 1 msg for our cell id
    if(dl_enb_signals.size() != 1)
      {
-       Info("RX:%s: found %zu signals, cell_id %u, expected 1, tti %u\n", 
+       Debug("RX:%s: found %zu signals, cell_id %u, expected 1, tti %u\n", 
             __func__,
             dl_enb_signals.size(),
             ue_sync->cell.id,
@@ -1194,7 +1194,7 @@ float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
           {
             rssi = 10.0; // ALINK_XXX TODO need actual value
  
-            Info("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
+            Debug("RX:%s: cc %u, pci %u, rssi %f\n", __func__, pci, cc_idx, rssi);
           }
        }
     }
@@ -1994,7 +1994,7 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
    InfoHex(&uci_value2, sizeof(srslte_uci_value_t), 
            "PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
 #else
-   Info("PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
+   Debug("PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
 #endif
 
    pthread_mutex_unlock(&ul_mutex_);
