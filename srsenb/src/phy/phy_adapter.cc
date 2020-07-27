@@ -1518,9 +1518,9 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
   EMANELTE::MHAL::ENB::set_tti(tti);
 
   for(auto ul_msg_iter = ue_ul_msgs_.begin(); ul_msg_iter != ue_ul_msgs_.end(); ++ul_msg_iter)
-    {
-      ul_msg_iter->second.SINRTester_.release();
-    }
+   {
+     ul_msg_iter->second.SINRTester_.release();
+   }
 
   ue_ul_msgs_.clear();
 
@@ -1843,20 +1843,18 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
            const auto & pucch_message = carrier_result.second.pucch();
 
            // for each grant
-           for(int n = 0; n < pucch_message.grant_size(); ++n)
+           for(const auto & grant : pucch_message.grant())
             {
-              const auto & grant_message = pucch_message.grant(n);
-
-              Info("PUCCH:%s cc %u, sr %d, acks %d, ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n", 
+              Debug("PUCCH:%s cc %u, sr %d, acks %d, ul_rnti 0x%hx vs rnti 0x%hx, %d grants\n", 
                    __func__,
                    cc_idx,
                    cfg->uci_cfg.is_scheduling_request_tti,
                    srslte_uci_cfg_total_ack(&cfg->uci_cfg),
-                   grant_message.rnti(), rnti, n+1, pucch_message.grant_size());
+                   grant.rnti(), rnti, pucch_message.grant_size());
 
               std::string format;
 
-              if(grant_message.rnti() == rnti)
+              if(grant.rnti() == rnti)
                {
                  auto & rxControl = ul_msg_iter->second;
 
@@ -1866,7 +1864,7 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
 
                  if(sinrResult.bPassed_)
                   {
-                    const auto & uci_message = grant_message.uci();
+                    const auto & uci_message = grant.uci();
 
                     memcpy(&res->uci_data, uci_message.data(), uci_message.length());
 
@@ -2035,14 +2033,12 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
            const auto & pusch_message = carrier_result.second.pusch();
 
            // for each grant
-           for(int n = 0; n < pusch_message.grant_size(); ++n)
+           for(const auto & grant : pusch_message.grant())
             {
-              const auto & grant_message = pusch_message.grant(n);
+              Info("PUSCH:%s cc %u, check ul_rnti 0x%hx vs rnti 0x%hx, %d grants\n",
+                   __func__, cc_idx, grant.rnti(), rnti, pusch_message.grant_size());
 
-              Info("PUSCH:%s cc %u, check ul_rnti 0x%hx vs rnti 0x%hx, %d of %d grants\n",
-                   __func__, cc_idx, grant_message.rnti(), rnti, n+1, pusch_message.grant_size());
-
-              if(grant_message.rnti() == rnti)
+              if(grant.rnti() == rnti)
                {
                  auto & rxControl = ul_msg_iter->second;
 
@@ -2051,9 +2047,9 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                                                                           carrier_result.second.center_frequency_hz());
                  if(sinrResult.bPassed_)
                   {
-                    const auto & ul_grant_message = grant_message.ul_grant();
-                    const auto & uci_message      = grant_message.uci();
-                    const auto & payload          = grant_message.payload();
+                    const auto & ul_grant_message = grant.ul_grant();
+                    const auto & uci_message      = grant.uci();
+                    const auto & payload          = grant.payload();
 
                     // srslte_pusch_grant_t  
                     memcpy(&cfg->grant, ul_grant_message.data(), ul_grant_message.length());
