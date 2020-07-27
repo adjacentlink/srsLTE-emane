@@ -737,18 +737,20 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
            srslte_cp_t cp = SRSLTE_CP_NORM;
 
-           size_t num_samples = 0;
+           uint32_t num_samples = 0;
 
            // for all gathered signals
            for(size_t n = 0; n < signal.second.size(); ++n)
             {
               const auto & enb_dl_msg = signal.second[n].first;
 
-              const auto carrier_result = findCarrier(enb_dl_msg, 0); // cc_idx 0
+              const auto cc_idx = 0; // always cc_idx 0 on cell search
+
+              const auto carrier_result = findCarrier(enb_dl_msg, cc_idx);
 
               if(carrier_result.first)
                {
-#if 1
+#if 0
                 Info("RX:%s: carrier %s\n", __func__, carrier_result.second.DebugString().c_str());
 #endif
                 // search for pss/sss
@@ -759,17 +761,14 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
                     // should all be the same
                     cp = pss_sss.cp_mode() == EMANELTE::MHAL::CP_NORM ? SRSLTE_CP_NORM : SRSLTE_CP_EXT;
 
-                    peak_sum = signal.second[n].second.rxData_.peak_sum_;
+                    peak_sum = signal.second[n].second.rxData_.peak_sum_[cc_idx];
 
-                    num_samples = signal.second[n].second.rxData_.num_samples_;
+                    num_samples = signal.second[n].second.rxData_.num_samples_[cc_idx];
 
                     ++num_pss_sss_found;
 
                     Info("RX:%s: PCI %u, peak_sum %0.1f, num_samples %u\n",
-                          __func__,
-                          pci,
-                          signal.second[n].second.rxData_.peak_sum_,
-                          signal.second[n].second.rxData_.num_samples_);
+                          __func__, pci, peak_sum, num_samples);
                   }
                }
 
@@ -927,7 +926,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
 
         if(carrier_result.first)
          {
-#if 1
+#if 0
            Info("RX:%s: carrier %s\n", __func__, carrier_result.second.DebugString().c_str());
 #endif
            if(carrier_result.second.has_pbch())
@@ -1069,10 +1068,9 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
          {
            if(carrier_result.second.has_pbch())
             {
-#if 1
+#if 0
              Info("RX:%s: carrier %s\n", __func__, carrier_result.second.DebugString().c_str());
 #endif
-
               auto rxControl = dl_enb_signals[0].second;
 
               // check for PSS SSS if PBCH is good
@@ -1757,7 +1755,9 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
       tx_control_.set_tx_seqnum(tx_seqnum_++);
       tx_control_.set_tti_tx(tti_tx_);
 
+#if 0
       Debug("TX:%s tx_ctrl:%s\n", __func__, tx_control_.DebugString().c_str());
+#endif
 
       EMANELTE::MHAL::UE::send_msg(data, tx_control_);
     }

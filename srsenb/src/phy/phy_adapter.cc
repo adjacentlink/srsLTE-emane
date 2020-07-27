@@ -470,10 +470,6 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
              "PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
              __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
-#else
-     if(rnti != 0xffff)
-       Info("PDCCH_DL:%s cc %u, rnti=0x%hx, refid %d, nof_bits %d\n",
-             __func__, cc_idx, rnti, pdcch_ref_ - 1, dci_msg->nof_bits);
 #endif
    }
   else
@@ -496,10 +492,6 @@ static int enb_dl_put_dl_pdcch_i(const srslte_enb_dl_t * q,
      InfoHex(dci_msg->payload, dci_msg->nof_bits,
              "PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
              __func__, cc_idx, rnti, dci_msg->nof_bits);
-#else
-     if(rnti != 0xffff)
-       Info("PDCCH_UL:%s cc %u, rnti=0x%hx, nof_bits %d\n",
-            __func__, cc_idx, rnti, dci_msg->nof_bits);
 #endif
    }
 
@@ -640,11 +632,6 @@ static int enb_dl_put_dl_pdsch_i(const srslte_enb_dl_t * q,
    InfoHex(data, bits_to_bytes(grant.tb[tb].tbs),
            "PDSCH:%s cc %u, rnti 0x%hx, refid %d, tbs %d\n",
            __func__, cc_idx, rnti, pdsch_ref_ - 1, grant.tb[tb].tbs);
-#else
-   if(rnti != 0xffff)
-     Info("PDSCH:%s cc %u, rnti 0x%hx, refid %d, tb %d, tbs %d\n",
-           __func__, cc_idx, rnti, pdsch_data->refid(), pdsch_data->tb(), pdsch_data->tbs());
-
 #endif
 
    return SRSLTE_SUCCESS;
@@ -746,9 +733,6 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
    InfoHex(data, grant.tb[tb].tbs,
            "PMCH:%s cc %u, rnti=0x%hx, area_id %d, tbs %d\n",
            __func__, cc_idx, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
-#else
-   Info("PMCH:%s cc %u, rnti=0x%hx, area_id %d, tbs %d\n",
-         __func__, cc_idx, rnti, pmch_cfg->area_id, grant.tb[tb].tbs);
 #endif
 
    return SRSLTE_SUCCESS;
@@ -1497,7 +1481,7 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
      channel_message->add_resource_block_frequencies_slot1(EMANELTE::MHAL::ENB::get_tx_prb_frequency(rb, tx_freq_hz));
    }
 
-   Info("PHICH:%s cc %u, rnti 0x%hx, ack %d, n_prb_L %d, n_dmrs %d\n", 
+   Debug("PHICH:%s cc %u, rnti 0x%hx, ack %d, n_prb_L %d, n_dmrs %d\n", 
         __func__,
         cc_idx,
         ack->rnti,
@@ -1543,7 +1527,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const auto & rxControl = msg_iter->second;
 
-        Info("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, cariers %lu\n",
+        Debug("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, cariers %lu\n",
                 __func__,
                 rxControl.rxData_.sf_time_.tv_sec,
                 rxControl.rxData_.sf_time_.tv_usec,
@@ -1638,7 +1622,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
         }
        else
         {
-          Info("PRACH:%s no preambles\n", __func__);
+          Debug("PRACH:%s no preambles\n", __func__);
         }
       }
     }
@@ -1902,9 +1886,6 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                     InfoHex(uci_message.data(), uci_message.length(),
                             "PUCCH:%s cc %u, found pucch format %s, rnti %hx, corr %f\n",
                             __func__, cc_idx, format.c_str(), rnti, res->correlation);
-#else
-                    Info("PUCCH:%s cc %u, found pucch format %s, rnti %hx, corr %f\n",
-                          __func__, cc_idx, format.c_str(), rnti, res->correlation);
 #endif
 
                     // pass
@@ -1926,17 +1907,6 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
           }
        }
     }
-
-  if(res->detected == false)
-   {
-     Debug("PUCCH:%s cc %u, tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
-           __func__, cc_idx, curr_tti_, rnti, ue_ul_msgs_.size());
-   }
-  else
-   {
-     Info("PUCCH:%s cc %u, tti %u, found rnti 0x%hx, in %zu uplink messages\n", 
-           __func__, cc_idx, curr_tti_, rnti, ue_ul_msgs_.size());
-   }
 
   pthread_mutex_unlock(&ul_mutex_);
 
@@ -2035,7 +2005,7 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
            // for each grant
            for(const auto & grant : pusch_message.grant())
             {
-              Info("PUSCH:%s cc %u, check ul_rnti 0x%hx vs rnti 0x%hx, %d grants\n",
+              Debug("PUSCH:%s cc %u, check ul_rnti 0x%hx vs rnti 0x%hx, %d grants\n",
                    __func__, cc_idx, grant.rnti(), rnti, pusch_message.grant_size());
 
               if(grant.rnti() == rnti)
@@ -2072,9 +2042,6 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                     InfoHex(payload.data(), payload.length(),
                             "PUSCH:%s cc %u, rnti %hx, snr_db %f\n",
                             __func__, cc_idx, rnti, q->chest_res.snr_db);
-#else
-                    Info("PUSCH:%s cc %u, rnti %hx, snr_db %f\n",
-                          __func__, cc_idx, rnti, q->chest_res.snr_db);
 #endif
 
                     // pass
@@ -2095,17 +2062,6 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
             }
          }
       }
-   }
-
-  if(res->crc == false)
-   {
-     Debug("PUSCH:%s cc %u, tti %u, did NOT find rnti 0x%hx, in %zu uplink messages\n", 
-           __func__, cc_idx, curr_tti_, rnti, ue_ul_msgs_.size());
-   }
-  else
-   {
-     Info("PUSCH:%s cc %u, tti %u, found rnti 0x%hx, in %zu uplink messages\n", 
-           __func__, cc_idx, curr_tti_, rnti, ue_ul_msgs_.size());
    }
 
   pthread_mutex_unlock(&ul_mutex_);
