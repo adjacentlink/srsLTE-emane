@@ -55,7 +55,9 @@ extern "C" {
 
 #include "libemanelte/mhalenb.h"
 #include "libemanelte/enbstatisticmanager.h"
+#include "libemanelte/sinrtester.h"
 
+#include <tuple>
 #include <vector>
 #include <set>
 #include <map>
@@ -64,24 +66,31 @@ extern "C" {
 namespace {
   EMANELTE::MHAL::ENB_DL_Message     enb_dl_msg_;
   EMANELTE::MHAL::TxControlMessage   tx_control_;
+  EMANELTE::MHAL::SINRTester         sinrTester_;
 
-  // ul ue msg with emane ota info
-  using UE_UL_Message = std::pair<EMANELTE::MHAL::UE_UL_Message, EMANELTE::MHAL::RxControl>;
+  // ul ue msg
+  #define UL_Message_Message(x)    std::get<0>((x))
+  #define UL_Message_RxControl(x)  std::get<1>((x))
+  #define UL_Message_SINRTester(x) std::get<2>((x))
+
+  using UL_Message = std::tuple<EMANELTE::MHAL::UE_UL_Message, 
+                                EMANELTE::MHAL::RxControl,
+                                EMANELTE::MHAL::SINRTester>;
 
   // 0 or more ue ul messages for this tti
-  using UE_UL_Messages = std::vector<UE_UL_Message>;
+  using UE_UL_Messages = std::vector<UL_Message>;
 
   using FrequencyPair = std::pair<uint64_t, uint64_t>; // rx/tx
 
   using FrequencyTable = std::map<uint32_t, FrequencyPair>;
 
-  UE_UL_Messages ue_ul_msgs_;
+  UE_UL_Messages ul_msgs_;
 
   // track carrier to rx/tx freq
   FrequencyTable frequencyTable_;
 
   // track pci to carrier
-  std::map<uint8_t,uint32_t> pciTable_;
+  std::map<uint8_t,uint32_t> pciTable_;  // XXX TODO check pci per carrier
 
   uint64_t tx_seqnum_ = 0;
   uint32_t curr_tti_  = 0;
@@ -1501,55 +1510,44 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   EMANELTE::MHAL::ENB::set_tti(tti);
 
-  for(auto ul_msg_iter = ue_ul_msgs_.begin(); ul_msg_iter != ue_ul_msgs_.end(); ++ul_msg_iter)
+  for(auto & ul_msg : ul_msgs_)
    {
-     ul_msg_iter->second.SINRTester_.release();
+     UL_Message_SINRTester(ul_msg).release();
    }
 
-  ue_ul_msgs_.clear();
+  ul_msgs_.clear();
 
-  EMANELTE::MHAL::RxMessages messages;
+  EMANELTE::MHAL::RxMessages rxMessages;
 
   struct timeval tv_tti;
 
-  EMANELTE::MHAL::ENB::get_messages(messages, tv_tti);
+  EMANELTE::MHAL::ENB::get_messages(rxMessages, tv_tti);
 
   // set rx time 
   ts->full_secs = tv_tti.tv_sec;
   ts->frac_secs = tv_tti.tv_usec/1e6;
 
-  // for each msg rx ota
-  for(auto msg_iter = messages.begin(); msg_iter != messages.end(); ++msg_iter)
+  // for each rx msg
+  for(const auto rxMessage : rxMessages)
    {
      EMANELTE::MHAL::UE_UL_Message ue_ul_msg;
 
-     if(ue_ul_msg.ParseFromString(msg_iter->first))
+     if(ue_ul_msg.ParseFromString(RxMessage_Data(rxMessage)))
       {
-        const auto & rxControl = msg_iter->second;
+        const auto & rxControl = RxMessage_RxControl(rxMessage);
+
+        const auto & sinrTesters = RxMessage_SINRTesters(rxMessage);
 
         Debug("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, cariers %lu\n",
                 __func__,
-                rxControl.rxData_.sf_time_.tv_sec,
-                rxControl.rxData_.sf_time_.tv_usec,
-                rxControl.rxData_.rx_seqnum_,
+                rxControl.sf_time_.tv_sec,
+                rxControl.sf_time_.tv_usec,
+                rxControl.rx_seqnum_,
                 ue_ul_msg.crnti(),
                 ue_ul_msg.tti(),
                 ue_ul_msg.carriers().size());
 
-        for(auto & carrier : ue_ul_msg.carriers())
-         {
-           const uint32_t & pci = carrier.second.phy_cell_id();
-
-           // check ul msg pci vs our pci(s)
-           if(! pciTable_.count(pci))
-            {
-              Info("RX:%s: PCI 0x%x not found in table size %zu, ignore\n", __func__, pci, pciTable_.size());
-            }
-           else
-            {
-              ue_ul_msgs_.emplace_back(UE_UL_Message(ue_ul_msg, rxControl));
-            }
-         }
+        ul_msgs_.emplace_back(UL_Message{ue_ul_msg, rxControl, EMANELTE::MHAL::SINRTester{sinrTesters}});
       }
     else
       {
@@ -1559,7 +1557,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   pthread_mutex_unlock(&ul_mutex_);
 
-  return (! ue_ul_msgs_.empty());
+  return (! ul_msgs_.empty());
 }
 
 
@@ -1573,22 +1571,22 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   std::set<uint32_t> unique;
 
-  for(auto ul_msg_iter = ue_ul_msgs_.begin(); 
-       (ul_msg_iter != ue_ul_msgs_.end()) && (num_entries < max_entries); 
+  for(auto ul_msg_iter = ul_msgs_.begin(); 
+       (ul_msg_iter != ul_msgs_.end()) && (num_entries < max_entries); 
          ++ul_msg_iter)
     {
       const uint32_t cc_idx = 0; // carrier 0
 
-      const auto carrier_result = findCarrier(ul_msg_iter->first, cc_idx);
- 
+      const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+
       if(carrier_result.first)
        {
          if(carrier_result.second.has_prach())
           {
-            auto & rxControl = ul_msg_iter->second;
+            const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
 
-            const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
-                                                                     carrier_result.second.center_frequency_hz());
+            const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
+                                                          carrier_result.second.center_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1814,11 +1812,11 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   res->detected         = false;
 
   // for each uplink message
-  for(auto ul_msg_iter = ue_ul_msgs_.begin(); 
-       ul_msg_iter != ue_ul_msgs_.end() && !res->detected;
+  for(auto ul_msg_iter = ul_msgs_.begin(); 
+       ul_msg_iter != ul_msgs_.end() && !res->detected;
          ++ul_msg_iter)
    {
-     const auto carrier_result = findCarrier(ul_msg_iter->first, cc_idx);
+     const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
  
      if(carrier_result.first)
       {
@@ -1840,11 +1838,11 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
 
               if(grant.rnti() == rnti)
                {
-                 auto & rxControl = ul_msg_iter->second;
+                 const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
-                                                                          rnti, 
-                                                                          carrier_result.second.center_frequency_hz());
+                 const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
+                                                                rnti, 
+                                                                carrier_result.second.center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -1990,11 +1988,11 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
   res->uci.ack.valid  = false;
 
   // for each uplink message
-  for(auto ul_msg_iter = ue_ul_msgs_.begin(); 
-        ul_msg_iter != ue_ul_msgs_.end() && !res->crc;
+  for(auto ul_msg_iter = ul_msgs_.begin(); 
+        ul_msg_iter != ul_msgs_.end() && !res->crc;
           ++ul_msg_iter)
    {
-     const auto carrier_result = findCarrier(ul_msg_iter->first, cc_idx);
+     const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
  
      if(carrier_result.first)
       {
@@ -2010,11 +2008,11 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
 
               if(grant.rnti() == rnti)
                {
-                 auto & rxControl = ul_msg_iter->second;
+                 const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
 
-                 const auto sinrResult = rxControl.SINRTester_.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
-                                                                          rnti,
-                                                                          carrier_result.second.center_frequency_hz());
+                 const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
+                                                                rnti,
+                                                                carrier_result.second.center_frequency_hz());
                  if(sinrResult.bPassed_)
                   {
                     const auto & ul_grant_message = grant.ul_grant();
