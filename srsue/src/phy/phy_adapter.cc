@@ -62,7 +62,7 @@ namespace {
  EMANELTE::MHAL::TxControlMessage  tx_control_;
  EMANELTE::MHAL::ENB_DL_Message    enb_dl_msg_;
 
- EMANELTE::MHAL::SINRTester sinrTester_;
+ EMANELTE::MHAL::SINRTester sinrTester_{{}};
 
  #define DL_Message_Message(x)     std::get<0>((x))
  #define DL_Message_RxControl(x)   std::get<1>((x))

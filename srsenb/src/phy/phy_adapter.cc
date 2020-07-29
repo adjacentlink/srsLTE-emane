@@ -66,7 +66,7 @@ extern "C" {
 namespace {
   EMANELTE::MHAL::ENB_DL_Message     enb_dl_msg_;
   EMANELTE::MHAL::TxControlMessage   tx_control_;
-  EMANELTE::MHAL::SINRTester         sinrTester_;
+  EMANELTE::MHAL::SINRTester         sinrTester_{{}};
 
   // ul ue msg
   #define UL_Message_Message(x)    std::get<0>((x))
@@ -1547,7 +1547,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
                 ue_ul_msg.tti(),
                 ue_ul_msg.carriers().size());
 
-        ul_msgs_.emplace_back(UL_Message{ue_ul_msg, rxControl, EMANELTE::MHAL::SINRTester{sinrTesters}});
+        ul_msgs_.emplace_back(UL_Message{ue_ul_msg, rxControl, {sinrTesters}});
       }
     else
       {
