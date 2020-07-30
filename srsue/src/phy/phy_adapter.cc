@@ -329,10 +329,10 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
   // check for unique pci
   std::set<uint32_t> pciSet;
 
-  // for each message rx ota
+  // for each rx message
   for(const auto & rxMessage : FrameMessage_rxMessages(frameSignals_))
    {
-     bool bEnbIsUnique = false;
+     bool bEnbIsUnique = true;
 
      EMANELTE::MHAL::ENB_DL_Message enb_dl_msg;
 
@@ -342,6 +342,7 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
 
        EMANELTE::MHAL::SINRTester sinrTester{RxMessage_SINRTesters(rxMessage)};
 
+       // check each carrier for this enb
        for(const auto & carrier : enb_dl_msg.carriers())
         {
           const uint32_t & pci = carrier.second.phy_cell_id();
@@ -353,8 +354,6 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
                    carrier.first,
                    rxControl.rx_seqnum_,
                    pci);
-
-              bEnbIsUnique = true;
            }
           else
            {
@@ -364,16 +363,20 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
                    rxControl.rx_seqnum_,
                    pci);
 
+             bEnbIsUnique = false;
+
              sinrTester.release();
+
+             break; // done with this enb
            }
         }
 
-        // only store unique enb pci's
-        if(bEnbIsUnique)
-         {
-           dlMessages.emplace_back(enb_dl_msg, rxControl, sinrTester);
-         }
-       }
+       // only store if unique enb, first come first served
+       if(bEnbIsUnique)
+        {
+          dlMessages.emplace_back(enb_dl_msg, rxControl, sinrTester);
+        }
+      }
      else
       {
         Error("MHAL:%s ParseFromString ERROR\n", __func__);
