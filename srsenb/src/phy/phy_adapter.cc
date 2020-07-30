@@ -66,6 +66,7 @@ extern "C" {
 namespace {
   EMANELTE::MHAL::ENB_DL_Message     enb_dl_msg_;
   EMANELTE::MHAL::TxControlMessage   tx_control_;
+
   EMANELTE::MHAL::SINRTester         sinrTester_{{}};
 
   // ul ue msg
@@ -78,19 +79,21 @@ namespace {
                                 EMANELTE::MHAL::SINRTester>;
 
   // 0 or more ue ul messages for this tti
-  using UE_UL_Messages = std::vector<UL_Message>;
+  using UL_Messages = std::vector<UL_Message>;
 
-  using FrequencyPair = std::pair<uint64_t, uint64_t>; // rx/tx
+  // always rx/tx
+  using FrequencyPair = std::pair<uint64_t, uint64_t>;
 
+  // carrier index to freq pair
   using FrequencyTable = std::map<uint32_t, FrequencyPair>;
 
-  UE_UL_Messages ul_msgs_;
+  UL_Messages ulMessages_;
 
   // track carrier to rx/tx freq
   FrequencyTable frequencyTable_;
 
   // track pci to carrier
-  std::map<uint8_t,uint32_t> pciTable_;  // XXX TODO check pci per carrier
+  std::map<uint32_t,uint32_t> pciTable_;  // XXX TODO check pci per carrier
 
   uint64_t tx_seqnum_ = 0;
   uint32_t curr_tti_  = 0;
@@ -1510,12 +1513,13 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   EMANELTE::MHAL::ENB::set_tti(tti);
 
-  for(auto & ul_msg : ul_msgs_)
+  // clear any old testers
+  for(auto & ulMessage : ulMessages_)
    {
-     UL_Message_SINRTester(ul_msg).release();
+     UL_Message_SINRTester(ulMessage).release();
    }
 
-  ul_msgs_.clear();
+  ulMessages_.clear();
 
   EMANELTE::MHAL::RxMessages rxMessages;
 
@@ -1547,7 +1551,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
                 ue_ul_msg.tti(),
                 ue_ul_msg.carriers().size());
 
-        ul_msgs_.emplace_back(UL_Message{ue_ul_msg, rxControl, {sinrTesters}});
+        ulMessages_.emplace_back(UL_Message{ue_ul_msg, rxControl, {sinrTesters}});
       }
     else
       {
@@ -1557,7 +1561,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 
   pthread_mutex_unlock(&ul_mutex_);
 
-  return (! ul_msgs_.empty());
+  return (! ulMessages_.empty());
 }
 
 
@@ -1571,8 +1575,8 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
   std::set<uint32_t> unique;
 
-  for(auto ul_msg_iter = ul_msgs_.begin(); 
-       (ul_msg_iter != ul_msgs_.end()) && (num_entries < max_entries); 
+  for(auto ul_msg_iter = ulMessages_.begin(); 
+       (ul_msg_iter != ulMessages_.end()) && (num_entries < max_entries); 
          ++ul_msg_iter)
     {
       const uint32_t cc_idx = 0; // carrier 0
@@ -1812,8 +1816,8 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   res->detected         = false;
 
   // for each uplink message
-  for(auto ul_msg_iter = ul_msgs_.begin(); 
-       ul_msg_iter != ul_msgs_.end() && !res->detected;
+  for(auto ul_msg_iter = ulMessages_.begin(); 
+       ul_msg_iter != ulMessages_.end() && !res->detected;
          ++ul_msg_iter)
    {
      const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
@@ -1988,8 +1992,8 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
   res->uci.ack.valid  = false;
 
   // for each uplink message
-  for(auto ul_msg_iter = ul_msgs_.begin(); 
-        ul_msg_iter != ul_msgs_.end() && !res->crc;
+  for(auto ul_msg_iter = ulMessages_.begin(); 
+        ul_msg_iter != ulMessages_.end() && !res->crc;
           ++ul_msg_iter)
    {
      const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
