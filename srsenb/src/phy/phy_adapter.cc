@@ -87,13 +87,20 @@ namespace {
   // carrier index to freq pair
   using FrequencyTable = std::map<uint32_t, FrequencyPair>;
 
+ // search for carrier result
+ using CarrierResult = std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>;
+ // helpers
+#define CarrierResult_Found(x)   std::get<0>((x))
+#define CarrierResult_Carrier(x) std::get<1>((x))
+
+
   UL_Messages ulMessages_;
 
   // track carrier to rx/tx freq
   FrequencyTable frequencyTable_;
 
   // track pci to carrier
-  std::map<uint32_t,uint32_t> pciTable_;  // XXX TODO check pci per carrier
+  std::map<uint32_t,uint32_t> pciTable_;
 
   uint64_t tx_seqnum_ = 0;
   uint32_t curr_tti_  = 0;
@@ -218,7 +225,7 @@ static inline EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 }
 
 // lookup carrier that matches the frequencies associated with the cc_idx
-std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &> 
+CarrierResult
 findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
  {
    const auto iter = frequencyTable_.find(cc_idx);
@@ -230,12 +237,12 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
           // match our rx freq to the msg carrier center freq
           if(iter->second.first == carrier.second.center_frequency_hz())
            {
-             return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(true, carrier.second);
+             return CarrierResult(true, carrier.second);
            }
        }      
     }
   
-  return std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
+  return CarrierResult(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
  }
 
 
@@ -253,8 +260,8 @@ static inline uint64_t getTxFrequency(uint32_t cc_idx)
      fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
    }
 
-   return 0;
- }
+  return 0;
+}
 
 // lookup rx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getRxFrequency(uint32_t cc_idx)
@@ -270,8 +277,8 @@ static inline uint64_t getRxFrequency(uint32_t cc_idx)
      fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
    }
 
-   return 0;
- }
+  return 0;
+}
 
 
 
@@ -1540,18 +1547,41 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       {
         const auto & rxControl = RxMessage_RxControl(rxMessage);
 
-        const auto & sinrTesters = RxMessage_SINRTesters(rxMessage);
+        EMANELTE::MHAL::SINRTester sinrTester{RxMessage_SINRTesters(rxMessage)};
 
-        Debug("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, cariers %lu\n",
-                __func__,
-                rxControl.sf_time_.tv_sec,
-                rxControl.sf_time_.tv_usec,
-                rxControl.rx_seqnum_,
-                ue_ul_msg.crnti(),
-                ue_ul_msg.tti(),
-                ue_ul_msg.carriers().size());
+        bool bPciMatch = false;
 
-        ulMessages_.emplace_back(UL_Message{ue_ul_msg, rxControl, {sinrTesters}});
+        for(auto & carrier : ue_ul_msg.carriers())
+         {
+           if(pciTable_.count(carrier.second.phy_cell_id()))
+            {
+              bPciMatch = true;
+
+              break; // need min of 1 match
+            }
+         }
+
+        if(bPciMatch)
+         {
+           Debug("RX:%s sf_time %ld:%06ld, seqnum %lu, rnti 0x%hx, tti %u, cariers %lu\n",
+                  __func__,
+                  rxControl.sf_time_.tv_sec,
+                  rxControl.sf_time_.tv_usec,
+                  rxControl.rx_seqnum_,
+                  ue_ul_msg.crnti(),
+                  ue_ul_msg.tti(),
+                  ue_ul_msg.carriers().size());
+
+           ulMessages_.emplace_back(ue_ul_msg, rxControl, sinrTester);
+         }
+        else
+         {
+           Debug("RX:%s no matching pci's, in %lu carriers, drop\n",
+                  __func__,
+                  ue_ul_msg.carriers().size());
+
+           sinrTester.release();
+         }
       }
     else
       {
@@ -1581,16 +1611,16 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
     {
       const uint32_t cc_idx = 0; // carrier 0
 
-      const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+      const auto carrierResult = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
 
-      if(carrier_result.first)
+      if(CarrierResult_Found(carrierResult))
        {
-         if(carrier_result.second.has_prach())
+         if(CarrierResult_Carrier(carrierResult).has_prach())
           {
             const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
 
             const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
-                                                          carrier_result.second.center_frequency_hz());
+                                                          CarrierResult_Carrier(carrierResult).center_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1598,7 +1628,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
                continue;
              }
 
-            const auto & prach    = carrier_result.second.prach();
+            const auto & prach    = CarrierResult_Carrier(carrierResult).prach();
             const auto & preamble = prach.preamble();
 
             if(unique.count(preamble.index()) == 0) // unique
@@ -1820,13 +1850,13 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
        ul_msg_iter != ulMessages_.end() && !res->detected;
          ++ul_msg_iter)
    {
-     const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+     const auto carrierResult = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
  
-     if(carrier_result.first)
+     if(CarrierResult_Found(carrierResult))
       {
-        if(carrier_result.second.has_pucch())
+        if(CarrierResult_Carrier(carrierResult).has_pucch())
          {
-           const auto & pucch_message = carrier_result.second.pucch();
+           const auto & pucch_message = CarrierResult_Carrier(carrierResult).pucch();
 
            // for each grant
            for(const auto & grant : pucch_message.grant())
@@ -1846,7 +1876,7 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
 
                  const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
                                                                 rnti, 
-                                                                carrier_result.second.center_frequency_hz());
+                                                                CarrierResult_Carrier(carrierResult).center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -1996,13 +2026,13 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
         ul_msg_iter != ulMessages_.end() && !res->crc;
           ++ul_msg_iter)
    {
-     const auto carrier_result = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+     const auto carrierResult = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
  
-     if(carrier_result.first)
+     if(CarrierResult_Found(carrierResult))
       {
-        if(carrier_result.second.has_pusch())
+        if(CarrierResult_Carrier(carrierResult).has_pusch())
          {
-           const auto & pusch_message = carrier_result.second.pusch();
+           const auto & pusch_message = CarrierResult_Carrier(carrierResult).pusch();
 
            // for each grant
            for(const auto & grant : pusch_message.grant())
@@ -2015,8 +2045,8 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                  const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
 
                  const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
-                                                                rnti,
-                                                                carrier_result.second.center_frequency_hz());
+                                                               rnti,
+                                                               CarrierResult_Carrier(carrierResult).center_frequency_hz());
                  if(sinrResult.bPassed_)
                   {
                     const auto & ul_grant_message = grant.ul_grant();

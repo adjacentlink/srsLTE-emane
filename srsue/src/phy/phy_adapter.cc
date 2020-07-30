@@ -105,6 +105,8 @@ namespace {
  // dl message for this frame
  DL_Message dlMessageThisFrame_{{},{},{{}}};
 
+ uint32_t my_cell_id_ = 0;
+
  struct SignalQuality {
   double sinr_dB_;
   double noiseFloor_dBm_;
@@ -242,14 +244,21 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
 
    if(iter != frequencyTable_.end())
     {
-     for(const auto & carrier : enb_dl_msg.carriers())
-      {
-        // match our rx freq to the msg carrier tx center freq
-        if(iter->second.first == carrier.second.center_frequency_hz())
-         {
-           return CarrierResult{true, carrier.second};
-         }
-      }
+      for(const auto & carrier : enb_dl_msg.carriers())
+       {
+         // match our rx freq to the msg carrier tx center freq
+         if(iter->second.first == carrier.second.center_frequency_hz())
+          {
+            // XXX_CC TODO check this
+            if(my_cell_id_ != carrier.second.phy_cell_id())
+             {
+               Info("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
+                     __func__, cc_idx, my_cell_id_, carrier.second.phy_cell_id());
+             }
+
+            return CarrierResult{true, carrier.second};
+          }
+       }
     }
   
   return CarrierResult{false, EMANELTE::MHAL::ENB_DL_Message_CarrierMessage{}};
@@ -303,7 +312,7 @@ static void ue_dl_update_chest_i(srslte_chest_dl_res_t * chest_res, float snr_db
     chest_res->noise_estimate     = noise_db;
 }
 
-// get all ota messages (all pci enb dl messages and rx control info)
+// get all ota messages (all enb dl messages and rx control info)
 static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
 {
   if(! FrameMessage_isSet(frameSignals_))
@@ -322,7 +331,7 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
   // all signals from all enb(s)
   DL_Messages dlMessages;
 
-  // check for unique pci
+  // check for unique pci, we can handle only unique pci's
   std::set<uint32_t> pciSet;
 
   // for each rx message
@@ -343,17 +352,9 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
         {
           const uint32_t & pci = carrier.second.phy_cell_id();
 
-          if(pciSet.insert(pci).second)
+          if(! pciSet.insert(pci).second)
            {
-             Info("RX:%s carrier %lu Hz, rx_seq %lu, pci %u\n",
-                   __func__,
-                   carrier.first,
-                   rxControl.rx_seqnum_,
-                   pci);
-           }
-          else
-           {
-             Error("RX:%s carrier %lu Hz, rx_seq %lu, duplicate pci %u, drop\n",
+             Info("RX:%s carrier %lu Hz, rx_seq %lu, duplicate pci %u, drop\n",
                    __func__,
                    carrier.first,
                    rxControl.rx_seqnum_,
@@ -367,7 +368,7 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
            }
         }
 
-       // only store if unique enb, first come first served
+       // unique enb, first come first served
        if(bEnbIsUnique)
         {
           // save msg compenents
@@ -420,8 +421,6 @@ static DL_Messages ue_dl_enb_subframe_get_pic_i(srslte_ue_sync_t * ue_sync, cons
       }
    }
 
-  Debug("RX:%s nothing found for pci %hu\n", __func__, ue_sync->cell.id);
-
   return DL_Messages{};
 }
 
@@ -457,7 +456,7 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti, uint32_t cc_idx)
                  ul_dci_results.emplace_back(ul_dci_message, 
                                              SignalQuality{sinrResult.sinr_dB_, sinrResult.noiseFloor_dBm_});
 
-                 break; // we expect 1 and only 1 match
+                 break; // found, done
                }
               else
                {
@@ -597,11 +596,11 @@ void ue_set_frequency(uint32_t cc_idx,
 {
    frequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)}; // rx/tx
 
-   Info("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
-       __func__,
-       cc_idx,
-       rx_freq_hz/1e6,
-       tx_freq_hz/1e6);
+   Warning("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
+           __func__,
+           cc_idx,
+           rx_freq_hz/1e6,
+           tx_freq_hz/1e6);
 
    EMANELTE::MHAL::UE::set_frequencies(cc_idx, rx_freq_hz, tx_freq_hz);
 }
@@ -615,8 +614,9 @@ void ue_set_sync(srsue::sync * sync)
 
 void ue_set_cell(const phy_interface_rrc_lte::phy_cell_t* cell)
 {
-  Info("INIT:%s pci %u\n", __func__, cell->pci);
+  Warning("INIT:%s pci %u -> %u\n", __func__, my_cell_id_, cell->pci);
 
+  my_cell_id_ = cell->pci;
 }
 
 
@@ -1197,29 +1197,7 @@ float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
 
    if(enb_dl_msg.IsInitialized())
     {
-      const auto carrierResult = findCarrier(enb_dl_msg, cc_idx);
-
-      if(CarrierResult_Found(carrierResult))
-       {
-         const auto & carrier = CarrierResult_Carrier(carrierResult);
-
-         const uint32_t & pci = carrier.phy_cell_id();
-
-         if(cell_id == pci)
-          {
-            rssi = 10.0; // ALINK_XXX TODO need actual value
-         
-            Debug("RX:%s: cc %u, cell_id %u, pci %u, rssi %f\n", __func__, cc_idx, cell_id, pci, rssi);
-          }
-         else
-          {
-            Error("RX:%s: cc %u, cell_id %u != pci %u, rssi %f\n", __func__, cc_idx, cell_id, pci, rssi);
-          }
-       }
-      else
-       {
-         Info("RX:%s: cc %u, not found\n", __func__, cc_idx);
-       }
+       rssi = 10.0; // ALINK_XXX TODO need actual value
     }
    else
     {
