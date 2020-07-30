@@ -102,6 +102,9 @@ namespace {
   // track pci to carrier
   std::map<uint32_t,uint32_t> pciTable_;
 
+  // track carrier to pci
+  std::map<uint32_t,uint32_t> carrierTable_;
+
   uint64_t tx_seqnum_ = 0;
   uint32_t curr_tti_  = 0;
   uint32_t tti_tx_    = 0;
@@ -234,11 +237,24 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
     {
       for(auto & carrier : ue_ul_msg.carriers())
        {
-          // match our rx freq to the msg carrier center freq
-          if(iter->second.first == carrier.second.center_frequency_hz())
-           {
-             return CarrierResult(true, carrier.second);
-           }
+         // match our rx freq to the msg carrier center freq
+         if(iter->second.first == carrier.second.center_frequency_hz())
+          {
+            if(carrierTable_.count(cc_idx))
+             {
+               const auto my_cell_id = carrierTable_.at(cc_idx);
+
+               // XXX_CC TODO check this 
+               if(my_cell_id != carrier.second.phy_cell_id())
+                {
+                  Info("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
+                        __func__, cc_idx, my_cell_id, carrier.second.phy_cell_id());
+
+                }
+
+               return CarrierResult(true, carrier.second);
+             }
+          }
        }      
     }
   
@@ -840,7 +856,7 @@ void enb_set_frequency(uint32_t cc_idx,
 {
    frequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)};
 
-   Info("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
+   Warning("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
        __func__,
        cc_idx,
        rx_freq_hz/1e6,
@@ -945,8 +961,10 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
 
   carrier_ctrl.set_phy_cell_id(q->cell.id);
 
-  // save cell id's
+  // save pci/cc_idx
   pciTable_[q->cell.id] = cc_idx;
+
+  carrierTable_[cc_idx] = q->cell.id;
 
   // save the tti_tx
   tti_tx_ = tti_tx;
@@ -1079,41 +1097,41 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
      auto carrier = enb_dl_msg_.carriers().find(tx_freq_hz); // center freq for this carrier
 
      if(carrier != enb_dl_msg_.carriers().end())
-       {
-         (*enb_dl_msg_.mutable_carriers())[tx_freq_hz].set_center_frequency_hz(tx_freq_hz);
-       }
+      {
+        (*enb_dl_msg_.mutable_carriers())[tx_freq_hz].set_center_frequency_hz(tx_freq_hz);
+      }
    }
 
 
   if(enb_dl_msg_.SerializeToString(&data))
-    {
-      tx_control_.set_reference_signal_power_milliwatt(pdsch_rs_power_milliwatt_);
+   {
+     tx_control_.set_reference_signal_power_milliwatt(pdsch_rs_power_milliwatt_);
 
-      // align sot to sf time
-      const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
+     // align sot to sf time
+     const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
      
-      auto ts = tx_control_.mutable_sf_time();
-      ts->set_ts_sec(tv_sf_time.tv_sec);
-      ts->set_ts_usec(tv_sf_time.tv_usec);
+     auto ts = tx_control_.mutable_sf_time();
+     ts->set_ts_sec(tv_sf_time.tv_sec);
+     ts->set_ts_usec(tv_sf_time.tv_usec);
 
-      tx_control_.set_message_type(EMANELTE::MHAL::DOWNLINK);
-      tx_control_.set_tx_seqnum(tx_seqnum_++);
-      tx_control_.set_tti_tx(tti_tx_);
+     tx_control_.set_message_type(EMANELTE::MHAL::DOWNLINK);
+     tx_control_.set_tx_seqnum(tx_seqnum_++);
+     tx_control_.set_tti_tx(tti_tx_);
 
 #if 0
-      Info("TX:%s msg: %s\n", __func__, enb_dl_msg_.DebugString().c_str());
+     Info("TX:%s msg: %s\n", __func__, enb_dl_msg_.DebugString().c_str());
 #endif
 
 #if 0
-      Info("TX:%s ctrl:%s\n", __func__, tx_control_.DebugString().c_str());
+     Info("TX:%s ctrl:%s\n", __func__, tx_control_.DebugString().c_str());
 #endif
 
-      EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
-    }
+     EMANELTE::MHAL::ENB::send_msg(data, tx_control_);
+   }
   else
-    {
-      Error("TX:%s SerializeToString ERROR len %zu\n", __func__, data.length());
-    }
+   {
+     Error("TX:%s SerializeToString ERROR len %zu\n", __func__, data.length());
+   }
 
   pthread_mutex_unlock(&dl_mutex_);
 
@@ -1611,16 +1629,17 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
     {
       const uint32_t cc_idx = 0; // carrier 0
 
-      const auto carrierResult = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+      const auto & ulMessage = *ul_msg_iter;
+
+      const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
 
       if(CarrierResult_Found(carrierResult))
        {
          if(CarrierResult_Carrier(carrierResult).has_prach())
           {
-            const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
-
-            const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
-                                                          CarrierResult_Carrier(carrierResult).center_frequency_hz());
+            const auto sinrResult = 
+              UL_Message_SINRTester(ulMessage).sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
+                                                             CarrierResult_Carrier(carrierResult).center_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1845,12 +1864,14 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   res->correlation      = 1.0;
   res->detected         = false;
 
-  // for each uplink message
+  // for each ue uplink message
   for(auto ul_msg_iter = ulMessages_.begin(); 
        ul_msg_iter != ulMessages_.end() && !res->detected;
          ++ul_msg_iter)
    {
-     const auto carrierResult = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+     const auto & ulMessage = *ul_msg_iter;
+
+     const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
  
      if(CarrierResult_Found(carrierResult))
       {
@@ -1872,11 +1893,10 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
 
               if(grant.rnti() == rnti)
                {
-                 const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
-
-                 const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
-                                                                rnti, 
-                                                                CarrierResult_Carrier(carrierResult).center_frequency_hz());
+                 const auto sinrResult = 
+                   UL_Message_SINRTester(ulMessage).sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
+                                                                  rnti, 
+                                                                  CarrierResult_Carrier(carrierResult).center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -2026,7 +2046,9 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
         ul_msg_iter != ulMessages_.end() && !res->crc;
           ++ul_msg_iter)
    {
-     const auto carrierResult = findCarrier(UL_Message_Message(*ul_msg_iter), cc_idx);
+     const auto & ulMessage = *ul_msg_iter;
+
+     const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
  
      if(CarrierResult_Found(carrierResult))
       {
@@ -2042,11 +2064,10 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
 
               if(grant.rnti() == rnti)
                {
-                 const auto & sinrTester = UL_Message_SINRTester(*ul_msg_iter);
-
-                 const auto sinrResult = sinrTester.sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
-                                                               rnti,
-                                                               CarrierResult_Carrier(carrierResult).center_frequency_hz());
+                 const auto sinrResult = 
+                   UL_Message_SINRTester(ulMessage).sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
+                                                                  rnti,
+                                                                  CarrierResult_Carrier(carrierResult).center_frequency_hz());
                  if(sinrResult.bPassed_)
                   {
                     const auto & ul_grant_message = grant.ul_grant();
