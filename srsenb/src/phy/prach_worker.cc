@@ -128,11 +128,12 @@ int prach_worker::run_tti(sf_buffer* b)
                                    prach_p2avg,
                                    &prach_nof_det)) {
 #else
-  if(phy_adapter::enb_ul_get_prach(prach_indices, 
-                                     prach_offsets, 
-                                     prach_p2avg, 
-                                     sizeof(prach_indices) / sizeof(prach_indices[0]),
-                                     prach_nof_det)) {
+  if(phy_adapter::enb_ul_cc_get_prach(prach_indices, 
+                                      prach_offsets, 
+                                      prach_p2avg, 
+                                      sizeof(prach_indices) / sizeof(prach_indices[0]),
+                                      prach_nof_det,
+                                      cc_idx)) {
 #endif
       log_h->error("Error detecting PRACH\n");
       return SRSLTE_ERROR;

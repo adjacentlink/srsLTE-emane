@@ -86,18 +86,18 @@ namespace {
   using FrequencyPair = std::pair<uint64_t, uint64_t>;
 
   // carrier index to freq pair
-  using FrequencyTable = std::map<uint32_t, FrequencyPair>;
+  using CarrierIndexFrequencyTable = std::map<uint32_t, FrequencyPair>;
 
- // search for carrier result
- using CarrierResult = std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>;
+  // search for carrier result
+  using CarrierResult = std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>;
  // helpers
 #define CarrierResult_Found(x)   std::get<0>((x))
 #define CarrierResult_Carrier(x) std::get<1>((x))
 
   UL_Messages ulMessages_;
 
-  // track carrier to rx/tx freq
-  FrequencyTable frequencyTable_;
+  // track carrier index to rx/tx freq
+  CarrierIndexFrequencyTable carrierIndexFrequencyTable_;
 
   // track pci to carrier
   std::map<uint32_t,uint32_t> pciTable_;
@@ -231,9 +231,9 @@ static inline EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 CarrierResult
 findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
  {
-   const auto iter = frequencyTable_.find(cc_idx);
+   const auto iter = carrierIndexFrequencyTable_.find(cc_idx);
 
-   if(iter != frequencyTable_.end())
+   if(iter != carrierIndexFrequencyTable_.end())
     {
       const auto my_cell_id = carrierTable_.at(cc_idx);
 
@@ -267,16 +267,12 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
 // lookup tx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getTxFrequency(uint32_t cc_idx)
 {
-  try
-   {
-     const auto & freqPair = frequencyTable_.at(cc_idx);
+   const auto iter = carrierIndexFrequencyTable_.find(cc_idx);
 
-     return freqPair.second;
-   } 
-  catch(const std::exception & ex)
-   {
-     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
-   }
+   if(iter != carrierIndexFrequencyTable_.end())
+    {
+      return iter->second.second; // tx
+    }
 
   return 0;
 }
@@ -284,16 +280,12 @@ static inline uint64_t getTxFrequency(uint32_t cc_idx)
 // lookup rx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getRxFrequency(uint32_t cc_idx)
 {
-  try
-   {
-     const auto & freqPair = frequencyTable_.at(cc_idx);
+   const auto iter = carrierIndexFrequencyTable_.find(cc_idx);
 
-     return freqPair.first;
-   }
-  catch(const std::exception & ex)
-   {
-     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
-   }
+   if(iter != carrierIndexFrequencyTable_.end())
+    {
+      return iter->second.first; // rx
+    }
 
   return 0;
 }
@@ -834,21 +826,21 @@ void enb_initialize(srslte::log * log_h,
 {
    log_h_ = log_h;
 
-   frequencyTable_.clear();
+   carrierIndexFrequencyTable_.clear();
 
    uint32_t idx = 0;
    for(auto & cell_cfg : cfg_list)
-     {
-        enb_init_i(idx++,
-                   sf_interval_msec, 
-                   cell_cfg.cell.id, 
-                   cell_cfg.cell.cp, 
-                   cell_cfg.ul_freq_hz, 
-                   cell_cfg.dl_freq_hz, 
-                   cell_cfg.cell.nof_prb, 
-                   mhal_config,
-                   rrc_cfg);
-     }
+    {
+       enb_init_i(idx++,
+                  sf_interval_msec, 
+                  cell_cfg.cell.id, 
+                  cell_cfg.cell.cp, 
+                  cell_cfg.ul_freq_hz, 
+                  cell_cfg.dl_freq_hz, 
+                  cell_cfg.cell.nof_prb, 
+                  mhal_config,
+                  rrc_cfg);
+    }
 }
 
 
@@ -856,7 +848,7 @@ void enb_set_frequency(uint32_t cc_idx,
                        double rx_freq_hz,
                        double tx_freq_hz)
 {
-   frequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)};
+   carrierIndexFrequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)};
 
    Warning("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
        __func__,
@@ -1077,7 +1069,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
   EMANELTE::MHAL::Data data;
 
   // finalize carrier info for msg/txcontrol
-  for(auto freqPair : frequencyTable_)
+  for(auto freqPair : carrierIndexFrequencyTable_)
    {
      const auto & tx_freq_hz = freqPair.second.second;
 
@@ -1598,7 +1590,12 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 }
 
 
-int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_t max_entries, uint32_t & num_entries)
+int enb_ul_cc_get_prach(uint32_t * indices, 
+                        float * offsets, 
+                        float * p2avg,
+                        uint32_t max_entries,
+                        uint32_t & num_entries,
+                        uint32_t cc_idx)
 {
   std::lock_guard<std::mutex> lock(ul_mutex_);
 
@@ -1615,8 +1612,6 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
          break;
        }
 
-      const uint32_t cc_idx = 0; // carrier 0
-
       const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
 
       if(CarrierResult_Found(carrierResult))
@@ -1631,7 +1626,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
             if(! sinrResult.bPassed_)
              {
-               Info("PRACH:%s: fail snr, %f\n", __func__, sinrResult.sinr_dB_);
+               Info("PRACH:%s: cc %u, fail snr, %f\n", __func__, cc_idx, sinrResult.sinr_dB_);
                continue;
              }
 
@@ -1650,8 +1645,8 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
 
               ++num_entries;
 
-              Info("PRACH:%s entry[%u], accept index %d\n",
-                   __func__, num_entries, preamble.index());
+              Warning("PRACH:%s cc %u, entry[%u], accept index %d\n",
+                      __func__, cc_idx, num_entries, preamble.index());
             }
           else
            {

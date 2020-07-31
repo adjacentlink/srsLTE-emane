@@ -86,7 +86,7 @@ namespace {
  using FrequencyPair = std::pair<uint64_t, uint64_t>;
 
  // carrier index, freq pair
- using FrequencyTable = std::map<uint32_t, FrequencyPair>;
+ using CarrierIndexFrequencyTable = std::map<uint32_t, FrequencyPair>;
 
  // search for carrier result
  using CarrierResult = std::pair<bool, const EMANELTE::MHAL::ENB_DL_Message_CarrierMessage &>;
@@ -95,7 +95,7 @@ namespace {
 #define CarrierResult_Carrier(x) std::get<1>((x))
 
  // track carrierIndex to rx/tx carrier center frequency
- FrequencyTable frequencyTable_;
+ CarrierIndexFrequencyTable carrierIndexFrequencyTable_;
 
  // for use into srslte lib calls
  srslte::rf_buffer_t buffer_(1);
@@ -241,9 +241,9 @@ static inline EMANELTE::MHAL::MOD_TYPE convert(srslte_mod_t type)
 CarrierResult
 findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
  {
-  const auto iter = frequencyTable_.find(cc_idx);
+  const auto iter = carrierIndexFrequencyTable_.find(cc_idx);
 
-   if(iter != frequencyTable_.end())
+   if(iter != carrierIndexFrequencyTable_.end())
     {
       for(const auto & carrier : enb_dl_msg.carriers())
        {
@@ -269,16 +269,12 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
 // lookup tx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getTxFrequency(uint32_t cc_idx)
 {
-  try
-   {
-     const auto & freqPair = frequencyTable_.at(cc_idx);
+   const auto iter = carrierIndexFrequencyTable_.find(cc_idx);
 
-     return freqPair.second;
-   }
-  catch(const std::exception & ex)
-   {
-     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
-   }
+   if(iter != carrierIndexFrequencyTable_.end())
+    {
+      return iter->second.second; // tx
+    }
  
   return 0;
  }
@@ -286,16 +282,12 @@ static inline uint64_t getTxFrequency(uint32_t cc_idx)
 // lookup rx freq that matches the frequencies associated with the cc_idx
 static inline uint64_t getRxFrequency(uint32_t cc_idx)
 {
-  try
-   {
-     const auto & freqPair = frequencyTable_.at(cc_idx);
+   const auto iter = carrierIndexFrequencyTable_.find(cc_idx);
 
-     return freqPair.first;
-   }
-  catch(const std::exception & ex)
-   {
-     fprintf(stderr, "%s caught %s, entry not found cc_idx %u\n", __func__, ex.what(), cc_idx);
-   }
+   if(iter != carrierIndexFrequencyTable_.end())
+    {
+      return iter->second.first; // rx
+    }
 
   return 0; 
  }
@@ -333,7 +325,7 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
   DL_Messages dlMessages;
 
   // check for unique pci, we can handle only unique pci's
-  std::set<uint32_t> pciSet;
+  std::set<uint32_t> unique;
 
   // for each rx message
   for(const auto & rxMessage : FrameMessage_rxMessages(frameSignals_))
@@ -353,7 +345,7 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
         {
           const uint32_t & pci = carrier.second.phy_cell_id();
 
-          if(! pciSet.insert(pci).second)
+          if(! unique.insert(pci).second)
            {
              Info("RX:%s carrier %lu Hz, rx_seq %lu, duplicate pci %u, drop\n",
                    __func__,
@@ -571,7 +563,7 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
 {
   log_h_ = log_h;
 
-  frequencyTable_.clear();
+  carrierIndexFrequencyTable_.clear();
 
   Info("INIT:%s sf_interval %u msec\n", __func__, sf_interval_msec);
 
@@ -595,7 +587,7 @@ void ue_set_frequency(uint32_t cc_idx,
                       double rx_freq_hz,
                       double tx_freq_hz)
 {
-   frequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)}; // rx/tx
+   carrierIndexFrequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)}; // rx/tx
 
    Warning("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
            __func__,
@@ -1741,7 +1733,7 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
   ue_ul_msg_.set_tti(tti_tx_);
 
   // finalize carrier info for msg/txcontrol
-  for(auto freqPair : frequencyTable_)
+  for(auto freqPair : carrierIndexFrequencyTable_)
    {
      const auto & tx_freq_hz = freqPair.second.second; // tx center freq for this carrier
 

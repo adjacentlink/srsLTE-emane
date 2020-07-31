@@ -120,11 +120,12 @@ void enb_initialize(srslte::log*                   log_h,
                          uint32_t                               cc_idx);
 
  // get prach
- int enb_ul_get_prach(uint32_t*  indicies, 
-                      float*     offsets,
-                      float*     avgs,
-                      uint32_t   max_entries,
-                      uint32_t & num_detected);
+ int enb_ul_cc_get_prach(uint32_t*  indicies, 
+                         float*     offsets,
+                         float*     avgs,
+                         uint32_t   max_entries,
+                         uint32_t & num_detected,
+                         uint32_t cc_idx);
 
  // get pucch
  int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
