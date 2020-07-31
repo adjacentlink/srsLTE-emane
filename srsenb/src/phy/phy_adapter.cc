@@ -61,6 +61,7 @@ extern "C" {
 #include <vector>
 #include <set>
 #include <map>
+#include <mutex>
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -92,7 +93,6 @@ namespace {
  // helpers
 #define CarrierResult_Found(x)   std::get<0>((x))
 #define CarrierResult_Carrier(x) std::get<1>((x))
-
 
   UL_Messages ulMessages_;
 
@@ -133,8 +133,8 @@ namespace {
            (rnti >= SRSLTE_RARNTI_START && rnti <= SRSLTE_RARNTI_END));
    }
 
-  pthread_mutex_t dl_mutex_;
-  pthread_mutex_t ul_mutex_;
+  std::mutex dl_mutex_;
+  std::mutex ul_mutex_;
 
   srslte::log *log_h_ = NULL;
 
@@ -235,6 +235,8 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
 
    if(iter != frequencyTable_.end())
     {
+      const auto my_cell_id = carrierTable_.at(cc_idx);
+
       for(auto & carrier : ue_ul_msg.carriers())
        {
          // match our rx freq to the msg carrier center freq
@@ -242,8 +244,6 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
           {
             if(carrierTable_.count(cc_idx))
              {
-               const auto my_cell_id = carrierTable_.at(cc_idx);
-
                // XXX_CC TODO check this 
                if(my_cell_id != carrier.second.phy_cell_id())
                 {
@@ -257,7 +257,9 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
           }
        }      
     }
-  
+ 
+  Info("%s: cc %u, NOT found\n", __func__, cc_idx);
+ 
   return CarrierResult(false, EMANELTE::MHAL::UE_UL_Message_CarrierMessage{});
  }
 
@@ -885,18 +887,6 @@ void enb_start()
          exit(1);
        }
 
-     if(pthread_mutex_init(&dl_mutex_, &mattr) < 0)
-       {
-         Error("INIT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-         exit(1);
-       }
-
-     if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
-       {
-         Error("INIT:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-         exit(1);
-       }
-
      pthread_mutexattr_destroy(&mattr);
   }
 
@@ -913,9 +903,6 @@ void enb_stop()
   Info("STOP:%s\n", __func__);
 
   EMANELTE::MHAL::ENB::stop();
-
-  pthread_mutex_destroy(&dl_mutex_);
-  pthread_mutex_destroy(&ul_mutex_);
 }
 
 
@@ -930,7 +917,7 @@ void enb_dl_cc_tx_init(const srslte_enb_dl_t *q,
      // lock here, unlocked after tx_end to prevent any worker thread(s)
      // from attempting to start a new tx sequence before the current tx sequence
      // is finished
-     pthread_mutex_lock(&dl_mutex_);
+     dl_mutex_.lock();
 
      enb_dl_msg_.Clear();
 
@@ -1133,7 +1120,7 @@ bool enb_dl_send_signal(time_t sot_sec, float frac_sec)
      Error("TX:%s SerializeToString ERROR len %zu\n", __func__, data.length());
    }
 
-  pthread_mutex_unlock(&dl_mutex_);
+  dl_mutex_.unlock();
 
   return result;
 }
@@ -1532,7 +1519,7 @@ int enb_dl_cc_put_phich(srslte_enb_dl_t* q,
 
 bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
 {
-  pthread_mutex_lock(&ul_mutex_);
+  std::lock_guard<std::mutex> lock(ul_mutex_);
 
   curr_tti_ = tti;
 
@@ -1557,7 +1544,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
   ts->frac_secs = tv_tti.tv_usec/1e6;
 
   // for each rx msg
-  for(const auto rxMessage : rxMessages)
+  for(const auto & rxMessage : rxMessages)
    {
      EMANELTE::MHAL::UE_UL_Message ue_ul_msg;
 
@@ -1594,7 +1581,7 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
          }
         else
          {
-           Debug("RX:%s no matching pci's, in %lu carriers, drop\n",
+           Warning("RX:%s no matching pci's, in %lu carriers, drop\n",
                   __func__,
                   ue_ul_msg.carriers().size());
 
@@ -1607,39 +1594,40 @@ bool enb_ul_get_signal(uint32_t tti, srslte_timestamp_t * ts)
       }
    }
 
-  pthread_mutex_unlock(&ul_mutex_);
-
   return (! ulMessages_.empty());
 }
 
 
 int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_t max_entries, uint32_t & num_entries)
 {
+  std::lock_guard<std::mutex> lock(ul_mutex_);
+
   int result = SRSLTE_SUCCESS;
 
   num_entries = 0;
 
-  pthread_mutex_lock(&ul_mutex_);
-
   std::set<uint32_t> unique;
 
-  for(auto ul_msg_iter = ulMessages_.begin(); 
-       (ul_msg_iter != ulMessages_.end()) && (num_entries < max_entries); 
-         ++ul_msg_iter)
+  for(const auto & ulMessage : ulMessages_)
     {
-      const uint32_t cc_idx = 0; // carrier 0
+      if(num_entries >= max_entries)
+       {
+         break;
+       }
 
-      const auto & ulMessage = *ul_msg_iter;
+      const uint32_t cc_idx = 0; // carrier 0
 
       const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
 
       if(CarrierResult_Found(carrierResult))
        {
-         if(CarrierResult_Carrier(carrierResult).has_prach())
+         const auto & carrier = CarrierResult_Carrier(carrierResult);
+
+         if(carrier.has_prach())
           {
             const auto sinrResult = 
               UL_Message_SINRTester(ulMessage).sinrCheck2(EMANELTE::MHAL::CHAN_PRACH,
-                                                             CarrierResult_Carrier(carrierResult).center_frequency_hz());
+                                                          carrier.center_frequency_hz());
 
             if(! sinrResult.bPassed_)
              {
@@ -1647,7 +1635,7 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
                continue;
              }
 
-            const auto & prach    = CarrierResult_Carrier(carrierResult).prach();
+            const auto & prach    = carrier.prach();
             const auto & preamble = prach.preamble();
 
             if(unique.count(preamble.index()) == 0) // unique
@@ -1677,8 +1665,6 @@ int enb_ul_get_prach(uint32_t * indices, float * offsets, float * p2avg, uint32_
         }
       }
     }
-
-  pthread_mutex_unlock(&ul_mutex_);
 
   return result;
 }
@@ -1808,13 +1794,11 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                         srslte_pucch_res_t* res,
                         uint32_t cc_idx)
 {
-  pthread_mutex_lock(&ul_mutex_);
+  std::lock_guard<std::mutex> lock(ul_mutex_);
 
   // see lib/src/phy/enb/enb_ul.c get_pucch()
   if (!srslte_pucch_cfg_isvalid(cfg, q->cell.nof_prb)) {
     Error("PUCCH %s, Invalid PUCCH configuration\n", __func__);
-  
-    pthread_mutex_unlock(&ul_mutex_);
     return -1;
   }
 
@@ -1832,7 +1816,6 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   cfg->format = srslte_pucch_proc_select_format(&q->cell, cfg, &cfg->uci_cfg, NULL);
   if (cfg->format == SRSLTE_PUCCH_FORMAT_ERROR) {
     ERROR("Returned Error while selecting PUCCH format\n");
-    pthread_mutex_unlock(&ul_mutex_);
     return SRSLTE_ERROR;
   }
 
@@ -1840,7 +1823,6 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   int nof_resources = srslte_pucch_proc_get_resources(&q->cell, cfg, &cfg->uci_cfg, NULL, n_pucch_i);
   if (nof_resources < 1 || nof_resources > SRSLTE_PUCCH_CS_MAX_ACK) {
     ERROR("No PUCCH resource could be calculated (%d)\n", nof_resources);
-    pthread_mutex_unlock(&ul_mutex_);
     return SRSLTE_ERROR;
   }
 
@@ -1865,19 +1847,22 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
   res->detected         = false;
 
   // for each ue uplink message
-  for(auto ul_msg_iter = ulMessages_.begin(); 
-       ul_msg_iter != ulMessages_.end() && !res->detected;
-         ++ul_msg_iter)
+  for(const auto & ulMessage : ulMessages_)
    {
-     const auto & ulMessage = *ul_msg_iter;
+     if(res->detected)
+      {
+        break;
+      } 
 
      const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
- 
+
      if(CarrierResult_Found(carrierResult))
       {
-        if(CarrierResult_Carrier(carrierResult).has_pucch())
+        const auto & carrier = CarrierResult_Carrier(carrierResult);
+
+        if(carrier.has_pucch())
          {
-           const auto & pucch_message = CarrierResult_Carrier(carrierResult).pucch();
+           const auto & pucch_message = carrier.pucch();
 
            // for each grant
            for(const auto & grant : pucch_message.grant())
@@ -1895,8 +1880,8 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                {
                  const auto sinrResult = 
                    UL_Message_SINRTester(ulMessage).sinrCheck2(EMANELTE::MHAL::CHAN_PUCCH, 
-                                                                  rnti, 
-                                                                  CarrierResult_Carrier(carrierResult).center_frequency_hz());
+                                                               rnti, 
+                                                               carrier.center_frequency_hz());
 
                  if(sinrResult.bPassed_)
                   {
@@ -1959,8 +1944,6 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
           }
        }
     }
-
-  pthread_mutex_unlock(&ul_mutex_);
 
   return SRSLTE_SUCCESS;
 }
@@ -2034,27 +2017,30 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                         uint16_t rnti,
                         uint32_t cc_idx)
 {
-  int result = SRSLTE_SUCCESS;
+  std::lock_guard<std::mutex> lock(ul_mutex_);
 
-  pthread_mutex_lock(&ul_mutex_);
+  int result = SRSLTE_SUCCESS;
 
   res->crc            = false;
   res->uci.ack.valid  = false;
 
   // for each uplink message
-  for(auto ul_msg_iter = ulMessages_.begin(); 
-        ul_msg_iter != ulMessages_.end() && !res->crc;
-          ++ul_msg_iter)
+  for(const auto & ulMessage : ulMessages_)
    {
-     const auto & ulMessage = *ul_msg_iter;
+     if(res->crc)
+      {
+        break;
+      }
 
      const auto carrierResult = findCarrier(UL_Message_Message(ulMessage), cc_idx);
  
      if(CarrierResult_Found(carrierResult))
       {
-        if(CarrierResult_Carrier(carrierResult).has_pusch())
+        const auto & carrier = CarrierResult_Carrier(carrierResult);
+
+        if(carrier.has_pusch())
          {
-           const auto & pusch_message = CarrierResult_Carrier(carrierResult).pusch();
+           const auto & pusch_message = carrier.pusch();
 
            // for each grant
            for(const auto & grant : pusch_message.grant())
@@ -2067,7 +2053,7 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                  const auto sinrResult = 
                    UL_Message_SINRTester(ulMessage).sinrCheck2(EMANELTE::MHAL::CHAN_PUSCH,
                                                                   rnti,
-                                                                  CarrierResult_Carrier(carrierResult).center_frequency_hz());
+                                                                  carrier.center_frequency_hz());
                  if(sinrResult.bPassed_)
                   {
                     const auto & ul_grant_message = grant.ul_grant();
@@ -2116,8 +2102,6 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
          }
       }
    }
-
-  pthread_mutex_unlock(&ul_mutex_);
 
   return result;
 }

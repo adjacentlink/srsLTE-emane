@@ -39,6 +39,7 @@
 #include "libemanelte/uestatisticmanager.h"
 #include "libemanelte/sinrtester.h"
 
+#include <mutex>
 #include <vector>
 #include <tuple>
 #include <map>
@@ -135,7 +136,7 @@ namespace {
 
  srslte::log * log_h_ = NULL;
 
- pthread_mutex_t ul_mutex_;
+ std::mutex ul_mutex_;
 
  static inline bool is_valid_n_id_2(int n_id_2)
   {
@@ -647,12 +648,6 @@ void ue_start()
          exit(1);
        }
 
-     if(pthread_mutex_init(&ul_mutex_, &mattr) < 0)
-       {
-         Error("START:%s pthread_mutex_init error %s, exit\n", __func__, strerror(errno));
-         exit(1);
-       }
-
      pthread_mutexattr_destroy(&mattr);
   }
 
@@ -669,8 +664,6 @@ void ue_stop()
   Info("STOP:%s\n", __func__);
 
   EMANELTE::MHAL::UE::stop();
-
-  pthread_mutex_destroy(&ul_mutex_);
 }
 
 
@@ -1742,7 +1735,7 @@ void ue_ul_tx_init()
 void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cell)
 {
   // end of tx sequence, tx_end will release lock
-  pthread_mutex_lock(&ul_mutex_);
+  std::lock_guard<std::mutex> lock(ul_mutex_);
 
   ue_ul_msg_.set_crnti(crnti_);
   ue_ul_msg_.set_tti(tti_tx_);
@@ -1791,14 +1784,12 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
   ue_ul_msg_.Clear();
 
   tx_control_.Clear();
-
-  pthread_mutex_unlock(&ul_mutex_);
 }
 
 
 void ue_ul_put_prach(int index)
 {
-  pthread_mutex_lock(&ul_mutex_);
+  std::lock_guard<std::mutex> lock(ul_mutex_);
 
   const std::uint32_t cc_idx = 0; // carrier 0
 
@@ -1828,8 +1819,6 @@ void ue_ul_put_prach(int index)
   preamble->set_index(index);
 
   Info("PRACH:%s: index %d\n", __func__, index);
-
-  pthread_mutex_unlock(&ul_mutex_);
 }
 
 
@@ -1906,7 +1895,7 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
                       srslte_uci_value_t* uci_data,
                       uint32_t cc_idx)
 {
-   pthread_mutex_lock(&ul_mutex_);
+   std::lock_guard<std::mutex> lock(ul_mutex_);
 
    const auto tx_freq_hz = getTxFrequency(cc_idx);
 
@@ -2005,8 +1994,6 @@ int ue_ul_put_pucch_i(srslte_ue_ul_t* q,
    Debug("PUCCH:%s: rnti 0x%hx\n", __func__, rnti);
 #endif
 
-   pthread_mutex_unlock(&ul_mutex_);
-
    // signal ready
    return 1;
 }
@@ -2076,7 +2063,7 @@ typedef struct SRSLTE_API {
 } srslte_pusch_data_t; */
 static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data, uint32_t cc_idx)
 {
-   pthread_mutex_lock(&ul_mutex_);
+   std::lock_guard<std::mutex> lock(ul_mutex_);
 
    const auto tx_freq_hz = getTxFrequency(cc_idx);
 
@@ -2122,8 +2109,6 @@ static int ue_ul_put_pusch_i(srslte_pusch_cfg_t* cfg, srslte_pusch_data_t* data,
 #endif
 
    UESTATS::putULGrant(rnti);
-
-   pthread_mutex_unlock(&ul_mutex_);
 
    // signal ready
    return 1;
