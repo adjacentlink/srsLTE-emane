@@ -25,10 +25,10 @@
  */
 
 #include <stdint.h> // radio.h needs this
+
 #include "srslte/config.h"
 #include "srslte/radio/radio.h"
-
-#ifdef PHY_ADAPTER_ENABLE
+#include "srslte/phy/adapter/phy_adapter_common.h"
 
 #include "srsue/hdr/phy/phy_adapter.h"
 #include "srsue/hdr/phy/sync.h"
@@ -40,22 +40,6 @@
 #include "libemanelte/sinrtester.h"
 
 #include <mutex>
-#include <vector>
-#include <tuple>
-#include <map>
-#include <set>
-
-#define Error(fmt, ...)          if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...)        if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)           if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
-#define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
-
-#undef DEBUG_HEX
-
-#ifdef DEBUG_HEX
-#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex ((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
-#endif
 
 // private namespace for misc helpers and state for PHY_ADAPTER
 namespace {
@@ -82,12 +66,6 @@ namespace {
  #define FrameMessage_timestamp(x)   std::get<1>((x))
  #define FrameMessage_rxMessages(x)  std::get<2>((x))
 
- // freq always rx/tx
- using FrequencyPair = std::pair<uint64_t, uint64_t>;
-
- // carrier index, freq pair
- using CarrierIndexFrequencyTable = std::map<uint32_t, FrequencyPair>;
-
  // search for carrier result
  using CarrierResult = std::pair<bool, const EMANELTE::MHAL::ENB_DL_Message_CarrierMessage &>;
  // helpers
@@ -96,6 +74,8 @@ namespace {
 
  // track carrierIndex to rx/tx carrier center frequency
  CarrierIndexFrequencyTable carrierIndexFrequencyTable_;
+
+ FrequencyToCarrierIndex rxFrequencyToCarrierIndex_;
 
  // for use into srslte lib calls
  srslte::rf_buffer_t buffer_(1);
@@ -118,6 +98,67 @@ namespace {
   { }
  };
 
+
+ class SINRManager {
+  public:
+    // 1000 frames or 1 sec
+    SINRManager(size_t maxEntries = 1000) :
+     maxEntries_(maxEntries)
+    { 
+      sum_ = 0;
+    }
+ 
+    void clear()
+     {
+       std::lock_guard<std::mutex> lock(mutex_);
+
+       entries_.clear();
+       sum_ = 0;
+     }
+
+    void update(double x)
+     {
+       std::lock_guard<std::mutex> lock(mutex_);
+
+       sum_ += x;
+
+       entries_.push_front(x);
+
+       if(entries_.size() > maxEntries_)
+        {
+          sum_ -= entries_.back();
+
+          entries_.pop_back();
+        }
+     }
+
+    double get()
+     {
+       std::lock_guard<std::mutex> lock(mutex_);
+
+       if(entries_.empty())
+        {
+          return -150;
+        }
+       else
+        {
+          return sum_/entries_.size();
+        }
+     }
+
+   private:
+    const size_t maxEntries_;
+
+    std::deque<double> entries_;
+
+    double sum_;
+
+    std::mutex mutex_;
+ };
+   
+
+ SINRManager sinrManager_[MAX_NUM_CARRIERS];
+  
 
  // pdsch rnti/messages with signal quality
  using ENB_DL_Message_PDSCH_Entry = std::pair<EMANELTE::MHAL::ENB_DL_Message_PDSCH_Data, SignalQuality>;
@@ -253,7 +294,7 @@ findCarrier(const EMANELTE::MHAL::ENB_DL_Message & enb_dl_msg, uint32_t cc_idx)
             // XXX_CC TODO check this
             if(my_cell_id_ != carrier.second.phy_cell_id())
              {
-               Info("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
+               Warning("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
                      __func__, cc_idx, my_cell_id_, carrier.second.phy_cell_id());
              }
 
@@ -291,7 +332,6 @@ static inline uint64_t getRxFrequency(uint32_t cc_idx)
 
   return 0; 
  }
-
 
 
 // see sf_worker::update_measurements() -> cc_worker::update_measurements()
@@ -364,6 +404,18 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
        // unique enb, first come first served
        if(bEnbIsUnique)
         {
+          // update signal quality for this enb
+          // XXX TODO track ref signals only ?
+          for(const auto & carrier : enb_dl_msg.carriers())
+           {
+             const auto iter = rxFrequencyToCarrierIndex_.find(carrier.first);
+
+             if(iter != rxFrequencyToCarrierIndex_.end())
+              {
+                sinrManager_[iter->second].update(rxControl.avg_snr_[iter->second]);
+              }
+           }
+
           // save msg compenents
           dlMessages.emplace_back(enb_dl_msg, rxControl, sinrTester);
         }
@@ -379,7 +431,7 @@ static DL_Messages ue_dl_get_signals_i(srslte_timestamp_t * ts)
 
 
 // return message for a specific pci (enb)
-static DL_Messages ue_dl_enb_subframe_get_pic_i(srslte_ue_sync_t * ue_sync, const uint32_t * tti)
+static DL_Messages ue_dl_enb_subframe_get_pci_i(srslte_ue_sync_t * ue_sync, const uint32_t * tti)
 {
    const auto dlMessages = ue_dl_get_signals_i(&ue_sync->last_timestamp);
 
@@ -408,11 +460,10 @@ static DL_Messages ue_dl_enb_subframe_get_pic_i(srslte_ue_sync_t * ue_sync, cons
                ++ue_sync->frame_total_cnt;
              }
 
-
-           return DL_Messages{dlMessage};
-         }
-      }
-   }
+            return DL_Messages{dlMessage};
+          }
+       }
+    }
 
   return DL_Messages{};
 }
@@ -565,6 +616,8 @@ void ue_initialize(srslte::log * log_h, uint32_t sf_interval_msec, EMANELTE::MHA
 
   carrierIndexFrequencyTable_.clear();
 
+  rxFrequencyToCarrierIndex_.clear();
+
   Info("INIT:%s sf_interval %u msec\n", __func__, sf_interval_msec);
 
   EMANELTE::MHAL::UE::initialize(sf_interval_msec, mhal_config);
@@ -588,6 +641,8 @@ void ue_set_frequency(uint32_t cc_idx,
                       double tx_freq_hz)
 {
    carrierIndexFrequencyTable_[cc_idx] = FrequencyPair{llround(rx_freq_hz), llround(tx_freq_hz)}; // rx/tx
+
+   rxFrequencyToCarrierIndex_[llround(rx_freq_hz)] = cc_idx;
 
    Warning("%s cc_idx %u, rx_freq %6.4f MHz, tx_freq %6.4f MHz\n",
            __func__,
@@ -938,7 +993,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
      // radio recv called here
      sync_->radio_recv_fnc(buffer_, 0, 0);
 
-     const auto dlMessages = ue_dl_enb_subframe_get_pic_i(&ue_mib_sync->ue_sync, NULL);
+     const auto dlMessages = ue_dl_enb_subframe_get_pci_i(&ue_mib_sync->ue_sync, NULL);
 
      Info("RX:ue_dl_mib_search: pci %hu, try %d/%u, %zu signals\n", 
            ue_mib_sync->ue_sync.cell.id, try_num, max_tries, dlMessages.size());
@@ -1083,7 +1138,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
      // radio recv called here
      sync_->radio_recv_fnc(buffer_, 0, 0);
 
-     const auto dlMessages = ue_dl_enb_subframe_get_pic_i(ue_sync, NULL);
+     const auto dlMessages = ue_dl_enb_subframe_get_pci_i(ue_sync, NULL);
 
      // expect 1 and only 1
      if(! dlMessages.empty())
@@ -1160,7 +1215,7 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 
    enb_dl_pdsch_messages_.clear();
 
-   const auto dlMessages = ue_dl_enb_subframe_get_pic_i(ue_sync, &tti);
+   const auto dlMessages = ue_dl_enb_subframe_get_pci_i(ue_sync, &tti);
 
    // expect 1 and only 1 for single antenna mode
    if(! dlMessages.empty())
@@ -1176,18 +1231,10 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
 
 float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
 {
-   float rssi = 0.0;
+   // XXX TODO sinr to rssi/rsrq see phy.snr_ema_coeff defualt 0.1
+   const float rssi = sinrManager_[cc_idx].get() / 10.0f;
 
-   const auto & enb_dl_msg = DL_Message_Message(dlMessageThisFrame_);
-
-   if(enb_dl_msg.IsInitialized())
-    {
-       rssi = 10.0; // ALINK_XXX TODO need actual value
-    }
-   else
-    {
-      Error("RX:%s: empty msg\n", __func__);
-    }
+   Info("Rx:%s: cell %u, cc_idx %u, rssi %f\n", __func__, cell_id, cc_idx, rssi);
 
    return rssi;
 }
@@ -2200,5 +2247,3 @@ int ue_ul_encode(srslte_ue_ul_t* q, srslte_ul_sf_cfg_t* sf, srslte_ue_ul_cfg_t* 
 
 } // end namespace phy_adapter
 } // end namepsace srsue
-
-#endif

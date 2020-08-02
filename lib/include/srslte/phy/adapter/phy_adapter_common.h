@@ -1,0 +1,56 @@
+/**
+ *
+ * \section COPYRIGHT
+ *
+ * Copyright (c) 2019 - Adjacent Link LLC, Bridgewater, New Jersey
+ *
+ * \section LICENSE
+ *
+ * This file is part of srsLTE.
+ *
+ * srsUE is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
+ *
+ * srsUE is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * A copy of the GNU Affero General Public License can be found in
+ * the LICENSE file in the top-level directory of this distribution
+ * and at http://www.gnu.org/licenses/.
+ *
+ */
+
+#ifndef PHY_ADAPTER_COMMON_H
+#define PHY_ADAPTER_COMMON_H
+
+
+#include <tuple>
+#include <vector>
+#include <set>
+#include <map>
+
+#define Error(fmt, ...)          if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
+#define Warning(fmt, ...)        if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
+#define Info(fmt, ...)           if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
+#define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
+#define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
+
+#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+
+const size_t MAX_NUM_CARRIERS = 5;
+
+// always rx/tx
+using FrequencyPair = std::pair<uint64_t, uint64_t>;
+
+// carrier index to freq pair
+using CarrierIndexFrequencyTable = std::map<uint32_t, FrequencyPair>;
+
+using FrequencyToCarrierIndex = std::map<std::uint64_t, uint32_t>;
+
+
+
+#endif

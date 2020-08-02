@@ -25,20 +25,7 @@
  */
 
 #include "srslte/config.h"
-
-#ifdef PHY_ADAPTER_ENABLE
-
-#define Error(fmt, ...)          if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...)        if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)           if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
-#define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
-
-#undef DEBUG_HEX
-
-#ifdef DEBUG_HEX
-#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
-#endif
+#include "srslte/phy/adapter/phy_adapter_common.h"
 
 extern "C" {
 #include "srslte/phy/phch/ra.h"
@@ -57,10 +44,6 @@ extern "C" {
 #include "libemanelte/enbstatisticmanager.h"
 #include "libemanelte/sinrtester.h"
 
-#include <tuple>
-#include <vector>
-#include <set>
-#include <map>
 #include <mutex>
 
 // private namespace for misc helpers and state for PHY_ADAPTER
@@ -81,12 +64,6 @@ namespace {
 
   // 0 or more ue ul messages for this tti
   using UL_Messages = std::vector<UL_Message>;
-
-  // always rx/tx
-  using FrequencyPair = std::pair<uint64_t, uint64_t>;
-
-  // carrier index to freq pair
-  using CarrierIndexFrequencyTable = std::map<uint32_t, FrequencyPair>;
 
   // search for carrier result
   using CarrierResult = std::pair<bool, const EMANELTE::MHAL::UE_UL_Message_CarrierMessage &>;
@@ -247,7 +224,7 @@ findCarrier(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_idx)
                // XXX_CC TODO check this 
                if(my_cell_id != carrier.second.phy_cell_id())
                 {
-                  Info("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
+                  Warning("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
                         __func__, cc_idx, my_cell_id, carrier.second.phy_cell_id());
 
                 }
@@ -2104,5 +2081,3 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
 
 } // end namespace phy_adapter
 } // end namespace srsenb
-
-#endif
