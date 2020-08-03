@@ -51,6 +51,24 @@ using CarrierIndexFrequencyTable = std::map<uint32_t, FrequencyPair>;
 
 using FrequencyToCarrierIndex = std::map<std::uint64_t, uint32_t>;
 
+// lookup carrier that matches the frequency, create if needed
+template<typename R, typename T>
+R *  getCarrierByFrequency(T & msg, uint64_t frequencyHz)
+ {
+   for(int idx = 0; idx < msg.carriers().size(); ++idx)
+    {
+      // check freq to the msg carrier tx center freq
+      if(frequencyHz == msg.carriers(idx).frequency_hz())
+       {
+         return msg.mutable_carriers(idx);
+       }
+    }
+  
+   auto ptr = msg.add_carriers();
 
+   ptr->set_frequency_hz(frequencyHz);
+
+   return ptr;
+ }
 
 #endif
