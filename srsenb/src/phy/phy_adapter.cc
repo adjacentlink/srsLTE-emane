@@ -224,7 +224,7 @@ findCarrierByIndex(const EMANELTE::MHAL::UE_UL_Message & ue_ul_msg, uint32_t cc_
                // XXX_CC TODO check this 
                if(my_cell_id != carrier.phy_cell_id())
                 {
-                  Warning("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
+                  Info("%s: cc %u, found, but my_cell_id %u != carrier cell id %u\n",
                         __func__, cc_idx, my_cell_id, carrier.phy_cell_id());
 
                 }
