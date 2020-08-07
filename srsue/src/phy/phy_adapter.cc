@@ -505,7 +505,7 @@ static UL_DCI_Results get_ul_dci_list_i(uint16_t rnti, uint32_t cc_idx)
                }
               else
                {
-                 Info("PUCCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
+                 Warning("PUCCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
                }
             }
            else
@@ -552,7 +552,7 @@ static DL_DCI_Results get_dl_dci_list_i(uint16_t rnti, uint32_t cc_idx)
                }
               else
                {
-                 Info("PDSCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
+                 Warning("PDSCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
                }
             }
           else
@@ -602,7 +602,7 @@ static PDSCH_Results ue_dl_get_pdsch_data_list_i(uint32_t refid, uint16_t rnti, 
          }
         else
          {
-           Info("PDSCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
+           Warning("PDSCH:%s: fail cc %u, snr rnti 0x%hx\n", __func__, cc_idx, rnti);
          }
       }
    }
@@ -1188,7 +1188,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
                }
               else
                {
-                 Info("PBCH:%s: fail snr\n", __func__);
+                 Warning("PBCH:%s: fail snr\n", __func__);
                }
             }
          }
@@ -1629,7 +1629,7 @@ int ue_dl_cc_decode_phich(srslte_ue_dl_t*       q,
           }
         else
          {
-           Info("PHICH:%s: fail snr\n", __func__);
+           Warning("PHICH:%s: fail snr\n", __func__);
          }
       }
    }
@@ -1750,7 +1750,7 @@ int ue_dl_cc_decode_pmch(srslte_ue_dl_t*     q,
                    }
                   else
                    {
-                     Info("PMCH:%s: cc %u, area_id %d, fail snr\n", __func__, cc_idx, area_id);
+                     Warning("PMCH:%s: cc %u, area_id %d, fail snr\n", __func__, cc_idx, area_id);
                    }
                 }
               else

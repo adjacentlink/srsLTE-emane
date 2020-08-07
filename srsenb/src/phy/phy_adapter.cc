@@ -1610,7 +1610,7 @@ int enb_ul_cc_get_prach(uint32_t * indices,
 
             if(! sinrResult.bPassed_)
              {
-               Info("PRACH:%s: cc %u, fail snr, %f\n", __func__, cc_idx, sinrResult.sinr_dB_);
+               Warning("PRACH:%s: cc %u, fail snr, %f\n", __func__, cc_idx, sinrResult.sinr_dB_);
                continue;
              }
 
@@ -1910,6 +1910,9 @@ int enb_ul_cc_get_pucch(srslte_enb_ul_t*    q,
                   }
                  else
                   {
+                    Warning("PUCCH:%s: cc %u, fail snr, rnti %hu, %f\n", 
+                            __func__, cc_idx, rnti, sinrResult.sinr_dB_);
+
                     q->chest_res.snr_db             = sinrResult.sinr_dB_;
                     q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
@@ -2068,6 +2071,9 @@ int enb_ul_cc_get_pusch(srslte_enb_ul_t*    q,
                   }
                 else
                   {
+                    Warning("PUSCH:%s: cc %u, fail snr, rnti %hu, %f\n", 
+                            __func__, cc_idx, rnti, sinrResult.sinr_dB_);
+
                     q->chest_res.snr_db             = sinrResult.sinr_dB_;
                     q->chest_res.noise_estimate_dbm = sinrResult.noiseFloor_dBm_;
 
