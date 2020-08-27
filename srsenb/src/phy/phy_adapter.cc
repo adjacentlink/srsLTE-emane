@@ -704,9 +704,7 @@ static int enb_dl_put_pmch_i(const srslte_enb_dl_t * q,
                             uint16_t rnti,
                             uint32_t cc_idx)
  {
-   const auto pdsch_cfg = pmch_cfg->pdsch_cfg;
-
-   const auto grant = pdsch_cfg.grant;
+   const auto grant = pmch_cfg->pdsch_cfg.grant;
 
    if(grant.nof_tb != 1)
     {
@@ -1320,16 +1318,16 @@ int enb_dl_cc_put_pmch(srslte_enb_dl_t* q,
                        mac_interface_phy_lte::dl_sched_grant_t* dl_sched_grant,
                        uint32_t cc_idx)
 {
-  if(dl_sched_grant->dci.rnti != 0)
-   {
-     return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], dl_sched_grant->dci.rnti, cc_idx);
-   }
-  else
-   {
-     Error("PMCH:%s cc %u, rnti is 0\n", __func__, cc_idx);
+  uint16_t rnti = pmch_cfg->pdsch_cfg.rnti;
 
-     return SRSLTE_ERROR;
+  if(rnti == 0)
+   {
+     Warning("PMCH:%s cc %u, grant %p, rnti %hu, set to 0xfffd\n", __func__, cc_idx, dl_sched_grant, rnti);
+
+     rnti = 0xfffd;
    }
+
+  return enb_dl_put_pmch_i(q, pmch_cfg, dl_sched_grant->data[0], rnti, cc_idx);
 }
 
 // see lib/src/phy/enb/enb_dl.c

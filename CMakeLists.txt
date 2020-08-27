@@ -49,7 +49,7 @@ configure_file(
 
 if(NOT CMAKE_BUILD_TYPE)
    set(CMAKE_BUILD_TYPE RelWithDebInfo)
-   message(STATUS "Build type not specified: defaulting to Release.")
+   message(STATUS "Build type not specified: defaulting to ReleaseWithDebInfo.")
 endif(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
 

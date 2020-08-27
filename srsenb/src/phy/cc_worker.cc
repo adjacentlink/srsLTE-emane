@@ -536,7 +536,8 @@ int cc_worker::encode_pmch(stack_interface_phy_lte::dl_sched_grant_t* grant, srs
   }
 
   // Save metrics stats
-  ue_db[SRSLTE_MRNTI]->metrics_dl(mbsfn_cfg->mbsfn_mcs);
+  if(ue_db.count(SRSLTE_MRNTI))
+    ue_db[SRSLTE_MRNTI]->metrics_dl(mbsfn_cfg->mbsfn_mcs);
   return SRSLTE_SUCCESS;
 }
 
@@ -566,7 +567,7 @@ int cc_worker::encode_pdsch(stack_interface_phy_lte::dl_sched_grant_t* grants, u
 #ifndef PHY_ADAPTER_ENABLE
       if (srslte_enb_dl_put_pdsch(&enb_dl, &dl_cfg.pdsch, grants[i].data)) {
 #else
-if (phy_adapter::enb_dl_cc_put_pdsch_dl(&enb_dl, &dl_cfg.pdsch, &grants[i], i, cc_idx)) {
+      if (phy_adapter::enb_dl_cc_put_pdsch_dl(&enb_dl, &dl_cfg.pdsch, &grants[i], i, cc_idx)) {
 #endif
         Error("Error putting PDSCH %d\n", i);
         return SRSLTE_ERROR;
