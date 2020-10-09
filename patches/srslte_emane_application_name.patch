@@ -179,12 +179,12 @@ index 9537a10..76a277a 100644
  
  add_subdirectory(test)
 diff --git a/srsenb/src/CMakeLists.txt b/srsenb/src/CMakeLists.txt
-index 500a00e..cda21d8 100644
+index b8a4bac..ec9ec40 100644
 --- a/srsenb/src/CMakeLists.txt
 +++ b/srsenb/src/CMakeLists.txt
 @@ -34,8 +34,8 @@ endif (RPATH)
  
- add_library(enb_cfg_parser parser.cc enb_cfg_parser.cc)
+ add_library(enb_cfg_parser STATIC parser.cc enb_cfg_parser.cc)
  
 -add_executable(srsenb main.cc enb.cc metrics_stdout.cc metrics_csv.cc metrics_ostatistic.cc)
 -target_link_libraries(srsenb  srsenb_phy
