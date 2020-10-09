@@ -1,18 +1,5 @@
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index ab14514..2dc2737 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -299,7 +299,7 @@ configure_file(
-         ${PROJECT_SOURCE_DIR}/cmake/modules/SRSLTE_install_configs.sh.in
-         ${CMAKE_BINARY_DIR}/srslte_install_configs.sh
- )
--install(PROGRAMS ${CMAKE_BINARY_DIR}/srslte_install_configs.sh DESTINATION ${RUNTIME_DIR})
-+#install(PROGRAMS ${CMAKE_BINARY_DIR}/srslte_install_configs.sh DESTINATION ${RUNTIME_DIR}) // MIN_INSTALL
- 
- ########################################################################
- # Compiler specific setup
 diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
-index 7e89e7d..96d9923 100644
+index fa4741d..2c782c9 100644
 --- a/lib/CMakeLists.txt
 +++ b/lib/CMakeLists.txt
 @@ -29,6 +29,6 @@ add_subdirectory(test)
@@ -24,9 +11,9 @@ index 7e89e7d..96d9923 100644
 -          FILES_MATCHING PATTERN "*.h" )
 +#INSTALL(  DIRECTORY include/
 +#          DESTINATION "${INCLUDE_DIR}"
-+#          FILES_MATCHING PATTERN "*.h" ) // MIN_INSTALL
++#          FILES_MATCHING PATTERN "*.h" )
 diff --git a/lib/include/srslte/CMakeLists.txt b/lib/include/srslte/CMakeLists.txt
-index 6ace11d..8bd0372 100644
+index 8bfa689..2ca8d74 100644
 --- a/lib/include/srslte/CMakeLists.txt
 +++ b/lib/include/srslte/CMakeLists.txt
 @@ -23,6 +23,6 @@ configure_file(
@@ -38,74 +25,9 @@ index 6ace11d..8bd0372 100644
 -)
 +#INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.h
 +#        DESTINATION "${INCLUDE_DIR}/srslte"
-+#) // MIN_INSTALL
-diff --git a/lib/src/asn1/CMakeLists.txt b/lib/src/asn1/CMakeLists.txt
-index 04d753e..78be63e 100644
---- a/lib/src/asn1/CMakeLists.txt
-+++ b/lib/src/asn1/CMakeLists.txt
-@@ -26,7 +26,7 @@ add_library(srslte_asn1 STATIC
-   liblte_m2ap.cc
-   gtpc.cc
- )
--install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srslte_asn1 DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
- add_library(rrc_asn1 STATIC
-         rrc_asn1.cc
-@@ -36,4 +36,4 @@ add_library(rrc_asn1 STATIC
-         )
- # Compile RRC ASN1 optimized for size
- target_compile_options(rrc_asn1 PRIVATE "-Os")
--install(TARGETS rrc_asn1 DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS rrc_asn1 DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/lib/src/common/CMakeLists.txt b/lib/src/common/CMakeLists.txt
-index bf61299..1ddbd04 100644
---- a/lib/src/common/CMakeLists.txt
-+++ b/lib/src/common/CMakeLists.txt
-@@ -32,4 +32,4 @@ add_executable(arch_select arch_select.cc)
- 
- target_include_directories(srslte_common PUBLIC ${SEC_INCLUDE_DIRS})
- target_link_libraries(srslte_common srslte_phy ${SEC_LIBRARIES})
--install(TARGETS srslte_common DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srslte_common DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/lib/src/phy/CMakeLists.txt b/lib/src/phy/CMakeLists.txt
-index 5a4b270..7f3bbd6 100644
---- a/lib/src/phy/CMakeLists.txt
-+++ b/lib/src/phy/CMakeLists.txt
-@@ -59,4 +59,4 @@ add_library(srslte_phy STATIC ${srslte_srcs})
- target_link_libraries(srslte_phy ${FFT_LIBRARIES})
- 
- target_link_libraries(srslte_phy pthread m)
--install(TARGETS srslte_phy DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srslte_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/lib/src/radio/CMakeLists.txt b/lib/src/radio/CMakeLists.txt
-index 053951b..f0fd4eb 100644
---- a/lib/src/radio/CMakeLists.txt
-+++ b/lib/src/radio/CMakeLists.txt
-@@ -20,8 +20,8 @@
- 
- if(RF_FOUND)
-   add_library(srslte_radio STATIC radio.cc radio_multi.cc)
--  target_link_libraries(srslte_radio srslte_rf)
--  install(TARGETS srslte_radio DESTINATION ${LIBRARY_DIR})
-+  target_link_libraries(srslte_radio srslte_rf_emane)
-+#  install(TARGETS srslte_radio DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- endif(RF_FOUND)
- 
- add_subdirectory(test)
-diff --git a/lib/src/upper/CMakeLists.txt b/lib/src/upper/CMakeLists.txt
-index 4b2da87..db5eace 100644
---- a/lib/src/upper/CMakeLists.txt
-+++ b/lib/src/upper/CMakeLists.txt
-@@ -21,4 +21,4 @@
- file(GLOB SOURCES "*.cc")
- add_library(srslte_upper STATIC ${SOURCES})
- target_link_libraries(srslte_upper srslte_common srslte_asn1)
--install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR})
-\ No newline at end of file
-+#install(TARGETS srslte_upper DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
++#)
 diff --git a/srsenb/CMakeLists.txt b/srsenb/CMakeLists.txt
-index bb336bc..e7c2536 100644
+index d7120f6..8210da8 100644
 --- a/srsenb/CMakeLists.txt
 +++ b/srsenb/CMakeLists.txt
 @@ -52,7 +52,7 @@ add_subdirectory(test)
@@ -120,73 +42,9 @@ index bb336bc..e7c2536 100644
 +#install(FILES enb.conf.example DESTINATION ${DATA_DIR})
 +#install(FILES drb.conf.example DESTINATION ${DATA_DIR})
 +#install(FILES rr.conf.example DESTINATION ${DATA_DIR})
-+#install(FILES sib.conf.example DESTINATION ${DATA_DIR}) // MIN_INSTALL
-diff --git a/srsenb/src/phy/CMakeLists.txt b/srsenb/src/phy/CMakeLists.txt
-index 427b2c6..ad78085 100644
---- a/srsenb/src/phy/CMakeLists.txt
-+++ b/srsenb/src/phy/CMakeLists.txt
-@@ -27,5 +27,5 @@ endif(ENABLE_GUI AND SRSGUI_FOUND)
- 
- target_link_libraries(srsenb_phy ${emanelte_LIBRARIES} ${protobuf_LIBRARIES} ${ostatistic_LIBRARIES})
- 
--install(TARGETS srsenb_phy DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsenb_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
-diff --git a/srsenb/src/radio/CMakeLists.txt b/srsenb/src/radio/CMakeLists.txt
-index e2ad787..4b6359c 100644
---- a/srsenb/src/radio/CMakeLists.txt
-+++ b/srsenb/src/radio/CMakeLists.txt
-@@ -20,4 +20,4 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsenb_radio STATIC ${SOURCES})
--install(TARGETS srsenb_radio DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsenb_radio DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/srsenb/src/stack/CMakeLists.txt b/srsenb/src/stack/CMakeLists.txt
-index b4a8309..d6db340 100644
---- a/srsenb/src/stack/CMakeLists.txt
-+++ b/srsenb/src/stack/CMakeLists.txt
-@@ -27,5 +27,5 @@ set(SOURCES enb_stack_lte.cc)
- add_library(srsenb_stack STATIC ${SOURCES})
- target_link_libraries(srsenb_stack)
- 
--install(TARGETS srsenb_stack DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsenb_stack DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
-diff --git a/srsenb/src/stack/mac/CMakeLists.txt b/srsenb/src/stack/mac/CMakeLists.txt
-index d46c5a2..7219d70 100644
---- a/srsenb/src/stack/mac/CMakeLists.txt
-+++ b/srsenb/src/stack/mac/CMakeLists.txt
-@@ -20,5 +20,5 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsenb_mac STATIC ${SOURCES})
--install(TARGETS srsenb_mac DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsenb_mac DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
-diff --git a/srsenb/src/stack/rrc/CMakeLists.txt b/srsenb/src/stack/rrc/CMakeLists.txt
-index f5f225b..04a6c7a 100644
---- a/srsenb/src/stack/rrc/CMakeLists.txt
-+++ b/srsenb/src/stack/rrc/CMakeLists.txt
-@@ -22,4 +22,4 @@ set(SOURCES rrc.cc)
- 
- add_library(srsenb_rrc STATIC ${SOURCES})
- 
--install(TARGETS srsenb_rrc DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsenb_rrc DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/srsenb/src/stack/upper/CMakeLists.txt b/srsenb/src/stack/upper/CMakeLists.txt
-index a06b4bf..e8b276f 100644
---- a/srsenb/src/stack/upper/CMakeLists.txt
-+++ b/srsenb/src/stack/upper/CMakeLists.txt
-@@ -20,5 +20,5 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsenb_upper STATIC ${SOURCES})
--install(TARGETS srsenb_upper DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsenb_upper DESTINATION ${LIBRARY_DIR}) //MIN_INSTALL
- 
++#install(FILES sib.conf.example DESTINATION ${DATA_DIR})
 diff --git a/srsepc/CMakeLists.txt b/srsepc/CMakeLists.txt
-index e8ac1f6..fe38ed3 100644
+index 6ebe471..ba12adc 100644
 --- a/srsepc/CMakeLists.txt
 +++ b/srsepc/CMakeLists.txt
 @@ -51,7 +51,7 @@ add_subdirectory(src)
@@ -201,51 +59,9 @@ index e8ac1f6..fe38ed3 100644
 +#install(FILES epc.conf.example DESTINATION ${DATA_DIR})
 +#install(FILES mbms.conf.example DESTINATION ${DATA_DIR})
 +#install(FILES user_db.csv.example DESTINATION ${DATA_DIR})
-+#install(PROGRAMS srsepc_if_masq.sh DESTINATION ${RUNTIME_DIR}) // MIN_INSTALL
-diff --git a/srsepc/src/hss/CMakeLists.txt b/srsepc/src/hss/CMakeLists.txt
-index ea077a2..5a1f5b6 100644
---- a/srsepc/src/hss/CMakeLists.txt
-+++ b/srsepc/src/hss/CMakeLists.txt
-@@ -20,5 +20,5 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsepc_hss STATIC ${SOURCES})
--install(TARGETS srsepc_hss DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsepc_hss DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
-diff --git a/srsepc/src/mbms-gw/CMakeLists.txt b/srsepc/src/mbms-gw/CMakeLists.txt
-index dd33a75..ac1b44d 100644
---- a/srsepc/src/mbms-gw/CMakeLists.txt
-+++ b/srsepc/src/mbms-gw/CMakeLists.txt
-@@ -20,4 +20,4 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsepc_mbms_gw STATIC ${SOURCES})
--install(TARGETS srsepc_mbms_gw DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsepc_mbms_gw DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/srsepc/src/mme/CMakeLists.txt b/srsepc/src/mme/CMakeLists.txt
-index 97d90cb..4f6feca 100644
---- a/srsepc/src/mme/CMakeLists.txt
-+++ b/srsepc/src/mme/CMakeLists.txt
-@@ -20,5 +20,5 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsepc_mme STATIC ${SOURCES})
--install(TARGETS srsepc_mme DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsepc_mme DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
-diff --git a/srsepc/src/spgw/CMakeLists.txt b/srsepc/src/spgw/CMakeLists.txt
-index b3ebda9..55ca98a 100644
---- a/srsepc/src/spgw/CMakeLists.txt
-+++ b/srsepc/src/spgw/CMakeLists.txt
-@@ -20,4 +20,4 @@
- 
- file(GLOB SOURCES "*.cc")
- add_library(srsepc_sgw STATIC ${SOURCES})
--install(TARGETS srsepc_sgw DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsepc_sgw DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
++#install(PROGRAMS srsepc_if_masq.sh DESTINATION ${RUNTIME_DIR})
 diff --git a/srsue/CMakeLists.txt b/srsue/CMakeLists.txt
-index 491d72e..69effa6 100644
+index 9b62972..1b493ef 100644
 --- a/srsue/CMakeLists.txt
 +++ b/srsue/CMakeLists.txt
 @@ -48,4 +48,4 @@ add_subdirectory(test)
@@ -254,55 +70,4 @@ index 491d72e..69effa6 100644
  ########################################################################
 -install(FILES ue.conf.example DESTINATION ${DATA_DIR})
 \ No newline at end of file
-+#install(FILES ue.conf.example DESTINATION ${DATA_DIR}) // MIN_INSTALL
-diff --git a/srsue/src/phy/CMakeLists.txt b/srsue/src/phy/CMakeLists.txt
-index 4812109..fdad041 100644
---- a/srsue/src/phy/CMakeLists.txt
-+++ b/srsue/src/phy/CMakeLists.txt
-@@ -27,4 +27,4 @@ endif(ENABLE_GUI AND SRSGUI_FOUND)
- 
- target_link_libraries(srsue_phy ${emanelte_LIBRARIES} ${protobuf_LIBRARIES} ${ostatistic_LIBRARIES})
- 
--install(TARGETS srsue_phy DESTINATION ${LIBRARY_DIR})
-+#install(TARGETS srsue_phy DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/srsue/src/stack/CMakeLists.txt b/srsue/src/stack/CMakeLists.txt
-index 47a9b10..5dc05e7 100644
---- a/srsue/src/stack/CMakeLists.txt
-+++ b/srsue/src/stack/CMakeLists.txt
-@@ -26,5 +26,5 @@ set(SOURCES ue_stack_lte.cc)
- 
- add_library(srsue_stack STATIC ${SOURCES})
- 
--install(TARGETS srsue_stack DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsue_stack DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
- 
-diff --git a/srsue/src/stack/mac/CMakeLists.txt b/srsue/src/stack/mac/CMakeLists.txt
-index 4fa7dd4..70d80f7 100644
---- a/srsue/src/stack/mac/CMakeLists.txt
-+++ b/srsue/src/stack/mac/CMakeLists.txt
-@@ -21,4 +21,4 @@
- file(GLOB SOURCES "*.cc")
- add_library(srsue_mac STATIC ${SOURCES})
- 
--install(TARGETS srsue_mac DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsue_mac DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/srsue/src/stack/rrc/CMakeLists.txt b/srsue/src/stack/rrc/CMakeLists.txt
-index e8d85f2..c73786b 100644
---- a/srsue/src/stack/rrc/CMakeLists.txt
-+++ b/srsue/src/stack/rrc/CMakeLists.txt
-@@ -22,4 +22,4 @@ set(SOURCES rrc.cc rrc_procedures.cc)
- 
- add_library(srsue_rrc STATIC ${SOURCES})
- 
--install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsue_rrc DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
-diff --git a/srsue/src/stack/upper/CMakeLists.txt b/srsue/src/stack/upper/CMakeLists.txt
-index 30a9c3e..40b7aad 100644
---- a/srsue/src/stack/upper/CMakeLists.txt
-+++ b/srsue/src/stack/upper/CMakeLists.txt
-@@ -30,4 +30,4 @@ if(HAVE_PCSC)
-   target_link_libraries(srsue_upper ${PCSCLITE_LIBRARY})
- endif(HAVE_PCSC)
- 
--install(TARGETS srsue_upper DESTINATION ${LIBRARY_DIR})
-+# install(TARGETS srsue_upper DESTINATION ${LIBRARY_DIR}) // MIN_INSTALL
++#install(FILES ue.conf.example DESTINATION ${DATA_DIR})
