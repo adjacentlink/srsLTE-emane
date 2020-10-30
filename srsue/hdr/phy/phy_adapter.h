@@ -52,7 +52,7 @@ void ue_set_frequency(uint32_t cc_idx,
                       double rx_freq_hz,
                       double tx_freq_hz);
 
-void ue_set_cell(const phy_interface_rrc_lte::phy_cell_t* cell);
+void ue_set_cell(const srsue::phy_cell_t* cell);
 
 void ue_set_earfcn(double rx_freq_hz,
                    double tx_freq_hz,

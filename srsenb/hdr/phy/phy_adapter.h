@@ -43,7 +43,7 @@ namespace srsenb {
 
 namespace phy_adapter {
 
-void enb_initialize(srslte::log*                   log_h, 
+void enb_initialize(srslte::log_ref                log_h, 
                     uint32_t                       sf_interval,
                     phy_cell_cfg_list_t            cfg_list,
                     EMANELTE::MHAL::mhal_config_t& mhal_config,

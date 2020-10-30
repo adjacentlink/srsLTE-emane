@@ -113,7 +113,7 @@ namespace {
   std::mutex dl_mutex_;
   std::mutex ul_mutex_;
 
-  srslte::log *log_h_ = NULL;
+  srslte::log_ref log_h_;
 
   const uint8_t zeros_[0xffff] = {0};
 
@@ -807,7 +807,7 @@ void enb_init_i(uint32_t idx,
 
 
 // BEGIN phy_adapter enb api
-void enb_initialize(srslte::log * log_h, 
+void enb_initialize(srslte::log_ref log_h, 
                     uint32_t sf_interval_msec, 
                     phy_cell_cfg_list_t cfg_list,
                     EMANELTE::MHAL::mhal_config_t & mhal_config,

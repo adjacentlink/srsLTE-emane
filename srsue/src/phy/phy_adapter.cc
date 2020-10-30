@@ -661,7 +661,7 @@ void ue_set_sync(srsue::sync * sync)
 }
 
 
-void ue_set_cell(const phy_interface_rrc_lte::phy_cell_t* cell)
+void ue_set_cell(const srsue::phy_cell_t* cell)
 {
   Warning("INIT:%s pci %u -> %u\n", __func__, my_cell_id_, cell->pci);
 
@@ -799,7 +799,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
   while(++try_num <= max_tries)
    {
      // radio recv called here
-     sync_->radio_recv_fnc(buffer_, 0, 0);
+     sync_->radio_recv_fnc(buffer_, 0);
 
      const auto dlMessages = ue_dl_get_signals_i(&cs->ue_sync.last_timestamp);
 
@@ -992,7 +992,7 @@ int ue_dl_mib_search(const srslte_ue_cellsearch_t * cs,
   while(++try_num <= max_tries)
    {
      // radio recv called here
-     sync_->radio_recv_fnc(buffer_, 0, 0);
+     sync_->radio_recv_fnc(buffer_, 0);
 
      const auto dlMessages = ue_dl_enb_subframe_get_pci_i(&ue_mib_sync->ue_sync, NULL);
 
@@ -1137,7 +1137,7 @@ int ue_dl_system_frame_search(srslte_ue_sync_t * ue_sync, uint32_t * sfn)
   while(++try_num <= max_tries)
    {
      // radio recv called here
-     sync_->radio_recv_fnc(buffer_, 0, 0);
+     sync_->radio_recv_fnc(buffer_, 0);
 
      const auto dlMessages = ue_dl_enb_subframe_get_pci_i(ue_sync, NULL);
 
@@ -1210,7 +1210,7 @@ int ue_dl_sync_search(srslte_ue_sync_t * ue_sync, uint32_t tti)
    EMANELTE::MHAL::UE::set_tti(tti);
 
    // lower level radio recv called here
-   sync_->radio_recv_fnc(buffer_, 0, 0);
+   sync_->radio_recv_fnc(buffer_, 0);
 
    DL_Message_SINRTester(dlMessageThisFrame_).release();
 
