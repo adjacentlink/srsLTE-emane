@@ -324,10 +324,9 @@ bool cc_worker::work_dl_mbsfn(srslte_mbsfn_cfg_t mbsfn_cfg)
     return false;
   }
 
-#ifndef PHY_ADAPTER_ENABLE // ALINK_XXX check this
   // Configure MBSFN settings
   srslte_ue_dl_set_mbsfn_area_id(&ue_dl, mbsfn_cfg.mbsfn_area_id);
-#endif
+
   srslte_ue_dl_set_non_mbsfn_region(&ue_dl, mbsfn_cfg.non_mbsfn_region_length);
 
   sf_cfg_dl.sf_type = SRSLTE_SF_MBSFN;

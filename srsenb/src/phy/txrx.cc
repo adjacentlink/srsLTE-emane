@@ -151,7 +151,7 @@ void txrx::run_thread()
 #ifndef PHY_ADAPTER_ENABLE
       radio_h->rx_now(buffer, timestamp);
 #else
-     // XXX TODO phy_adapter::enb_ul_get_signal(tti, timestamp);
+      phy_adapter::enb_ul_get_signal(tti, timestamp.get_ptr(0));
 #endif
 
       if (ul_channel) {

@@ -306,7 +306,7 @@ bool sync::cell_select_init(phy_cell_t new_cell)
   }
 
 #ifdef PHY_ADAPTER_ENABLE
-    phy_adapter::ue_set_cell(&new_cell);
+  phy_adapter::ue_set_cell(&new_cell);
 #endif
 
   Info("Cell Select: Going to IDLE\n");
@@ -422,7 +422,7 @@ void sync::run_sfn_sync_state()
 
 void sync::run_camping_in_sync_state(sf_worker* worker, srslte::rf_buffer_t& sync_buffer)
 {
-
+#ifndef PHY_ADAPTER_ENABLE
   // Check tti is synched with ue_sync
   if (srslte_ue_sync_get_sfidx(&ue_sync) != tti % 10) {
     uint32_t sfn = tti / 10;
@@ -468,7 +468,7 @@ void sync::run_camping_in_sync_state(sf_worker* worker, srslte::rf_buffer_t& syn
       log_h->warning("SFN not yet synchronized, sending out-of-sync\n");
     }
   }
-
+#endif
   Debug("SYNC:  Worker %d synchronized\n", worker->get_id());
 
   metrics.sfo   = srslte_ue_sync_get_sfo(&ue_sync);
@@ -513,6 +513,7 @@ void sync::run_camping_in_sync_state(sf_worker* worker, srslte::rf_buffer_t& syn
   worker_com->semaphore.push(worker);
   workers_pool->start_worker(worker);
 }
+
 void sync::run_camping_state()
 {
   sf_worker*          worker      = (sf_worker*)workers_pool->wait_worker(tti);
@@ -532,7 +533,11 @@ void sync::run_camping_state()
   }
 
   // Primary Cell (PCell) Synchronization
+#ifndef PHY_ADAPTER_ENABLE
   switch (srslte_ue_sync_zerocopy(&ue_sync, sync_buffer.to_cf_t(), worker->get_buffer_len())) {
+#else
+  switch (phy_adapter::ue_dl_sync_search(&ue_sync, tti)) {
+#endif
     case 1:
       run_camping_in_sync_state(worker, sync_buffer);
       break;

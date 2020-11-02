@@ -629,6 +629,7 @@ void phy_common::update_measurements(uint32_t                                   
 {
   bool insync = true;
   {
+#ifndef PHY_ADAPTER_ENABLE
     std::unique_lock<std::mutex> lock(meas_mutex);
 
     float snr_ema_coeff = args->snr_ema_coeff;
@@ -745,6 +746,34 @@ void phy_common::update_measurements(uint32_t                                   
     ch.pathloss     = pathloss[cc_idx];
     ch.sinr         = avg_sinr_db[cc_idx];
     ch.sync_err     = chest_res.sync_error;
+#else
+    const float rssi = phy_adapter::ue_dl_get_rssi(cell.id, cc_idx);
+
+    // Store metrics
+    ch_metrics_t ch = {};
+
+    // ALINK_XXX TODO review ALL these values/units
+    // from fauxrf cc_idx 0, noise 0.000, rsrp -20.313, rsrq -3.778, rssi 4.740, pathloss 20.313, sinr  140.898, sync_err 0.000000
+    ch.n            = avg_noise[cc_idx]      = chest_res.noise_estimate ? chest_res.noise_estimate : 0;
+    ch.rsrp         = avg_rsrp_dbm[cc_idx]   = rssi;
+    ch.rsrq         = avg_rsrq_db[cc_idx]    = chest_res.snr_db         ? chest_res.snr_db         : rssi;
+    ch.rssi         = avg_rssi_dbm[cc_idx]   = rssi;
+    ch.pathloss     = pathloss[cc_idx]       = 0.0;
+    ch.sinr         = avg_sinr_db[cc_idx]    = chest_res.snr_db         ? chest_res.snr_db         : rssi;
+    ch.sync_err     = chest_res.sync_error   = 0;
+
+    avg_snr_db[cc_idx] = rssi;
+#endif
+
+    log_h->info("cc_idx %d, noise %3.3f, rsrp %3.3f, rsrq %3.3f, rssi %3.3f, pathloss %3.3f, sinr % 3.3f, sync_err %f\n",
+                cc_idx,
+                ch.n,
+                ch.rsrp,
+                ch.rsrq,
+                ch.rssi,
+                ch.pathloss,
+                ch.sinr,
+                ch.sync_err);
 
     set_ch_metrics(cc_idx, ch);
 

@@ -311,6 +311,7 @@ int srslte_ue_dl_set_mbsfn_area_id(srslte_ue_dl_t* q, uint16_t mbsfn_area_id)
 {
   int ret = SRSLTE_ERROR_INVALID_INPUTS;
   if (q != NULL) {
+#ifndef PHY_ADAPTER_ENABLE
     ret = SRSLTE_ERROR;
     if (srslte_chest_dl_set_mbsfn_area_id(&q->chest, mbsfn_area_id)) {
       ERROR("Error setting MBSFN area ID \n");
@@ -320,6 +321,7 @@ int srslte_ue_dl_set_mbsfn_area_id(srslte_ue_dl_t* q, uint16_t mbsfn_area_id)
       ERROR("Error setting MBSFN area ID \n");
       return ret;
     }
+#endif
     q->current_mbsfn_area_id = mbsfn_area_id;
     ret                      = SRSLTE_SUCCESS;
   }

@@ -21,6 +21,10 @@
 
 #include "srsue/hdr/phy/sfn_sync.h"
 
+#ifdef PHY_ADAPTER_ENABLE
+#include "srsue/hdr/phy/phy_adapter.h"
+#endif
+
 #define Error(fmt, ...)                                                                                                \
   if (SRSLTE_DEBUG_ENABLED)                                                                                            \
   log_h->error(fmt, ##__VA_ARGS__)
@@ -83,6 +87,7 @@ sfn_sync::ret_code sfn_sync::run_subframe(srslte_cell_t*                        
                                           std::array<uint8_t, SRSLTE_BCH_PAYLOAD_LEN>& bch_payload,
                                           bool                                         sfidx_only)
 {
+#ifndef PHY_ADAPTER_ENABLE
   int ret = srslte_ue_sync_zerocopy(ue_sync, mib_buffer.to_cf_t(), buffer_max_samples);
   if (ret < 0) {
     Error("SYNC:  Error calling ue_sync_get_buffer.\n");
@@ -97,6 +102,14 @@ sfn_sync::ret_code sfn_sync::run_subframe(srslte_cell_t*                        
   } else {
     Info("SYNC:  Waiting for PSS while trying to decode MIB (%d/%d)\n", cnt, timeout);
   }
+#else
+  int ret = phy_adapter::ue_dl_system_frame_search(ue_sync, tti_cnt);
+  if(ret == 1) {
+     Info("SYNC:  DONE, SNR=%.1f dB, TTI=%d\n", ue_mib.chest_res.snr_db, *tti_cnt);
+     reset();
+     return SFN_FOUND;
+  }
+#endif
 
   cnt++;
   if (cnt >= timeout) {

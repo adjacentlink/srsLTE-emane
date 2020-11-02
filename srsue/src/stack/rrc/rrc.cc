@@ -388,7 +388,7 @@ void rrc::process_cell_meas()
   std::vector<phy_meas_t> m;
   while (cell_meas_q.try_pop(&m)) {
     if (cell_meas_q.size() > 0) {
-      rrc_log->info("MEAS:  Processing measurement. %zd measurements in queue\n", cell_meas_q.size());
+      rrc_log->debug("MEAS:  Processing measurement. %zd measurements in queue\n", cell_meas_q.size());
     }
     process_new_cell_meas(m);
   }

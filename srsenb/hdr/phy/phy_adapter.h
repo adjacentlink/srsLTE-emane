@@ -71,7 +71,7 @@ void enb_initialize(srslte::log_ref                log_h,
 
  // get from mhal with sot time
  bool enb_ul_get_signal(uint32_t            tti,
-                        srslte_timestamp_t* ts);
+                        srslte_timestamp_t * ts);
 
  // set the power scaling on a per rnti basis
  void enb_dl_set_power_allocation(uint32_t tti, 
