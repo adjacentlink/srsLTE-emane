@@ -732,6 +732,7 @@ int cc_worker::decode_pdcch_ul()
     /* Blind search first without cross scheduling then with it if enabled */
     for (int i = 0; i < (ue_dl_cfg.cfg.dci.cif_present ? 2 : 1) && !nof_grants; i++) {
       ue_dl_cfg.cfg.dci.cif_enabled = i > 0;
+      ue_dl_cfg.cfg.dci_common_ss   = (cc_idx == 0);
 #ifndef PHY_ADAPTER_ENABLE
       nof_grants                    = srslte_ue_dl_find_ul_dci(&ue_dl, &sf_cfg_dl, &ue_dl_cfg, ul_rnti, dci);
 #else
