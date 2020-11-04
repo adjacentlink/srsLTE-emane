@@ -911,7 +911,7 @@ int sync::radio_recv_fnc(srslte::rf_buffer_t& data, srslte_timestamp_t* rx_time)
 #ifndef PHY_ADAPTER_ENABLE
   if (not radio_h->rx_now(data, rf_timestamp)) {
 #else
-  if (not phy_adapter::ue_dl_read_frame(rx_time)) {
+  if (not phy_adapter::ue_dl_read_frame(last_rx_time.get_ptr(0))) {
 #endif
     return SRSLTE_ERROR;
   }

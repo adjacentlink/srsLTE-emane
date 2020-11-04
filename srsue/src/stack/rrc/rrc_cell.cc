@@ -404,7 +404,8 @@ bool meas_cell_list::process_new_cell_meas(const std::vector<phy_meas_t>&       
       neighbour_added |= add_meas_cell(m);
     }
 
-    log_h->info("MEAS:  New measurement %s cell: earfcn=%d, pci=%d, rsrp=%.2f dBm, cfo=%+.1f Hz\n",
+    // ALINK too noisy, changed from info to debug
+    log_h->debug("MEAS:  New measurement %s cell: earfcn=%d, pci=%d, rsrp=%.2f dBm, cfo=%+.1f Hz\n",
                 is_serving_cell ? "serving" : "neighbour",
                 m.earfcn,
                 m.pci,

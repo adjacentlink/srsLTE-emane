@@ -254,7 +254,9 @@ void cc_worker::work_dl(const srslte_dl_sf_cfg_t&            dl_sf_cfg,
   // Put base signals (references, PBCH, PCFICH and PSS/SSS) into the resource grid
   srslte_enb_dl_put_base(&enb_dl, &dl_sf);
 
+#if 0 // ALINK too noisy
   Info("cc_worker:%s cc_idx %u\n", __func__, cc_idx);
+#endif
 
 #ifdef PHY_ADAPTER_ENABLE
   phy_adapter::enb_dl_cc_tx_init(&enb_dl, tti_tx_dl, dl_grants.cfi, cc_idx);

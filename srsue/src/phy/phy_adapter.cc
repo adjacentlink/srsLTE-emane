@@ -463,6 +463,10 @@ static DL_Messages ue_dl_enb_subframe_get_pci_i(srslte_ue_sync_t * ue_sync, cons
 
             return DL_Messages{dlMessage};
           }
+         else
+          {
+            Info("RX:%s carrier msg pci %u != my_pci %u\n", __func__, pci, ue_sync->cell.id);
+          }
        }
     }
 
@@ -798,7 +802,7 @@ int ue_dl_cellsearch_scan(srslte_ue_cellsearch_t * cs,
 
   while(++try_num <= max_tries)
    {
-     // radio recv called here
+     // radio recv is done here during search
      sync_->radio_recv_fnc(buffer_, 0);
 
      const auto dlMessages = ue_dl_get_signals_i(&cs->ue_sync.last_timestamp);
@@ -1235,7 +1239,7 @@ float ue_dl_get_rssi(uint32_t cell_id, uint32_t cc_idx)
    // XXX TODO sinr to rssi/rsrq see phy.snr_ema_coeff defualt 0.1
    const float rssi = sinrManager_[cc_idx].get() / 10.0f;
 
-   Info("Rx:%s: cell %u, cc_idx %u, rssi %f\n", __func__, cell_id, cc_idx, rssi);
+   Debug("Rx:%s: cell %u, cc_idx %u, rssi %f\n", __func__, cell_id, cc_idx, rssi);
 
    return rssi;
 }
@@ -1794,26 +1798,24 @@ void ue_ul_send_signal(time_t sot_sec, float frac_sec, const srslte_cell_t & cel
   EMANELTE::MHAL::Data data;
 
   if(ue_ul_msg_.SerializeToString(&data))
-    {
-      // align sot to sf time
-      const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
+   {
+     // align sot to sf time
+     const timeval tv_sf_time = {sot_sec, (time_t)(round(frac_sec * 1e3)*1e3)};
      
-      auto ts = txControl_.mutable_sf_time();
-      ts->set_ts_sec(tv_sf_time.tv_sec);
-      ts->set_ts_usec(tv_sf_time.tv_usec);
+     auto ts = txControl_.mutable_sf_time();
+     ts->set_ts_sec(tv_sf_time.tv_sec);
+     ts->set_ts_usec(tv_sf_time.tv_usec);
 
-      txControl_.set_message_type(EMANELTE::MHAL::UPLINK);
-      txControl_.set_tx_seqnum(tx_seqnum_++);
-      txControl_.set_tti_tx(tti_tx_);
-#if 0
-      Debug("TX:%s tx_ctrl:%s\n", __func__, txControl_.DebugString().c_str());
-#endif
-      EMANELTE::MHAL::UE::send_msg(data, txControl_);
-    }
-  else
-    {
-      Error("TX:%s: SerializeToString ERROR len %zu\n", __func__, data.length());
-    }
+     txControl_.set_message_type(EMANELTE::MHAL::UPLINK);
+     txControl_.set_tx_seqnum(tx_seqnum_++);
+     txControl_.set_tti_tx(tti_tx_);
+
+     EMANELTE::MHAL::UE::send_msg(data, txControl_);
+   }
+ else
+   {
+     Error("TX:%s: SerializeToString ERROR len %zu\n", __func__, data.length());
+   }
 
   // msg sent clear old data
   ue_ul_msg_.Clear();

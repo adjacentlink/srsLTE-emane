@@ -263,7 +263,7 @@ cf_t* prach::generate(float cfo, uint32_t* nof_sf, float* target_power)
 #ifndef PHY_ADAPTER_ENABLE
   srslte_vec_cf_zero(&signal_buffer[len], (nsf * SRSLTE_SF_LEN_PRB(cell.nof_prb) - len));
 #else
-    phy_adapter::ue_ul_put_prach(preamble_idx);
+  phy_adapter::ue_ul_put_prach(preamble_idx);
 #endif
   *nof_sf = nsf;
 
