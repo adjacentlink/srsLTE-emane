@@ -407,6 +407,7 @@ int srslte_enb_dl_put_pmch(srslte_enb_dl_t* q, srslte_pmch_cfg_t* pmch_cfg, uint
 
 void srslte_enb_dl_gen_signal(srslte_enb_dl_t* q)
 {
+#ifndef PHY_ADAPTER_ENABLE
   // TODO: PAPR control
   float norm_factor = 0.05f / sqrtf(q->cell.nof_prb);
 
@@ -425,6 +426,7 @@ void srslte_enb_dl_gen_signal(srslte_enb_dl_t* q)
                              (uint32_t)SRSLTE_SF_LEN_PRB(q->cell.nof_prb));
     }
   }
+#endif
 }
 
 bool srslte_enb_dl_gen_cqi_periodic(const srslte_cell_t*   cell,
