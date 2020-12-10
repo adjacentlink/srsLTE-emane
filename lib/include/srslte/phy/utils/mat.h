@@ -146,7 +146,9 @@ static inline void srslte_mat_2x2_zf_simd(simd_cf_t y0,
 }
 
 /* Generic SIMD implementation for Minimum Mean Squared Error (MMSE) solver */
-static inline void srslte_mat_2x2_mmse_csi_simd(simd_cf_t y0,
+// ALINK build error max-inline-insns-single limit reached
+// remove "inline"
+static void srslte_mat_2x2_mmse_csi_simd(simd_cf_t y0,
                                                 simd_cf_t y1,
                                                 simd_cf_t h00,
                                                 simd_cf_t h01,

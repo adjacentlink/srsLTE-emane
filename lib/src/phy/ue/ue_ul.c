@@ -914,8 +914,14 @@ void srslte_ue_ul_pucch_resource_selection(srslte_cell_t*      cell,
         k++;
       }
       srslte_uci_encode_ack_sr_pucch3(temp, k, b);
-      for (k = 32; k < SRSLTE_PUCCH3_NOF_BITS; k++) {
-        b[k] = b[k % 32];
+      // ALINK compile warning  error: writing 16 bytes into a region of size 0 [-Werror=stringop-overflow=] b[k] = b[k % 32]
+      // since SRSLTE_PUCCH3_NOF_BITS = (4 * SRSLTE_NRE) = 48
+      // and ack_value[SRSLTE_UCI_MAX_ACK_BITS] where, SRSLTE_UCI_MAX_ACK_BITS = 10
+      // replace
+      // for (k = 32; k < SRSLTE_PUCCH3_NOF_BITS; k++) {
+      // with this, for now, changed in release 20.x
+      for (k = 32; k < SRSLTE_PUCCH3_NOF_BITS && k < SRSLTE_UCI_MAX_ACK_BITS; k++) {
+        b[k-32] = b[k % 32];
       }
     }
   }
