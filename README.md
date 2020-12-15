@@ -27,7 +27,7 @@ version is 19.09, the first release based on srsLTE 19.09
 
 3. Build and install srsLTE-emane:
    * [Centos 7](#centos-7)
-   * [Fedora 31](#fedora-31)
+   * [Fedora 33](#fedora-33)
    * [Ubuntu 18.04 and 20.04](#ubuntu-1804-and-2004)
 
 
@@ -44,7 +44,7 @@ make package
 sudo yum install srslte-emane-*-x86_64.rpm
 ```
 
-### Fedora 31
+### Fedora 33
 
 ```
 sudo dnf install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core
