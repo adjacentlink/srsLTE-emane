@@ -1,7 +1,29 @@
-diff --git b/cmake/modules/SRSLTEPackage.cmake a/cmake/modules/SRSLTEPackage.cmake
-index 3fd26db..2515f0b 100644
---- b/cmake/modules/SRSLTEPackage.cmake
-+++ a/cmake/modules/SRSLTEPackage.cmake
+diff --git a/README.md b/README.md
+index 0d2e4f4..e20d707 100644
+--- a/README.md
++++ b/README.md
+@@ -28,7 +28,7 @@ version is 19.09, the first release based on srsLTE 19.09
+ 3. Build and install srsLTE-emane:
+    * [Centos 7](#centos-7)
+    * [Fedora 31](#fedora-31)
+-   * [Ubuntu 16.04 and 18.04](#ubuntu-1604-and-1804)
++   * [Ubuntu 18.04 and 20.04](#ubuntu-1804-and-2004)
+ 
+ 
+ ### Centos 7
+@@ -57,7 +57,7 @@ make package
+ sudo dnf install srslte-emane-*-x86_64.rpm
+ ```
+ 
+-### Ubuntu 16.04 and 18.04
++### Ubuntu 18.04 and 20.04
+ 
+ ```
+ sudo apt-get install cmake libfftw3-dev libmbedtls-dev libboost-program-options-dev libconfig++-dev libsctp-dev lsb-release
+diff --git a/cmake/modules/SRSLTEPackage.cmake b/cmake/modules/SRSLTEPackage.cmake
+index 3fd26db..b0cff0b 100644
+--- a/cmake/modules/SRSLTEPackage.cmake
++++ b/cmake/modules/SRSLTEPackage.cmake
 @@ -1,18 +1,30 @@
 -SET(CPACK_PACKAGE_DESCRIPTION "srsLTE")
 -SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "LTE library for SDR.")
@@ -38,7 +60,7 @@ index 3fd26db..2515f0b 100644
  IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
      SET(LINUX TRUE)
  ENDIF()
-@@ -45,12 +57,20 @@ ENDIF()
+@@ -45,12 +57,22 @@ ENDIF()
  ########################################################################
  # Setup CPack Debian
  ########################################################################
@@ -48,6 +70,8 @@ index 3fd26db..2515f0b 100644
 +    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.58.0, libmbedcrypto0, libconfig++9v5, libsctp1, libuhd003")
 +  ELSEIF(LSB_RELEASE_VERSION_SHORT STREQUAL "18.04")
 +    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.65.1, libmbedcrypto1, libconfig++9v5, libsctp1, libuhd003.010.003")
++  ELSEIF(LSB_RELEASE_VERSION_SHORT STREQUAL "20.04")
++    SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1), emane-model-lte, libfftw3-single3, libboost-program-options1.65.1, libmbedcrypto1, libconfig++9v5, libsctp1, libuhd3.15.0")
 +  ELSE()
 +    message(FATAL_ERROR "Unsupported Ubuntu Version. Quitting.")
 +  ENDIF()
@@ -61,7 +85,7 @@ index 3fd26db..2515f0b 100644
  
  ########################################################################
  # Setup CPack NSIS
-@@ -58,6 +78,6 @@ SET(CPACK_RPM_PACKAGE_REQUIRES "boost-devel")
+@@ -58,6 +80,6 @@ SET(CPACK_RPM_PACKAGE_REQUIRES "boost-devel")
  SET(CPACK_NSIS_MODIFY_PATH ON)
  
  

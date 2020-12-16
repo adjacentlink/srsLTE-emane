@@ -24,21 +24,10 @@
  *
  */
 
+#include "srslte/common/log.h"
 #include "srslte/config.h"
 
 #ifdef PHY_ADAPTER_ENABLE
-
-#define Error(fmt, ...)          if (log_h_) log_h_->error  (fmt, ##__VA_ARGS__)
-#define Warning(fmt, ...)        if (log_h_) log_h_->warning(fmt, ##__VA_ARGS__)
-#define Info(fmt, ...)           if (log_h_) log_h_->info   (fmt, ##__VA_ARGS__)
-#define Debug(fmt, ...)          if (log_h_) log_h_->debug  (fmt, ##__VA_ARGS__)
-#define Console(fmt, ...)        if (log_h_) log_h_->console(fmt, ##__VA_ARGS__)
-
-#undef DEBUG_HEX
-
-#ifdef DEBUG_HEX
-#define InfoHex(p,l,fmt, ...)    if (log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
-#endif
 
 extern "C" {
 #include "srslte/phy/phch/ra.h"
@@ -138,6 +127,17 @@ namespace {
 
   inline int bits_to_bytes(int bits) { return bits/8; }
 }
+
+#define Error(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h_->error(fmt, ##__VA_ARGS__)
+#define Warning(fmt, ...) if (SRSLTE_DEBUG_ENABLED) log_h_->warning(fmt, ##__VA_ARGS__)
+#define Info(fmt, ...)    if (SRSLTE_DEBUG_ENABLED) log_h_->info(fmt, ##__VA_ARGS__)
+#define Debug(fmt, ...)   if (SRSLTE_DEBUG_ENABLED) log_h_->debug(fmt, ##__VA_ARGS__)
+
+#undef DEBUG_HEX
+
+#ifdef DEBUG_HEX
+#define InfoHex(p,l,fmt, ...)    if(log_h_) log_h_->info_hex((const uint8_t*)p, l, fmt, ##__VA_ARGS__)
+#endif
 
 
 namespace srsenb {
