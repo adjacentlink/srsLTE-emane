@@ -25,7 +25,7 @@ RUN mkdir build
 WORKDIR build
 RUN cmake ..
 RUN make package
-RUN cp "*\.rpm" /opt/built
+RUN cp *\.rpm /opt/built
 RUN dnf -y install /opt/built/*
 
 RUN dnf clean all

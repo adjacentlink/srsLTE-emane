@@ -30,7 +30,7 @@ RUN mkdir build
 WORKDIR build
 RUN cmake ..
 RUN make package
-RUN cp "*\.deb" /opt/built
+RUN cp *\.deb /opt/built
 RUN dpkg -i /opt/built/*; apt-get -y -f install
 
 RUN echo 'complete'

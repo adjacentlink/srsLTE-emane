@@ -25,7 +25,7 @@ RUN mkdir build
 WORKDIR build
 RUN cmake -DUSE_GLIBC_IPV6=0 ..
 RUN make package
-RUN cp "*\.rpm" /opt/built
+RUN cp *\.rpm /opt/built
 RUN yum -y install /opt/built/*
 
 RUN yum clean all
