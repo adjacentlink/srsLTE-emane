@@ -34,7 +34,7 @@ version is 19.09, the first release based on srsLTE 19.09
 ### Centos 7
 
 ```
-sudo yum install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core
+sudo yum install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core lksctp-tools-devel
 git clone https://github.com/adjacentlink/srsLTE-emane.git
 cd srsLTE-emane
 mkdir build
@@ -47,7 +47,7 @@ sudo yum install srslte-emane-*-x86_64.rpm
 ### Fedora 31
 
 ```
-sudo dnf install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core
+sudo dnf install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core lksctp-tools-devel
 git clone https://github.com/adjacentlink/srsLTE-emane.git
 cd srsLTE-emane
 mkdir build
