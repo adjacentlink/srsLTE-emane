@@ -30,11 +30,12 @@ version is 19.09, the first release based on srsLTE 19.09
    * [Fedora 31](#fedora-31)
    * [Ubuntu 16.04 and 18.04](#ubuntu-1604-and-1804)
 
+4. The enb and epc communicate over an SCTP socket. Be sure that the sctp kernel module is installed 'modprobe -a sctp'.
 
 ### Centos 7
 
 ```
-sudo yum install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core lksctp-tools-devel
+sudo yum install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core
 git clone https://github.com/adjacentlink/srsLTE-emane.git
 cd srsLTE-emane
 mkdir build
@@ -47,7 +48,7 @@ sudo yum install srslte-emane-*-x86_64.rpm
 ### Fedora 31
 
 ```
-sudo dnf install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core lksctp-tools-devel
+sudo dnf install cmake fftw3-devel polarssl-devel lksctp-tools-devel libconfig-devel boost-devel redhat-lsb-core
 git clone https://github.com/adjacentlink/srsLTE-emane.git
 cd srsLTE-emane
 mkdir build
